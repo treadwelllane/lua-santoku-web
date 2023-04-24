@@ -3,7 +3,7 @@ version = "<% return os.getenv('VERSION') %>"
 rockspec_format = "3.0"
 
 source = {
-  url = "<% return os.getenv('GIT_URL') %>",
+  url = "git+ssh://<% return os.getenv('GIT_URL') %>",
   tag = "<% return os.getenv('VERSION') %>"
 }
 
