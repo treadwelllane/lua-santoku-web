@@ -1,6 +1,6 @@
 NAME = santoku-web
-VERSION = 0.0.2-1
-GIT_URL = git+ssh:git@github.com:broma0/lua-santoku-web.git
+VERSION = 0.0.3-1
+GIT_URL = git@github.com:broma0/lua-santoku-web.git
 HOMEPAGE = https://github.com/broma0/lua-santoku-web
 LICENSE = MIT
 
@@ -9,8 +9,6 @@ LIBFLAG = -shared
 BUILD = build
 CONFIG = config
 
-ARCHIVE_NAME = $(NAME)-$(VERSION)
-ARCHIVE = $(ARCHIVE_NAME).tar.gz
 ROCKSPEC = $(NAME)-$(VERSION).rockspec
 ROCKSPEC_T = config/template.rockspec
 
@@ -30,10 +28,6 @@ install: shared
 upload: $(BUILD)/$(ROCKSPEC)
 	@if test -z "$(API_KEY)"; then echo "Missing API_KEY variable"; exit 1; fi
 	@if ! git diff --quiet; then echo "Commit your changes first"; exit 1; fi
-	cd "$(BUILD)" && rm -rf "$(ARCHIVE_NAME)" "$(ARCHIVE)"
-	mkdir -p "$(BUILD)/$(ARCHIVE_NAME)"
-	cp -r $(UPLOADED_FILES) "$(BUILD)/$(ARCHIVE_NAME)"
-	cd "$(BUILD)" && tar czvf "$(ARCHIVE)" "$(ARCHIVE_NAME)"
 	cd "$(BUILD)" && luarocks upload --api-key "$(API_KEY)" "$(ROCKSPEC)"
 	git tag "$(VERSION)"
 	git push --tags 
@@ -41,7 +35,7 @@ upload: $(BUILD)/$(ROCKSPEC)
 $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 	NAME="$(NAME)" VERSION="$(VERSION)" \
 	HOMEPAGE="$(HOMEPAGE)" LICENSE="$(LICENSE)" \
-	ARCHIVE="$(ARCHIVE)" GIT_URL="$(GIT_URL)" \
+	GIT_URL="$(GIT_URL)" \
 		toku template -l os \
 			-f "$(ROCKSPEC_T)" \
 			-o "$(BUILD)/$(ROCKSPEC)"
