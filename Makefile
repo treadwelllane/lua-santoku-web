@@ -28,9 +28,9 @@ install: shared
 upload: $(BUILD)/$(ROCKSPEC)
 	@if test -z "$(API_KEY)"; then echo "Missing API_KEY variable"; exit 1; fi
 	@if ! git diff --quiet; then echo "Commit your changes first"; exit 1; fi
-	cd "$(BUILD)" && luarocks upload --api-key "$(API_KEY)" "$(ROCKSPEC)"
 	git tag "$(VERSION)"
 	git push --tags 
+	cd "$(BUILD)" && luarocks upload --api-key "$(API_KEY)" "$(ROCKSPEC)"
 
 $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 	NAME="$(NAME)" VERSION="$(VERSION)" \
