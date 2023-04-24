@@ -6,7 +6,7 @@ shared: build/santoku/web/window.so
 
 build/santoku/web/window.so: src/santoku/web/window.cpp
 	mkdir -p "$(dir $@)"
-	$(CC) $(CFLAGS) $(LDFLAGS) "$^" -shared -o "$@"
+	$(CC) $(CFLAGS) $(LDFLAGS) "$^" $(LIBFLAG) -o "$@"
 
 clean:
 	rm -rf build
