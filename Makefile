@@ -41,7 +41,7 @@ upload: $(BUILD)/$(ROCKSPEC)
 $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 	NAME="$(NAME)" VERSION="$(VERSION)" \
 	HOMEPAGE="$(HOMEPAGE)" LICENSE="$(LICENSE)" \
-	ARCHIVE="$(ARCHIVE)" \
+	ARCHIVE="$(ARCHIVE)" GIT_URL="$(GIT_URL)" \
 		toku template -l os \
 			-f "$(ROCKSPEC_T)" \
 			-o "$(BUILD)/$(ROCKSPEC)"
