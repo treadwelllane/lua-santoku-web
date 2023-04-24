@@ -1,14 +1,15 @@
-package = "santoku-web"
-version = "0.0.1-1"
+package = "<% return os.getenv('NAME') %>"
+version = "<% return os.getenv('VERSION') %>"
 rockspec_format = "3.0"
 
 source = {
-  url = "git+ssh://git@github.com/broma0/lua-santoku-web.git"
+  url = "<% return os.getenv('GIT_URL') %>"
+  tag = "<% return os.getenv('VERSION') %>"
 }
 
 description = {
-  homepage = "https://github.com/broma0/lua-santoku-web",
-  license = "MIT"
+  homepage = "<% return os.getenv('HOMEPAGE') %>",
+  license = "<% return os.getenv('LICENSE') %>"
 }
 
 dependencies = {
