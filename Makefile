@@ -16,9 +16,10 @@ UPLOADED_FILES = src config Makefile
 
 shared: $(BUILD)/santoku/web/window.so
 
-$(BUILD)/santoku/web/window.so: src/santoku/web/window.cpp $(ROCKSPEC_OUT)
+$(BUILD)/santoku/web/window.so: src/santoku/web/window.cpp $(ROCKSPEC_OUT) $(BUILD)/$(ROCKSPEC)
 	mkdir -p "$(dir $@)"
-	$(CC) $(CFLAGS) $(LDFLAGS) "$^" $(LIBFLAG) -o "$@"
+	luarocks make --deps-only $(BUILD)/$(ROCKSPEC)
+	$(CC) $(CFLAGS) $(LDFLAGS) src/santoku/web/window.cpp $(LIBFLAG) -o "$@"
 
 install: shared
 	test -n "$(INST_LIBDIR)"
