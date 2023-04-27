@@ -39,7 +39,6 @@ $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 			-f "$(ROCKSPEC_T)" \
 			-o "$(BUILD)/$(ROCKSPEC)"
 
-
 clean:
 	rm -rf $(BUILD)
 
