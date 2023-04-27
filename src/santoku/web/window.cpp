@@ -20,10 +20,8 @@ int l_el (lua_State *L) {
   val query = val(luaL_checkstring(L, -1));
   lua_newtable(L);
   lua_pushstring(L, "nodes");
-  val *nodesp = (val *)lua_newuserdatauv(L, sizeof(val), 1);
+  val *nodesp = (val *)lua_newuserdatauv(L, sizeof(val), 0);
   *nodesp = doc.call<val>("querySelectorAll", query);
-  lua_pushlightuserdata(L, (void *)query);
-  lua_setiuservalue(L, -1, 0);
   lua_settable(L, -2);
   return 1;
 }
