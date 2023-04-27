@@ -15,6 +15,12 @@ int l_alert (lua_State *L) {
   return 1;
 }
 
+int l_click (lua_State *L) {
+  val win = val::global("window");
+  win.call<val>("alert", val("click"));
+  return 1;
+}
+
 int l_el (lua_State *L) {
   val doc = val::global("document");
   val query = val(luaL_checkstring(L, -1));
@@ -23,6 +29,14 @@ int l_el (lua_State *L) {
   val *nodesp = (val *)lua_newuserdatauv(L, sizeof(val), 0);
   *nodesp = doc.call<val>("querySelectorAll", query);
   lua_settable(L, -3);
+  luaL_newmetatable(L, "el");
+  lua_pushstring(L, "__index");
+  luaL_newtable(L);
+  lua_pushstring(L, "click");
+  lua_pushcfunction(L, l_click);
+  lua_settable(L, -3);
+  lua_settable(L, -3);
+  lua_setmetatable(L, -1)
   return 1;
 }
 
