@@ -37,7 +37,7 @@ $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 	NAME="$(NAME)" VERSION="$(VERSION)" \
 	HOMEPAGE="$(HOMEPAGE)" LICENSE="$(LICENSE)" \
 	GIT_URL="$(GIT_URL)" \
-		toku template -l os \
+		toku template \
 			-f "$(ROCKSPEC_T)" \
 			-o "$(BUILD)/$(ROCKSPEC)"
 
