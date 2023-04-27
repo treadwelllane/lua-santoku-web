@@ -27,11 +27,11 @@ install: shared
 	cp $(BUILD)/santoku/web/window.so $(INST_LIBDIR)/santoku/web/
 
 upload: $(BUILD)/$(ROCKSPEC)
-	@if test -z "$(API_KEY)"; then echo "Missing API_KEY variable"; exit 1; fi
+	@if test -z "$(LUAROCKS_API_KEY)"; then echo "Missing LUAROCKS_API_KEY variable"; exit 1; fi
 	@if ! git diff --quiet; then echo "Commit your changes first"; exit 1; fi
 	git tag "$(VERSION)"
 	git push --tags 
-	cd "$(BUILD)" && luarocks upload --api-key "$(API_KEY)" "$(ROCKSPEC)"
+	cd "$(BUILD)" && luarocks upload --api-key "$(LUAROCKS_API_KEY)" "$(ROCKSPEC)"
 
 $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 	NAME="$(NAME)" VERSION="$(VERSION)" \
