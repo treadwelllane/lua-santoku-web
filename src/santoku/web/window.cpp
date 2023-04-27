@@ -16,12 +16,12 @@ int l_alert (lua_State *L) {
 }
 
 int l_el (lua_State *L) {
-  val win = val::global("window");
+  val doc = val::global("document");
   val query = val(luaL_checkstring(L, -1));
   lua_newtable(L);
   lua_pushstring(L, "nodes");
   val *nodesp = (val *)lua_newuserdata(L, sizeof(val));
-  *nodesp = win.call<val>("querySelectorAll", query);
+  *nodesp = doc.call<val>("querySelectorAll", query);
   lua_settable(L, -2);
   return 1;
 }
