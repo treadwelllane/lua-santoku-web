@@ -22,7 +22,7 @@ int l_el (lua_State *L) {
   lua_pushstring(L, "nodes");
   val *nodesp = (val *)lua_newuserdatauv(L, sizeof(val), 1);
   *nodesp = doc.call<val>("querySelectorAll", query);
-  lua_pushlightuserdata(L, query);
+  lua_pushlightuserdata(L, (void *)query);
   lua_setiuservalue(L, -1, 0);
   lua_settable(L, -2);
   return 1;
