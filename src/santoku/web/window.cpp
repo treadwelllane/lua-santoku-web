@@ -20,7 +20,7 @@ int l_el (lua_State *L) {
   val query = val(luaL_checkstring(L, -1));
   lua_newtable(L);
   lua_pushstring(L, "nodes");
-  val *nodesp = lua_newuserdata(L, sizeof(val));
+  val *nodesp = (val *)lua_newuserdata(L, sizeof(val));
   *nodesp = win.call<val>("querySelectorAll", query);
   lua_settable(L, -2);
   return 1;
