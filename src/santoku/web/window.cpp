@@ -31,12 +31,12 @@ int l_el (lua_State *L) {
   lua_settable(L, -3);
   luaL_newmetatable(L, "el");
   lua_pushstring(L, "__index");
-  luaL_newtable(L);
+  lua_newtable(L);
   lua_pushstring(L, "click");
   lua_pushcfunction(L, l_click);
   lua_settable(L, -3);
   lua_settable(L, -3);
-  lua_setmetatable(L, -1)
+  lua_setmetatable(L, -1);
   return 1;
 }
 
