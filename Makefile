@@ -1,5 +1,5 @@
 NAME = santoku-web
-VERSION = 0.0.4-1
+VERSION = 0.0.5-1
 GIT_URL = git@github.com:broma0/lua-santoku-web.git
 HOMEPAGE = https://github.com/broma0/lua-santoku-web
 LICENSE = MIT
