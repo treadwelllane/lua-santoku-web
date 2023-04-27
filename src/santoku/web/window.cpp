@@ -18,10 +18,10 @@ int l_alert (lua_State *L) {
 int l_el (lua_State *L) {
   val win = val::global("window");
   val query = val(luaL_checkstring(L, -1));
-  val nodes = win.call<val>("querySelectorAll", query);
   lua_newtable(L);
   lua_pushstring(L, "nodes");
-  lua_pushlightuserdata(L, nodes);
+  val *nodesp = lua_newuserdata(L, sizeof(val));
+  *nodesp = win.call<val>("querySelectorAll", query);
   lua_settable(L, -2);
   return 1;
 }
