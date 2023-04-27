@@ -12,8 +12,6 @@ CONFIG = config
 ROCKSPEC = $(NAME)-$(VERSION).rockspec
 ROCKSPEC_T = config/template.rockspec
 
-UPLOADED_FILES = src config Makefile
-
 shared: $(BUILD)/santoku/web/window.so
 
 $(BUILD)/santoku/web/window.so: src/santoku/web/window.cpp $(ROCKSPEC_OUT) $(BUILD)/$(ROCKSPEC)
