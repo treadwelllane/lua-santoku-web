@@ -1,5 +1,5 @@
 NAME = santoku-web
-VERSION = 0.0.14-1
+VERSION = 0.0.15-1
 GIT_URL = git@github.com:broma0/lua-santoku-web.git
 HOMEPAGE = https://github.com/broma0/lua-santoku-web
 LICENSE = MIT
@@ -14,12 +14,12 @@ ROCKSPEC_T = config/template.rockspec
 
 shared: $(BUILD)/santoku/web/window.so
 
-$(BUILD)/santoku/web/window.so: src/santoku/web/window.cpp $(ROCKSPEC_OUT) $(BUILD)/$(ROCKSPEC)
-	mkdir -p "$(dir $@)"
-	luarocks make --deps-only $(BUILD)/$(ROCKSPEC)
-	$(CC) $(CFLAGS) $(LDFLAGS) src/santoku/web/window.cpp $(LIBFLAG) -o "$@"
+install:
+	luarocks make $(BUILD)/$(ROCKSPEC)
 
-install: shared
+luarocks-build: shared
+
+luarocks-install: shared
 	test -n "$(INST_LIBDIR)"
 	mkdir -p $(INST_LIBDIR)/santoku/web/
 	cp $(BUILD)/santoku/web/window.so $(INST_LIBDIR)/santoku/web/
@@ -31,6 +31,14 @@ upload: $(BUILD)/$(ROCKSPEC)
 	git push --tags 
 	cd "$(BUILD)" && luarocks upload --api-key "$(LUAROCKS_API_KEY)" "$(ROCKSPEC)"
 
+clean:
+	rm -rf $(BUILD)
+
+$(BUILD)/santoku/web/window.so: src/santoku/web/window.cpp $(ROCKSPEC_OUT) $(BUILD)/$(ROCKSPEC)
+	mkdir -p "$(dir $@)"
+	luarocks make --deps-only $(BUILD)/$(ROCKSPEC)
+	$(CC) $(CFLAGS) $(LDFLAGS) src/santoku/web/window.cpp $(LIBFLAG) -o "$@"
+
 $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 	NAME="$(NAME)" VERSION="$(VERSION)" \
 	HOMEPAGE="$(HOMEPAGE)" LICENSE="$(LICENSE)" \
@@ -38,8 +46,5 @@ $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 		toku template \
 			-f "$(ROCKSPEC_T)" \
 			-o "$(BUILD)/$(ROCKSPEC)"
-
-clean:
-	rm -rf $(BUILD)
 
 .PHONY: clean install upload shared
