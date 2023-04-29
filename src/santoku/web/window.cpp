@@ -29,14 +29,10 @@ int l_el (lua_State *L) {
   val *nodesp = (val *)lua_newuserdatauv(L, sizeof(val), 0);
   *nodesp = doc.call<val>("querySelectorAll", query);
   lua_settable(L, -3);
-  luaL_newmetatable(L, "el");
-  lua_pushstring(L, "__index");
-  lua_newtable(L);
   lua_pushstring(L, "click");
-  lua_pushcfunction(L, l_click);
+  lua_pushstring(L, "hi");
   lua_settable(L, -3);
-  lua_settable(L, -3);
-  lua_setmetatable(L, -1);
+  /* lua_pushcfunction(L, l_click); */
   return 1;
 }
 
