@@ -18,7 +18,6 @@ dependencies = {
 
 build = {
   type = "make",
-  build_target = "luarocks-build",
   install_target = "luarocks-install",
   build_variables = {
     CFLAGS = "$(CFLAGS)",
