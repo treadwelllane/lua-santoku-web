@@ -1,5 +1,5 @@
 NAME = santoku-web
-VERSION = 0.0.16-1
+VERSION = 0.0.17-1
 GIT_URL = git@github.com:broma0/lua-santoku-web.git
 HOMEPAGE = https://github.com/broma0/lua-santoku-web
 LICENSE = MIT
@@ -15,7 +15,7 @@ ROCKSPEC_T = config/template.rockspec
 build: $(BUILD)/santoku/web/window.so
 
 install: $(BUILD)/$(ROCKSPEC)
-	luarocks make $(BUILD)/$(ROCKSPEC)
+	luarocks make $(ARGS) $(BUILD)/$(ROCKSPEC)
 
 luarocks-install: $(INST_LIBDIR)/santoku/web/window.so
 
