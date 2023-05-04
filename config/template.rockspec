@@ -16,6 +16,12 @@ dependencies = {
   "lua >= 5.1"
 }
 
+-- test_dependencies = {
+--   "busted >= 2.1.1",
+--   "luacov >= 0.15.0",
+--   "luacheck >= 1.1.0-1",
+-- }
+
 build = {
   type = "make",
   install_target = "luarocks-install",
@@ -27,3 +33,8 @@ build = {
     INST_LIBDIR = "$(LIBDIR)",
   },
 }
+
+-- test = {
+--   type = "command",
+--   command = "sh test/run.sh"
+-- }
