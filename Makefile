@@ -6,18 +6,23 @@ LICENSE = MIT
 
 LIBFLAG = -shared
 
-BUILD = build
-CONFIG = config
+BUILD := $(or $(BUILD), build)
 
 ROCKSPEC = $(NAME)-$(VERSION).rockspec
 ROCKSPEC_T = config/template.rockspec
 
-build: $(BUILD)/santoku/web/window.so
+build: $(BUILD)/santoku/web/window.so $(BUILD)/santoku/web/val.so
 
 install: $(BUILD)/$(ROCKSPEC)
 	luarocks make $(ARGS) $(BUILD)/$(ROCKSPEC)
 
-luarocks-install: $(INST_LIBDIR)/santoku/web/window.so
+luarocks-install: $(INST_LIBDIR)/santoku/web/window.so $(INST_LIBDIR)/santoku/web/val.so
+
+# test: $(BUILD)/$(ROCKSPEC) 
+# 	make BUILD="$(BUILD)" ROCKSPEC="$^" -f test/test.mk test
+
+# iterate: $(BUILD)/$(ROCKSPEC) 
+# 	make BUILD="$(BUILD)" ROCKSPEC="$^" -f test/test.mk iterate
 
 upload: $(BUILD)/$(ROCKSPEC)
 	@if test -z "$(LUAROCKS_API_KEY)"; then echo "Missing LUAROCKS_API_KEY variable"; exit 1; fi
@@ -34,10 +39,20 @@ $(INST_LIBDIR)/santoku/web/window.so: $(BUILD)/santoku/web/window.so
 	mkdir -p $(INST_LIBDIR)/santoku/web/
 	cp $(BUILD)/santoku/web/window.so $(INST_LIBDIR)/santoku/web/
 
+$(INST_LIBDIR)/santoku/web/val.so: $(BUILD)/santoku/web/val.so
+	@if test -z "$(INST_LIBDIR)"; then echo "Missing INST_LIBDIR variable"; exit 1; fi
+	mkdir -p $(INST_LIBDIR)/santoku/web/
+	cp $(BUILD)/santoku/web/val.so $(INST_LIBDIR)/santoku/web/
+
 $(BUILD)/santoku/web/window.so: src/santoku/web/window.cpp $(BUILD)/$(ROCKSPEC)
 	mkdir -p "$(dir $@)"
 	luarocks make --deps-only $(BUILD)/$(ROCKSPEC)
 	$(CC) $(CFLAGS) $(LDFLAGS) src/santoku/web/window.cpp $(LIBFLAG) -o "$@"
+
+$(BUILD)/santoku/web/val.so: src/santoku/web/val.cpp $(BUILD)/$(ROCKSPEC)
+	mkdir -p "$(dir $@)"
+	luarocks make --deps-only $(BUILD)/$(ROCKSPEC)
+	$(CC) $(CFLAGS) $(LDFLAGS) src/santoku/web/val.cpp $(LIBFLAG) -o "$@"
 
 $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 	NAME="$(NAME)" VERSION="$(VERSION)" \
@@ -47,4 +62,4 @@ $(BUILD)/$(ROCKSPEC): $(ROCKSPEC_T)
 			-f "$(ROCKSPEC_T)" \
 			-o "$(BUILD)/$(ROCKSPEC)"
 
-.PHONY: build install luarocks-install upload shared clean
+.PHONY: build test iterate install luarocks-install upload shared clean
