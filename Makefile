@@ -1,5 +1,5 @@
 NAME ?= santoku-web
-VERSION ?= 0.0.20-2
+VERSION ?= 0.0.21-1
 GIT_URL ?= git@github.com:broma0/lua-santoku-web.git
 HOMEPAGE ?= https://github.com/broma0/lua-santoku-web
 LICENSE ?= MIT
@@ -44,8 +44,8 @@ TEST_LUAROCKS_TREE ?= $(TEST_DIR)/luarocks
 TEST_LUAROCKS ?= LUAROCKS_CONFIG="$(TEST_LUAROCKS_CFG)" luarocks --tree "$(TEST_LUAROCKS_TREE)"
 
 TEST_LUA_VERSION ?= 5.4.4
-TEST_LUA_MAKE ?= make $(TEST_LUA_VARS)
-TEST_LUA_MAKE_LOCAL ?= make $(TEST_LUA_VARS) local
+TEST_LUA_MAKE ?= $(MAKE) $(TEST_LUA_VARS)
+TEST_LUA_MAKE_LOCAL ?= $(MAKE) $(TEST_LUA_VARS) local
 TEST_LUA_MINMAJ ?= $(shell echo $(TEST_LUA_VERSION) | grep -o ".\..")
 TEST_LUA_ARCHIVE ?= lua-$(TEST_LUA_VERSION).tar.gz
 TEST_LUA_DL ?= $(TEST_DIR)/$(TEST_LUA_ARCHIVE)
@@ -85,7 +85,7 @@ luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_SPEC_DISTS)
 	@if [ "$(TEST_ITERATE)" = "1" ]; then \
 		inotifywait -qqr -e close_write -e create -e delete -e delete \
 			$(SRC_DIR) $(CONFIG_DIR) $(TEST_SPEC_SRC_DIR); \
-		exec make luarocks-test; \
+		exec $(MAKE) luarocks-test; \
 	fi
 
 $(INST_LUADIR)/santoku/web/js.lua: src/santoku/web/js.lua
