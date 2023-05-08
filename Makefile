@@ -1,5 +1,5 @@
 NAME ?= santoku-web
-VERSION ?= 0.0.19-1
+VERSION ?= 0.0.20-1
 GIT_URL ?= git@github.com:broma0/lua-santoku-web.git
 HOMEPAGE ?= https://github.com/broma0/lua-santoku-web
 LICENSE ?= MIT
@@ -93,11 +93,11 @@ luarocks-build: $(BUILD_DIR)/santoku/web/val.so
 luarocks-install: $(INST_LUADIR)/santoku/web/js.lua $(INST_LIBDIR)/santoku/web/val.so
 
 upload: $(ROCKSPEC)
-	@if test -z "$(LUAROCKS_API_KEY)"; then echo "Missing LUAROCKS_API_KEY variable"; exit 1; fi
-	@if ! git diff --quiet; then echo "Commit your changes first"; exit 1; fi
-	git tag "$(VERSION)"
-	git push --tags
-	$(LUAROCKS) upload --api-key "$(LUAROCKS_API_KEY)" "$(ROCKSPEC)"
+	# @if test -z "$(LUAROCKS_API_KEY)"; then echo "Missing LUAROCKS_API_KEY variable"; exit 1; fi
+	# @if ! git diff --quiet; then echo "Commit your changes first"; exit 1; fi
+	# git tag "$(VERSION)"
+	# git push --tags
+	$(LUAROCKS) upload --skip-pack --api-key "$(LUAROCKS_API_KEY)" "$(ROCKSPEC)"
 
 clean:
 	rm -rf build
