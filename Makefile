@@ -1,5 +1,5 @@
 NAME ?= santoku-web
-VERSION ?= 0.0.20-1
+VERSION ?= 0.0.20-2
 GIT_URL ?= git@github.com:broma0/lua-santoku-web.git
 HOMEPAGE ?= https://github.com/broma0/lua-santoku-web
 LICENSE ?= MIT
@@ -57,32 +57,6 @@ TEST_LUA_LIB_DIR ?= $(TEST_LUA_DIST_DIR)/lib
 TEST_LUA_LIB ?= $(TEST_LUA_DIST_DIR)/lib/liblua.a
 TEST_LUA_INTERP ?= $(TEST_LUA_DIST_DIR)/bin/lua
 
-# ifeq ($(ENV),test)
-#
-# TEST_LUA = node $(PWD)/../lua-emscripten/build/dist/5.4.4/node/bin/lua
-# TEST_LUA_PATH = $(PWD)/build/test/share/lua/5.4/?.lua;$(LUA_PATH)
-# TEST_LUA_CPATH = $(PWD)/build/test/lib/lua/5.4/?.so;$(LUA_CPATH)
-# LUA_INCDIR = $(PWD)/../lua-emscripten/build/dist/5.4.4/default/include
-# LUA_LIBDIR = $(PWD)/../lua-emscripten/build/dist/5.4.4/default/lib
-# CFLAGS += -I$(LUA_INCDIR) -L$(LUA_LIBDIR) -O0 -sSIDE_MODULE
-# LDFLAGS += -I$(LUA_INCDIR) -L$(LUA_LIBDIR) -O0 -sSIDE_MODULE -lnodefs.js -lnoderawfs.js
-# LIBFLAG = -shared -sSIDE_MODULE
-#
-# $(MAKECMDGOALS)::
-# 	emmake make $(MAKECMDGOALS) \
-# 		ENV= \
-# 		BUILD="build/test" \
-# 		TEST_LUA="$(TEST_LUA)" \
-# 		TEST_LUA_PATH="$(TEST_LUA_PATH)" \
-# 		TEST_LUA_CPATH="$(TEST_LUA_CPATH)" \
-# 		LUA_INCDIR="$(LUA_INCDIR)" \
-# 		LUA_LIBDIR="$(LUA_LIBDIR)" \
-# 		CFLAGS="$(CFLAGS)" \
-# 		LDFLAGS="$(LDFLAGS)" \
-# 		LIBFLAG="$(LIBFLAG)"
-#
-# else
-
 build: $(BUILD_DIR)/santoku/web/val.so $(ROCKSPEC)
 
 install: $(ROCKSPEC)
@@ -93,10 +67,10 @@ luarocks-build: $(BUILD_DIR)/santoku/web/val.so
 luarocks-install: $(INST_LUADIR)/santoku/web/js.lua $(INST_LIBDIR)/santoku/web/val.so
 
 upload: $(ROCKSPEC)
-	# @if test -z "$(LUAROCKS_API_KEY)"; then echo "Missing LUAROCKS_API_KEY variable"; exit 1; fi
-	# @if ! git diff --quiet; then echo "Commit your changes first"; exit 1; fi
-	# git tag "$(VERSION)"
-	# git push --tags
+	@if test -z "$(LUAROCKS_API_KEY)"; then echo "Missing LUAROCKS_API_KEY variable"; exit 1; fi
+	@if ! git diff --quiet; then echo "Commit your changes first"; exit 1; fi
+	git tag "$(VERSION)"
+	git push --tags
 	$(LUAROCKS) upload --skip-pack --api-key "$(LUAROCKS_API_KEY)" "$(ROCKSPEC)"
 
 clean:
@@ -113,19 +87,6 @@ luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_SPEC_DISTS)
 			$(SRC_DIR) $(CONFIG_DIR) $(TEST_SPEC_SRC_DIR); \
 		exec make luarocks-test; \
 	fi
-
-include $(shell find $(TEST_DIR) -type f -name '*.d')
-
-.PHONY: build install luarocks-build luarocks-install upload clean test #iterate run-test
-
-# iterate:
-# 	make ENV=test run-test ARGS+=iterate
-#
-# run-test: install $(LUAROCKS_CFG) $(ROCKSPEC)
-# 	TEST_LUA="$(TEST_LUA)" \
-# 	TEST_LUA_PATH="$(TEST_LUA_PATH)" \
-# 	TEST_LUA_CPATH="$(TEST_LUA_CPATH)" \
-# 		$(LUAROCKS) test $(ROCKSPEC) $(ARGS)
 
 $(INST_LUADIR)/santoku/web/js.lua: src/santoku/web/js.lua
 	@if test -z "$(INST_LUADIR)"; then echo "Missing INST_LUADIR variable"; exit 1; fi
@@ -179,4 +140,6 @@ $(TEST_LUA_DIST_DIR): $(TEST_LUA_DL)
 $(TEST_LUA_DL):
 	curl -o "$(TEST_LUA_DL)" "$(TEST_LUA_URL)"
 
-# endif
+include $(shell find $(TEST_DIR) -type f -name '*.d')
+
+.PHONY: build install luarocks-build luarocks-install upload clean test #iterate run-test
