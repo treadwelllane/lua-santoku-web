@@ -71,6 +71,7 @@ upload: $(ROCKSPEC)
 	@if ! git diff --quiet; then echo "Commit your changes first"; exit 1; fi
 	git tag "$(VERSION)"
 	git push --tags
+	git push
 	$(LUAROCKS) upload --skip-pack --api-key "$(LUAROCKS_API_KEY)" "$(ROCKSPEC)"
 
 clean:
