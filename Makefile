@@ -1,5 +1,5 @@
 NAME ?= santoku-web
-VERSION ?= 0.0.18-1
+VERSION ?= 0.0.19-1
 GIT_URL ?= git@github.com:broma0/lua-santoku-web.git
 HOMEPAGE ?= https://github.com/broma0/lua-santoku-web
 LICENSE ?= MIT
@@ -97,7 +97,7 @@ upload: $(ROCKSPEC)
 	@if ! git diff --quiet; then echo "Commit your changes first"; exit 1; fi
 	git tag "$(VERSION)"
 	git push --tags
-	cd "$(BUILD_DIR)" && $(LUAROCKS) upload --api-key "$(LUAROCKS_API_KEY)" "$(ROCKSPEC)"
+	$(LUAROCKS) upload --api-key "$(LUAROCKS_API_KEY)" "$(ROCKSPEC)"
 
 clean:
 	rm -rf build
