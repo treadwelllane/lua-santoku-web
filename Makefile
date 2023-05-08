@@ -8,8 +8,8 @@ BUILD_DIR ?= build/work
 TEST_DIR ?= build/test
 CONFIG_DIR ?= config
 
-LOCAL_CFLAGS ?= --std=c++17 --bind
-LOCAL_LDFLAGS ?=
+LOCAL_CFLAGS ?= $(if $(LUA_INCDIR), -I$(LUA_INCDIR)) --std=c++17 --bind
+LOCAL_LDFLAGS ?= $(if $(LUA_LIBDIR), -L$(LUA_LIBDIR))
 
 LIBFLAG ?= -shared
 
