@@ -54,6 +54,8 @@ build = {
     CFLAGS = "$(CFLAGS)",
     LDFLAGS = "$(LDFLAGS)",
     LIBFLAG = "$(LIBFLAG)",
+    LUA_INCDIR = "$(LUA_INCDIR)",
+    LUA_LIBDIR = "$(LUA_LIBDIR)",
   },
   install_variables  =  {
     INST_LIBDIR = "$(LIBDIR)",
