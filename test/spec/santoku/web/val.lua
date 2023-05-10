@@ -8,7 +8,7 @@ test("val", function ()
 
   test("global", function ()
 
-    test("returns", function ()
+    test("returns a global object", function ()
       local v = val.global("console")
       assert.equals(v:typeof():str(), "object")
     end)

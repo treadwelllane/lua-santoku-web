@@ -3,5 +3,4 @@ return {
   reportfile = "<% return os.getenv('REPORT_FILE') %>",
   includeuntestedfiles = true,
   include = { "<% return os.getenv('INCLUDE') %>" },
-  savestepsize = 3
 }
