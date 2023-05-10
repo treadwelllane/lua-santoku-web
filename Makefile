@@ -26,7 +26,7 @@ TEST_SPEC_DISTS ?= $(patsubst $(TEST_SPEC_SRC_DIR)/%.lua, $(TEST_SPEC_DIST_DIR)/
 
 TEST_EM_VARS ?= CC="emcc" LD="emcc" AR="emar rcu" NM="emnm" RANLIB="emranlib"
 TEST_CFLAGS ?= -I $(TEST_LUA_INC_DIR) --bind
-TEST_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG)
+TEST_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) -lnodefs.js -lnoderawfs.js
 TEST_VARS ?= $(TEST_EM_VARS) LUAROCKS='$(TEST_LUAROCKS)' BUILD_DIR="$(TEST_DIR)/build" CFLAGS="$(TEST_CFLAGS)" LDFLAGS="$(TEST_LDFLAGS)" LIBFLAG="$(TEST_LIBFLAG)"
 TEST_LUAROCKS_VARS ?= $(TEST_EM_VARS)	CFLAGS="$(TEST_LUAROCKS_CFLAGS)" LDFLAGS="$(TEST_LUAROCKS_LDFLAGS)" LIBFLAG="$(TEST_LUAROCKS_LIBFLAG)"
 TEST_LUAROCKS_CFLAGS ?= -I $(TEST_LUA_INC_DIR) $(CFLAGS)
@@ -57,6 +57,15 @@ TEST_LUA_LIB_DIR ?= $(TEST_LUA_DIST_DIR)/lib
 TEST_LUA_LIB ?= $(TEST_LUA_DIST_DIR)/lib/liblua.a
 TEST_LUA_INTERP ?= $(TEST_LUA_DIST_DIR)/bin/lua
 
+TEST_LUACHECK_CFG ?= test/luacheck.lua
+TEST_LUACHECK_SRCS ?= src
+
+TEST_LUACOV_CFG ?= $(TEST_DIR)/luacov.lua
+TEST_LUACOV_CFG_T ?= test/luacov.lua
+TEST_LUACOV_STATS_FILE ?= $(TEST_DIR)/luacov.stats.out
+TEST_LUACOV_REPORT_FILE ?= $(TEST_DIR)/luacov.report.out
+TEST_LUACOV_INCLUDE ?= src
+
 build: $(BUILD_DIR)/santoku/web/val.so $(ROCKSPEC)
 
 install: $(ROCKSPEC)
@@ -80,14 +89,27 @@ clean:
 test: $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_LUA_DIST_DIR)
 	$(TEST_VARS) $(TEST_LUAROCKS) test $(ROCKSPEC)
 
-luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_SPEC_DISTS)
-	LUA_PATH="$(TEST_LUA_PATH)" LUA_CPATH="$(TEST_LUA_CPATH)" \
-		toku test -i node $(TEST_SPEC_DISTS)
-	@if [ "$(TEST_ITERATE)" = "1" ]; then \
+iterate: $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_LUA_DIST_DIR)
+	@while true; do \
+		$(TEST_VARS) $(TEST_LUAROCKS) test $(ROCKSPEC); \
 		inotifywait -qqr -e close_write -e create -e delete -e delete \
-			$(SRC_DIR) $(CONFIG_DIR) $(TEST_SPEC_SRC_DIR); \
-		exec $(MAKE) luarocks-test; \
+			Makefile $(SRC_DIR) $(CONFIG_DIR) $(TEST_SPEC_SRC_DIR); \
+	done
+
+luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_SPEC_DISTS) $(TEST_LUACOV_CFG)
+	@if LUA_PATH="$(TEST_LUA_PATH)" LUA_CPATH="$(TEST_LUA_CPATH)" \
+		toku test -i node $(TEST_SPEC_DISTS); \
+	then \
+		luacov -c "$(PWD)/$(TEST_LUACOV_CFG)"; \
+		cat "$(TEST_LUACOV_REPORT_FILE)" | \
+			awk '/^Summary/ { P = NR } P && NR > P + 1'; \
+		echo; \
+		luacheck --config "$(TEST_LUACHECK_CFG)" $(TEST_LUACHECK_SRCS); \
+		echo; \
 	fi
+
+luarocks-test-run:
+	$(TEST_LUAROCKS) $(ARGS)
 
 $(INST_LUADIR)/santoku/web/js.lua: src/santoku/web/js.lua
 	@if test -z "$(INST_LUADIR)"; then echo "Missing INST_LUADIR variable"; exit 1; fi
@@ -128,7 +150,20 @@ $(TEST_SPEC_DIST_DIR)/%: $(TEST_SPEC_SRC_DIR)/%.lua
 	mkdir -p "$(dir $@)"
 	$(TEST_VARS) toku bundle -M -f "$<" -o "$(dir $@)" \
 		-e LUA_PATH "$(TEST_LUA_PATH)" \
-		-e LUA_CPATH "$(TEST_LUA_CPATH)"
+		-e LUA_CPATH "$(TEST_LUA_CPATH)" \
+		-E LUACOV_CONFIG "$(PWD)/$(TEST_LUACOV_CFG)" \
+		-l luacov -l luacov.hook \
+		-i debug
+
+$(TEST_LUACOV_CFG): $(TEST_LUACOV_CFG_T)
+	mkdir -p "$(dir $@)"
+	STATS_FILE="$(PWD)/$(TEST_LUACOV_STATS_FILE)" \
+	REPORT_FILE="$(PWD)/$(TEST_LUACOV_REPORT_FILE)" \
+	INCLUDE="$(PWD)/$(TEST_LUACOV_INCLUDE)" \
+	$(TEST_LUAROCKS_VARS) \
+		toku template \
+			-f "$(TEST_LUACOV_CFG_T)" \
+			-o "$(TEST_LUACOV_CFG)"
 
 $(TEST_LUA_DIST_DIR): $(TEST_LUA_DL)
 	rm -rf "$(TEST_LUA_DIR)"
@@ -143,4 +178,4 @@ $(TEST_LUA_DL):
 
 include $(shell find $(TEST_DIR) -type f -name '*.d')
 
-.PHONY: build install luarocks-build luarocks-install upload clean test #iterate run-test
+.PHONY: build install luarocks-build luarocks-install upload clean test iterate luarocks-test luarocks-test-run
