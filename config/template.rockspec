@@ -32,12 +32,15 @@ test_dependencies = {
   -- TODO: santoku cli should be a
   -- globally-installed dev dependency checked
   -- for via make
+  --
   -- "santoku-cli >= 0.0.22-1",
+
   "luassert >= 1.9.0-1",
 
-  -- TODO: luacov relies on io.popen("pwd"),
-  -- which fails in emscripten. Fork & submit a
-  -- PR to fix this.
+  -- TODO: temporarily using manually installed
+  -- broma0/luacov while PR pending:
+  --
+  -- https://github.com/lunarmodules/luacov/pull/102
   "luacov >= 0.15.0",
 
   -- TODO: luacheck should also be a
