@@ -1,5 +1,22 @@
 -- TODO: high-level javascript DSL
 
+local assert = require("luassert")
+local test = require("santoku.test")
+local js = require("santoku.web.js")
+
+test("js", function ()
+
+  test("global", function ()
+
+    local console = js.console
+    local log = console.log
+
+    assert.equals(type(log), "function")
+
+  end)
+
+end)
+
 -- val = require("santoku.web.val")
 -- js = require("santoku.web.js")
 -- js[x]: val.global(...)

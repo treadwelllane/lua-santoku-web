@@ -7,6 +7,7 @@ LICENSE ?= MIT
 BUILD_DIR ?= build/work
 TEST_DIR ?= build/test
 CONFIG_DIR ?= config
+SRC_DIR ?= src
 
 LOCAL_CFLAGS ?= $(if $(LUA_INCDIR), -I$(LUA_INCDIR)) --std=c++17 --bind
 LOCAL_LDFLAGS ?= $(if $(LUA_LIBDIR), -L$(LUA_LIBDIR))
@@ -98,13 +99,13 @@ iterate: $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_LUA_DIST_DIR)
 
 luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_SPEC_DISTS) $(TEST_LUACOV_CFG)
 	@if LUA_PATH="$(TEST_LUA_PATH)" LUA_CPATH="$(TEST_LUA_CPATH)" \
-		toku test -i node $(TEST_SPEC_DISTS); \
+		toku test -s -i node $(TEST_SPEC_DISTS); \
 	then \
 		luacov -c "$(PWD)/$(TEST_LUACOV_CFG)"; \
 		cat "$(TEST_LUACOV_REPORT_FILE)" | \
 			awk '/^Summary/ { P = NR } P && NR > P + 1'; \
 		echo; \
-		luacheck --config "$(TEST_LUACHECK_CFG)" $(TEST_LUACHECK_SRCS); \
+		luacheck --config "$(TEST_LUACHECK_CFG)" $(TEST_LUACHECK_SRCS) || true; \
 		echo; \
 	fi
 
@@ -159,7 +160,7 @@ $(TEST_LUACOV_CFG): $(TEST_LUACOV_CFG_T)
 	mkdir -p "$(dir $@)"
 	STATS_FILE="$(PWD)/$(TEST_LUACOV_STATS_FILE)" \
 	REPORT_FILE="$(PWD)/$(TEST_LUACOV_REPORT_FILE)" \
-	INCLUDE="$(PWD)/$(TEST_LUACOV_INCLUDE)" \
+	INCLUDE="$(TEST_LUACOV_INCLUDE)" \
 	$(TEST_LUAROCKS_VARS) \
 		toku template \
 			-f "$(TEST_LUACOV_CFG_T)" \

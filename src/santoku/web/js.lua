@@ -1,8 +1,6 @@
 local val = require("santoku.web.val")
 local tup = require("santoku.tuple")
 
-print(require("inspect")(val))
-
 local function wrap (v, parent, prop)
   local t = v:typeof():str()
   if t == "string" then
@@ -20,7 +18,6 @@ local function wrap (v, parent, prop)
   else
     return setmetatable({}, {
       __index = function (_, k)
-        print("getting", k)
         return wrap(v:get(k), v, k)
       end
     })
