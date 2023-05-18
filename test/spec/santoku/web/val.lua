@@ -215,24 +215,25 @@ test("val", function ()
 
   end)
 
-  test("integration", function ()
+  test("set & call function", function ()
+    local obj = val.object()
+    obj:set(val("square"), val(function (a)
+      return a * a
+    end))
+    local ret = obj:call("square", val(20))
+    assert.equals("number", ret:typeof():str())
+    assert.equals(400, ret:num())
+  end)
 
-    test("set & call function", function ()
-      local obj = val.object()
-      obj:set(val("square"), val(function (a)
-        return a * a
-      end))
-      local ret = obj:call("square", val(20))
-      assert.equals("number", ret:typeof():str())
-      assert.equals(400, ret:num())
-    end)
+  test("setTimeout", function ()
+    -- TODO
+  end)
 
+  test("await", function ()
+    -- TODO
   end)
 
 end)
-
--- val.take_ownership(handle)
--- val.module_property(prop)
 
 -- val.global(ident): find a global val
 -- val.object(): create an empty object val
@@ -260,4 +261,5 @@ end)
 
 -- v:call(prop, ...args)
 -- v:new(...args)
+
 -- v:await()
