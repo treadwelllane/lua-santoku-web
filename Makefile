@@ -97,6 +97,7 @@ iterate: $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_LUA_DIST_DIR)
 			Makefile $(SRC_DIR) $(CONFIG_DIR) $(TEST_SPEC_SRC_DIR); \
 	done
 
+# TODO: This should be luarocks-install, but how to we set INST_LIB/BINDIR?
 luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_SPEC_DISTS) $(TEST_LUACOV_CFG)
 	@if LUA_PATH="$(TEST_LUA_PATH)" LUA_CPATH="$(TEST_LUA_CPATH)" \
 		toku test -s -i node $(TEST_SPEC_DISTS); \
@@ -177,6 +178,9 @@ $(TEST_LUA_DIST_DIR): $(TEST_LUA_DL)
 $(TEST_LUA_DL):
 	curl -o "$(TEST_LUA_DL)" "$(TEST_LUA_URL)"
 
+echo:
+	find $(TEST_DIR) -type f -name '*.d'
+
 include $(shell find $(TEST_DIR) -type f -name '*.d')
 
-.PHONY: build install luarocks-build luarocks-install upload clean test iterate luarocks-test luarocks-test-run
+.PHONY: echo build install luarocks-build luarocks-install upload clean test iterate luarocks-test luarocks-test-run
