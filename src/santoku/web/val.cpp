@@ -1,6 +1,12 @@
-// TODO: tests
-// TODO: are we leaking memory with all of the
-// "new val(...)" calls
+// TODO: Tests
+
+// TODO: Are we leaking memory with all of the
+// "new val(...)" calls?
+
+// TODO: Should we merge val:str(), :bool(),
+// :num(), etc. to a single :unwrap() call? It
+// might make sense to rename val.from to
+// val.wrap. What about val.pack/unpack?
 
 extern "C" {
   #include "lua.h"
@@ -148,19 +154,6 @@ int l_null (lua_State *L) {
   return 1;
 }
 
-int l_take_ownership (lua_State *L) {
-  // TODO: Can we use checkudata here?
-  EM_VAL v = (EM_VAL)lua_touserdata(L, -1);
-  push_val(L, new val(val::take_ownership(v)), false, 0);
-  return 1;
-}
-
-int l_module_property (lua_State *L) {
-  const char *str = luaL_checkstring(L, -1);
-  push_val(L, new val(val::module_property(str)), false, 0);
-  return 1;
-}
-
 int l_get (lua_State *L) {
   val *k = peek_val(L, -1);
   val *o = peek_val(L, -2);
@@ -273,7 +266,7 @@ int l_from (lua_State *L) {
     EM_VAL proto = t == 2
       ? peek_val(L, -t + 1)->as_handle()
       : val::undefined().as_handle();
-    // TODO: Should we allow arguments passed to proto(...)?
+    // TODO: Allow arguments passed to proto(...)
     push_val(L, new val(val::take_ownership((EM_VAL) EM_ASM_PTR(({
       var proto = Emval.toValue($2);
       var obj = proto ? new proto() : {};
@@ -287,6 +280,10 @@ int l_from (lua_State *L) {
       }))
     }), L, t, proto))), true, -t);
   } else if (type == LUA_TFUNCTION) {
+    // TODO: This will likely need to be
+    // manually unref'd so it is garbage
+    // collected. Can we tap into the javascript
+    // collector to unref?
     int fnref = luaL_ref(L, LUA_REGISTRYINDEX);
     lua_rawgeti(L, LUA_REGISTRYINDEX, fnref);
     push_val(L, new val(val::take_ownership((EM_VAL) EM_ASM_PTR(({
@@ -329,8 +326,6 @@ luaL_Reg fns[] = {
   { "object", l_object },
   { "undefined", l_undefined },
   { "null", l_null },
-  { "take_ownership", l_take_ownership },
-  { "module_property", l_module_property },
   { NULL, NULL }
 };
 
