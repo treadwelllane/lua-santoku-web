@@ -226,11 +226,24 @@ test("val", function ()
   end)
 
   test("setTimeout", function ()
-    -- TODO
+    local global = val.global("global")
+    global:call("setTimeout", val(function (a, b)
+      assert.equals("hello", a)
+      assert.equals("world", b)
+    end), val(1000), val("hello"), val("world"))
   end)
 
-  test("await", function ()
-    -- TODO
+  test("promise", function ()
+    local global = val.global("global")
+    local Promise = global:get(val("Promise"))
+    local p = Promise:new(val(function (resolve)
+      global:call("setTimeout", val(function ()
+        resolve(val("hello"))
+      end), val(1000))
+    end))
+    p:call("then", val(function (msg)
+      assert.equals("hello", msg)
+    end))
   end)
 
 end)

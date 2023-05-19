@@ -28,25 +28,12 @@ using namespace emscripten;
 #define debug(...) printf("%s:%d\t", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n");
 
 int l_from (lua_State *);
+int l_call (lua_State *);
 
 val *peek_val (lua_State *L, int i) {
   val **vp = (val **)luaL_checkudata(L, i, MTV);
   val *v = *vp;
   return v;
-}
-
-void push_val_lua (lua_State *L, val *v) {
-  string type = v->typeof().as<string>();
-  if (type == "string") {
-    string x = v->as<string>();
-    lua_pushstring(L, x.c_str());
-  } else if (type == "number") {
-    float x = v->as<float>();
-    lua_pushnumber(L, x);
-  } else {
-    debug("Unhandled JS type, pushing nil: %s", type.c_str());
-    lua_pushnil(L);
-  }
 }
 
 void push_val (lua_State *L, val *v, bool pushtop, int i) {
@@ -57,6 +44,39 @@ void push_val (lua_State *L, val *v, bool pushtop, int i) {
     return;
   lua_pushvalue(L, i - 1);
   lua_setiuservalue(L, -2, 1);
+}
+
+int wrapfn (lua_State *L) {
+  int argc = lua_gettop(L);
+  int fni = lua_upvalueindex(1);
+  val **vp = (val **)lua_touserdata(L, fni);
+  // TODO: We should be able to use EM_ASM or
+  // something to call the fn directly instead
+  // of with the fake "this" object.
+  val this_ = val::object();
+  this_.set(val("fn"), **vp);
+  push_val(L, new val(this_), false, 0);
+  lua_insert(L, -argc - 1);
+  lua_pushstring(L, "fn");
+  lua_insert(L, -argc - 1);
+  return l_call(L);
+}
+
+void push_val_lua (lua_State *L, val *v) {
+  string type = v->typeof().as<string>();
+  if (type == "string") {
+    string x = v->as<string>();
+    lua_pushstring(L, x.c_str());
+  } else if (type == "number") {
+    float x = v->as<float>();
+    lua_pushnumber(L, x);
+  } else if (type == "function") {
+    push_val(L, v, false, 0);
+    lua_pushcclosure(L, wrapfn, 1);
+  } else {
+    debug("Unhandled JS type, pushing nil: %s", type.c_str());
+    lua_pushnil(L);
+  }
 }
 
 int j_arg (int Lp, int i) {
@@ -110,9 +130,14 @@ int j_call (int Lp, int fnp, int argsp) {
   int argc = (*args)["length"].as<int>();
   for (int i = 0; i < argc; i ++)
     push_val_lua(L, new val((*args)[val(i)]));
-  lua_call(L, argc, 1);
-  lua_call(L, 1, 1);
-  return (int)peek_val(L, -1)->as_handle();
+  int t = lua_gettop(L) - argc - 1;
+  lua_call(L, argc, LUA_MULTRET);
+  if (lua_gettop(L) > t) {
+    lua_call(L, 1, 1);
+    return (int)peek_val(L, -1)->as_handle();
+  } else {
+    return (int)(new val(val::undefined()))->as_handle();
+  }
 }
 
 EMSCRIPTEN_BINDINGS(santoku_web_val) {

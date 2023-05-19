@@ -150,7 +150,7 @@ $(TEST_LUAROCKS_CFG): $(TEST_LUAROCKS_CFG_T)
 
 $(TEST_SPEC_DIST_DIR)/%: $(TEST_SPEC_SRC_DIR)/%.lua
 	mkdir -p "$(dir $@)"
-	$(TEST_VARS) toku bundle -M -f "$<" -o "$(dir $@)" \
+	$(TEST_VARS) toku bundle -C -M -f "$<" -o "$(dir $@)" \
 		-e LUA_PATH "$(TEST_LUA_PATH)" \
 		-e LUA_CPATH "$(TEST_LUA_CPATH)" \
 		-E LUACOV_CONFIG "$(PWD)/$(TEST_LUACOV_CFG)" \
