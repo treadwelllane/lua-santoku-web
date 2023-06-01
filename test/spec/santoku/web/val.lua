@@ -146,6 +146,12 @@ test("val", function ()
     assert.equals("{}", r:lua())
   end)
 
+  test("JSON.stringify nested :lua()", function ()
+    local JSON = val.global("JSON"):lua()
+    local r = JSON:stringify({ a = { b = 1 } })
+    assert.equals("{\"a\":{\"b\":1}}", r)
+  end)
+
   test("JSON.stringify({}) :lua()", function ()
     local obj = val.object():lua()
     local JSON = val.global("JSON"):lua()

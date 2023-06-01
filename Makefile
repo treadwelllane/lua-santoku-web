@@ -9,6 +9,13 @@ TEST_DIR ?= build/test
 CONFIG_DIR ?= config
 SRC_DIR ?= src
 
+SRC_LUA ?= $(shell find $(SRC_DIR) -name '*.lua')
+SRC_CPP ?= $(shell find $(SRC_DIR) -name '*.cpp')
+BUILD_LUA ?= $(patsubst $(SRC_DIR)/%.lua, $(BUILD_DIR)/%.lua, $(SRC_LUA))
+BUILD_CPP ?= $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.so, $(SRC_CPP))
+INST_LUA ?= $(patsubst $(SRC_DIR)/%.lua, $(INST_LUADIR)/%.lua, $(SRC_LUA))
+INST_CPP ?= $(patsubst $(SRC_DIR)/%.cpp, $(INST_LIBDIR)/%.so, $(SRC_CPP))
+
 LOCAL_CFLAGS ?= $(if $(LUA_INCDIR), -I$(LUA_INCDIR)) --std=c++17 --bind
 LOCAL_LDFLAGS ?= $(if $(LUA_LIBDIR), -L$(LUA_LIBDIR))
 
@@ -67,14 +74,14 @@ TEST_LUACOV_STATS_FILE ?= $(TEST_DIR)/luacov.stats.out
 TEST_LUACOV_REPORT_FILE ?= $(TEST_DIR)/luacov.report.out
 TEST_LUACOV_INCLUDE ?= src
 
-build: $(BUILD_DIR)/santoku/web/val.so $(ROCKSPEC)
+build: $(BUILD_CPP) $(ROCKSPEC)
 
 install: $(ROCKSPEC)
 	$(LUAROCKS) make $(ROCKSPEC)
 
-luarocks-build: $(BUILD_DIR)/santoku/web/val.so
+luarocks-build: $(BUILD_CPP)
 
-luarocks-install: $(INST_LUADIR)/santoku/web/js.lua $(INST_LIBDIR)/santoku/web/val.so
+luarocks-install: $(INST_LUA) $(INST_CPP)
 
 upload: $(ROCKSPEC)
 	@if test -z "$(LUAROCKS_API_KEY)"; then echo "Missing LUAROCKS_API_KEY variable"; exit 1; fi
@@ -113,17 +120,17 @@ luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_SPEC_DISTS) $(TES
 luarocks-test-run:
 	$(TEST_LUAROCKS) $(ARGS)
 
-$(INST_LUADIR)/santoku/web/js.lua: src/santoku/web/js.lua
+$(INST_LUADIR)/%.lua: $(SRC_DIR)/%.lua
 	@if test -z "$(INST_LUADIR)"; then echo "Missing INST_LUADIR variable"; exit 1; fi
 	mkdir -p "$(dir $@)"
 	cp "$^" "$@"
 
-$(INST_LIBDIR)/santoku/web/val.so: $(BUILD_DIR)/santoku/web/val.so
+$(INST_LIBDIR)/%.so: $(BUILD_DIR)/%.so
 	@if test -z "$(INST_LIBDIR)"; then echo "Missing INST_LIBDIR variable"; exit 1; fi
-	mkdir -p $(INST_LIBDIR)/santoku/web/
-	cp $(BUILD_DIR)/santoku/web/val.so $(INST_LIBDIR)/santoku/web/
+	mkdir -p "$(dir $@)"
+	cp "$^" "$@"
 
-$(BUILD_DIR)/santoku/web/val.so: src/santoku/web/val.cpp $(ROCKSPEC)
+$(BUILD_DIR)/%.so: $(SRC_DIR)/%.cpp
 	mkdir -p "$(dir $@)"
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(LDFLAGS) $(LOCAL_LDFLAGS) $(LIBFLAG) "$<" -o "$@"
 
