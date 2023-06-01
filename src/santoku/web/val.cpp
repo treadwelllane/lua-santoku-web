@@ -1,5 +1,3 @@
-// TODO: Tests
-
 // TODO: Are we leaking memory with all of the
 // "new val(...)" and luaL_ref calls?
 
@@ -76,6 +74,8 @@ void map_lua (lua_State *L, val *v, int ref) {
   lua_pop(L, 1); //
   EM_ASM(({
     var v = Emval.toValue($0);
+    if (v == null || v == undefined)
+      return;
     Module.IDX_VAL_REF.set(v, $1);
   }), v->as_handle(), ref);
 }
@@ -100,10 +100,15 @@ void map_js (lua_State *L, val *v, int i) {
   lua_pushvalue(L, i); // lua
   int ref = luaL_ref(L, LUA_REGISTRYINDEX); //
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref); // lua
-  EM_ASM(({
+  int rc = EM_ASM_INT(({
     var v = Emval.toValue($0);
+    if (v == null || v == undefined)
+      return 1;
     Module.IDX_VAL_REF.set(v, $1);
+    return 0;
   }), v->as_handle(), ref);
+  if (rc == 1)
+    return;
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL); // lua map
   lua_insert(L, -2); // map lua
   lua_pushlightuserdata(L, v); // map lua val
@@ -114,6 +119,8 @@ void map_js (lua_State *L, val *v, int i) {
 bool unmap_js (lua_State *L, val *key) {
   int ref = EM_ASM_INT(({
     var v = Emval.toValue($0);
+    if (v == null || v == undefined)
+      return -1;
     if (Module.IDX_VAL_REF.has(v)) {
       return Module.IDX_VAL_REF.get(v) || -1;
     } else {
