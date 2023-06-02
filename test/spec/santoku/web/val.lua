@@ -106,17 +106,29 @@ test("val", function ()
       assert.same({ a = 1, b = "2", c = 3 }, a:lua())
     end)
 
-    -- TODO: Automatically determine if table
-    -- should be mapped to an array, and
-    -- optionally allow the user to override.
-    --
-    -- test("creates an array proxy", function ()
-    --   local source = { 1, 2, 3, 4 }
-    --   local a = val(source)
-    --   assert.equals("object", a:typeof():lua())
-    --   assert.equals(source, a:lua())
-    --   assert.same({ 1, 2, 3, 4 }, a:lua())
-    -- end)
+    test("creates an array proxy", function ()
+      local source = { 1, 2, 3, 4 }
+      local a = val(source)
+      assert.equals("object", a:typeof():lua())
+      assert.equals(source, a:lua())
+      assert.same({ 1, 2, 3, 4 }, a:lua())
+    end)
+
+    test("array proxy get adds 1 to numeric keys", function ()
+      local source = { 1, 2, 3, 4 }
+      local a = val(source)
+      assert(1, a:get(0))
+      assert(2, a:get(1))
+      assert(3, a:get(2))
+      assert(4, a:get(3))
+    end)
+
+    test("array proxy set adds 1 to numeric keys", function ()
+      local source = {}
+      local a = val(source)
+      a:set(0, 1)
+      assert(1, a[1])
+    end)
 
   end)
 
@@ -150,6 +162,12 @@ test("val", function ()
     local JSON = val.global("JSON"):lua()
     local r = JSON:stringify({ a = { b = 1 } })
     assert.equals("{\"a\":{\"b\":1}}", r)
+  end)
+
+  test("JSON.stringify array :lua()", function ()
+    local JSON = val.global("JSON"):lua()
+    local r = JSON:stringify({ 1, 2, 3, 4 })
+    assert.equals("[1,2,3,4]", r)
   end)
 
   test("JSON.stringify({}) :lua()", function ()
