@@ -15,12 +15,10 @@ description = {
 -- TODO: Santoku not currently required.
 dependencies = {
   "lua >= 5.1",
-  -- "santoku >= 0.0.22-1",
+  "santoku >= 0.0.34-1",
 }
 
 test_dependencies = {
-
-  "santoku >= 0.0.26-1",
 
   -- TODO: Should this be pulled in by santoku?
   -- It's an optional dependency that for our

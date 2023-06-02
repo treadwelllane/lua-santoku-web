@@ -6,6 +6,7 @@ local window = js.window
 local JSON = window.JSON
 local console = window.console
 local Request = window.Request
+local Promise = window.Promise
 
 return function (callback, window)
 
@@ -19,8 +20,8 @@ return function (callback, window)
       return
     end
     oldlogs[typ] = console[typ]
-    console[typ] = function (...)
-      oldlogs.log(console, ...)
+    console[typ] = function (_, ...)
+      oldlogs.log(...)
       callback(JSON:stringify({
         source = "console",
         typ, args = { ... }
@@ -58,33 +59,35 @@ return function (callback, window)
         else
           req = r:clone()
         end
-        return req:text():await(function (_, ok, body)
-          assert(ok)
-          callback(JSON:stringify({
-            source = "fetch",
-            request = {
-              url = req.url,
-              method = req.method,
-              body = body,
-              headers = { gen.ivals(req.headers):unpack() }
-            }
-          }))
-          return oldfetch(window, r, args()):await(function(_, ok, resp)
+        return Promise:new(function (_, resolve)
+          req:text():await(function (_, ok, body)
             assert(ok)
-            local clone = resp:clone()
-            return clone:text():await(function (_, ok, body)
+            callback(JSON:stringify({
+              source = "fetch",
+              request = {
+                url = req.url,
+                method = req.method,
+                body = body,
+                headers = { gen.ivals(req.headers):unpack() }
+              }
+            }))
+            oldfetch(window, r, args()):await(function(_, ok, resp)
               assert(ok)
-              callback(JSON:stringify({
-                source = "fetch",
-                response = {
-                  url = clone.url,
-                  method = clone.method,
-                  status = clone.status,
-                  body = body,
-                  headers = { gen.ivals(clone.headers):unpack() },
-                }
-              }))
-              return resp
+              local clone = resp:clone()
+              return clone:text():await(function (_, ok, body)
+                assert(ok)
+                callback(JSON:stringify({
+                  source = "fetch",
+                  response = {
+                    url = clone.url,
+                    method = clone.method,
+                    status = clone.status,
+                    body = body,
+                    headers = { gen.ivals(clone.headers):unpack() },
+                  }
+                }))
+                resolve(nil, resp)
+              end)
             end)
           end)
         end)

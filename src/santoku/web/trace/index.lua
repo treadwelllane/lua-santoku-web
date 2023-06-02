@@ -13,19 +13,23 @@ return function (url)
 
   local function emit (str)
     if (connected) then
+      print("emit", str)
       sock:send(str)
     else
+      print("buffer", str)
       buffer:append(str)
     end
   end
 
   local function start ()
 
+    print("Connecting to trace websocket: " .. url)
+
     sock = WebSocket:new(url)
 
     sock.onopen = function ()
       connected = true
-      buffer:append(emit)
+      buffer:each(emit)
       buffer:trunc()
     end
 
