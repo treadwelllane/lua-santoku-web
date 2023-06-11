@@ -1,17 +1,22 @@
 # Now
 
-- Migrate html-api and devcat
-
 - Error messages
 
 - Object.keys, Object.values, Object.entries,
   pairs, ipairs
 
-- Implement integrate c++ coverage
+- Implement c++ coverage and linting
 - Run tests with sanitizers
 - Reduce amount of heap-allocated vals if
   possible
 - Ensure no memory leaks
+
+# Eventually
+
+- Figure out trace onerror and fetch events,
+  currently they don't work because they're
+  registered asynchronously instead of on
+  initial script evaluation.
 
 - Figure out how to implement :await() without a
   callback. Asyncify will work, but is there a

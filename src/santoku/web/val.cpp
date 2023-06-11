@@ -44,6 +44,7 @@ int MTF_FNS;
 
 int lua_to_val (lua_State *, int);
 int mtv_typeof (lua_State *);
+int mtv_instanceof (lua_State *);
 int mtv_new (lua_State *);
 int mtv_call (lua_State *);
 int mtv_set (lua_State *);
@@ -153,13 +154,21 @@ void push_val_lua (lua_State *L, val *v) {
     lua_pushboolean(L, x);
   } else if (type == "object") {
     if (!unmap_js(L, v)) { // val
-      bool isPromise = EM_ASM_INT(({
-        return Emval.toValue($0) instanceof Promise
+      bool isNull = EM_ASM_INT(({
+        return Emval.toValue($0) == null
           ? 1 : 0;
       }), v->as_handle());
-      lua_newtable(L); // ret
-      luaL_setmetatable(L, isPromise ? MTP : MTO);
-      map_js(L, v, -1);
+      if (isNull) {
+        lua_pushnil(L);
+      } else {
+        bool isPromise = EM_ASM_INT(({
+          return Emval.toValue($0) instanceof Promise
+            ? 1 : 0;
+        }), v->as_handle());
+        lua_newtable(L); // ret
+        luaL_setmetatable(L, isPromise ? MTP : MTO);
+        map_js(L, v, -1);
+      }
     }
   } else if (type == "function") {
     if (!unmap_js(L, v)) {
@@ -170,7 +179,7 @@ void push_val_lua (lua_State *L, val *v) {
   } else if (type == "undefined") {
     lua_pushnil(L);
   } else {
-    debug("Unhandled JS type, pushing nil: %s", type.c_str());
+    printf("Unhandled JS type, pushing nil: %s\n", type.c_str());
     lua_pushnil(L);
   }
 }
@@ -203,32 +212,44 @@ int lua_to_val (lua_State *L, int i) {
       var obj = $2 ? [] : {};
       return Emval.toHandle(new Proxy(obj, {
         get(o, k) {
-          if (o instanceof Array && k == "length") {
+          var isnumber;
+          try { isnumber = !isNaN(+k); }
+          catch (_) { isnumber = false; }
+          if (o instanceof Array && k == "length")
             return Module.len($0, $1);
-          } else if (o instanceof Array && !isNaN(+k)) {
-            var val = Emval.toValue(Module.get($0, $1, Emval.toHandle(+k + 1)));
-            return val;
-          } else {
-            var val = Emval.toValue(Module.get($0, $1, Emval.toHandle(k)));
-            return val;
+          if (o instanceof Array && isnumber)
+            return Emval.toValue(Module.get($0, $1, Emval.toHandle(+k + 1)));
+          if (typeof k == "string")
+            return Emval.toValue(Module.get($0, $1, Emval.toHandle(k)));
+          if (k == Symbol.iterator) {
+            // TODO: This creates an
+            // intermediary array, which is not
+            // likely necessary
+            return Object.values(o)[k];
           }
+          return Reflect.get(o, k);
         },
         // TODO: Should we extend this and
         // ownKeys to support __index
         // properties?
         getOwnPropertyDescriptor(o, k) {
-          return { configurable: true, enumerable: true, value: o[k] };
+          return Object.getOwnPropertyDescriptor(o, k) || {
+            configurable: true,
+            enumerable: true,
+            value: o[k]
+          };
         },
         ownKeys(o) {
           var keys = Emval.toValue(Module.ownKeys($0, $1));
+          if (o instanceof Array)
+            keys.push("length");
           return keys;
         },
         set(o, v, k) {
-          if (o instanceof Array && typeof k == "number") {
+          if (o instanceof Array && typeof k == "number")
             Module.set($0, $1, Emval.toHandle(k + 1), Emval.toHandle(v));
-          } else {
+          else
             Module.set($0, $1, Emval.toHandle(k), Emval.toHandle(v));
-          }
         }
       }))
     }), L, tblref, isarray))));
@@ -256,7 +277,7 @@ int lua_to_val (lua_State *L, int i) {
   } else {
     /* LUA_TLIGHTUSERDATA: */
     /* LUA_TTHREAD: */
-    debug("Unhandled Lua type, pushing undefined: %d", type);
+    printf("Unhandled Lua type, pushing undefined: %d\n", type);
     push_val(L, new val(val::undefined()));
   }
   // TODO:
@@ -303,9 +324,14 @@ int j_ownKeys (int Lp, int tblref) {
     lua_to_val(L, -2);
     val *v = peek_val(L, -1);
     val *s = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
-      var v = Emval.toValue($0);
-      return Emval.toHandle(String(v));
-    }), v->as_handle())));
+      var ks = Emval.toValue($0);
+      var v = Emval.toValue($1);
+      if (ks instanceof Array && typeof v == "number") {
+        return Emval.toHandle(String(v - 1));
+      } else {
+        return Emval.toHandle(String(v));
+      }
+    }), keys->as_handle(), v->as_handle())));
     keys->call<val>("push", *s);
     lua_pop(L, 2);
   }
@@ -428,7 +454,7 @@ int mto_newindex (lua_State *L) {
 }
 
 int mto_instanceof (lua_State *L) {
-  mto_instanceof(L);
+  mtv_instanceof(L);
   val *v = peek_val(L, -1);
   push_val_lua(L, v);
   return 1;
@@ -539,6 +565,7 @@ int mtv_instanceof (lua_State *L) {
     var c = Emval.toValue($1);
     return v instanceof c ? 1 : 0;
   }), v->as_handle(), c->as_handle()));
+  lua_to_val(L, -1);
   return 1;
 }
 
