@@ -328,4 +328,39 @@ test("val", function ()
     end)
   end)
 
+  test("instanceof", function ()
+    local Map = val.global("Map"):lua()
+    local m = Map:new()
+    assert(m:instanceof(Map))
+  end)
+
+  test("array keys", function ()
+    local t = { 1, 2, 3, 4, 5 }
+    local Object = val.global("Object"):lua()
+    local ki = 0
+    Object:keys(t):forEach(function (_, k)
+      assert.equals(ki .. "", k)
+      ki = ki + 1
+    end)
+    assert.equals(ki, 5)
+  end)
+
+  test("array vals", function ()
+    local t = { 1, 2, 3, 4, 5 }
+    local Object = val.global("Object"):lua()
+    local vi = 1
+    Object:values(t):forEach(function (_, v)
+      assert.equals(vi, v)
+      vi = vi + 1
+    end)
+    assert.equals(vi, 6)
+  end)
+
+  test("array iterator", function ()
+    local a = val({ 1, 2, 3, 4, 5 })
+    local Iterator = val.global("Symbol"):get("iterator")
+    local it = a:get(Iterator):lua()
+    -- TODO: what to check?
+  end)
+
 end)

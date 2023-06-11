@@ -1,9 +1,12 @@
 local common = require("santoku.web.trace.common")
 local vec = require("santoku.vector")
 local js = require("santoku.web.js")
+
 local window = js.window
-local navigator = js.navigator
+local BroadcastChannel = window.BroadcastChannel
 local WebSocket = window.WebSocket
+
+local channel = BroadcastChannel:new("santoku.web.trace")
 
 return function (url)
 
@@ -13,10 +16,8 @@ return function (url)
 
   local function emit (str)
     if (connected) then
-      print("emit", str)
       sock:send(str)
     else
-      print("buffer", str)
       buffer:append(str)
     end
   end
@@ -46,11 +47,9 @@ return function (url)
 
   common(emit, window)
 
-  navigator.serviceWorker.onmessage = function (_, ev)
-    if ev.data and ev.data.typ == "DEVCAT" then
-      emit(ev.data.data)
-    end
-  end
+  channel:addEventListener("message", function (_, ev)
+    emit(ev.data)
+  end)
 
   start()
 
