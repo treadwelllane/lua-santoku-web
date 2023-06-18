@@ -363,4 +363,10 @@ test("val", function ()
     -- TODO: what to check?
   end)
 
+  test("bigint", function ()
+    local BigInt = val.global("BigInt"):lua()
+    local i = BigInt(nil, 1)
+    assert.equals(1, i)
+  end)
+
 end)
