@@ -151,8 +151,16 @@ void push_val_lua (lua_State *L, val *v) {
     double x = v->as<double>();
     lua_pushnumber(L, x);
   } else if (type == "bigint") {
-    double x = v->as<double>();
-    lua_pushnumber(L, x);
+    // TODO: Needs to be thoroughly tested to
+    // support 64 bit integers.
+    int64_t n = EM_ASM_INT(({
+      var bi = Emval.toValue($1);
+      if (bi > Number.MAX_SAFE_INTEGER ||
+          bi < Number.MIN_SAFE_INTEGER)
+        Module.error($0, "Conversion from bigint to number failed: too large or too small");
+      return Number(bi);
+    }), L, v->as_handle());
+    lua_pushinteger(L, n);
   } else if (type == "boolean") {
     bool x = v->as<bool>();
     lua_pushboolean(L, x);
