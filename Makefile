@@ -32,7 +32,8 @@ TEST_SPEC_SRC_DIR ?= test/spec
 TEST_SPEC_SRCS ?= $(shell find $(TEST_SPEC_SRC_DIR) -type f -name '*.lua')
 TEST_SPEC_DISTS ?= $(patsubst $(TEST_SPEC_SRC_DIR)/%.lua, $(TEST_SPEC_DIST_DIR)/%, $(TEST_SPEC_SRCS))
 
-TEST_EM_VARS ?= CC="emcc" LD="emcc" AR="emar rcu" NM="emnm" RANLIB="emranlib"
+TEST_CC ?= emcc
+TEST_EM_VARS ?= CC="$(TEST_CC)" LD="$(TEST_CC)" AR="emar rcu" NM="emnm" RANLIB="emranlib"
 TEST_CFLAGS ?= -I $(TEST_LUA_INC_DIR) --bind
 TEST_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) -lnodefs.js -lnoderawfs.js
 TEST_VARS ?= $(TEST_EM_VARS) LUAROCKS='$(TEST_LUAROCKS)' BUILD_DIR="$(TEST_DIR)/build" CFLAGS="$(TEST_CFLAGS)" LDFLAGS="$(TEST_LDFLAGS)" LIBFLAG="$(TEST_LIBFLAG)"

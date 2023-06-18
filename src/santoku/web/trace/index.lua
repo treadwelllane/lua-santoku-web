@@ -8,7 +8,7 @@ local WebSocket = window.WebSocket
 
 local channel = BroadcastChannel:new("santoku.web.trace")
 
-return function (url)
+return function (url, callback)
 
   local buffer = vec()
   local connected = false
@@ -45,12 +45,19 @@ return function (url)
 
   end
 
-  common(emit, window)
+  local onErr = common(emit, window).onErr
 
   channel:addEventListener("message", function (_, ev)
     emit(ev.data)
   end)
 
   start()
+
+  if callback then
+    local ok, err = pcall(callback)
+    if not ok then
+      onErr(err)
+    end
+  end
 
 end

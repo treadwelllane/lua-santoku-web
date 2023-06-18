@@ -12,10 +12,10 @@ description = {
   license = "<% return os.getenv('LICENSE') %>"
 }
 
--- TODO: Santoku not currently required.
 dependencies = {
   "lua >= 5.1",
   "santoku >= 0.0.34-1",
+  "lsqlite3 >= 0.9.5-1"
 }
 
 test_dependencies = {
