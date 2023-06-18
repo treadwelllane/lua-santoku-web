@@ -7,13 +7,13 @@ local JSON = global.JSON
 
 local channel = BroadcastChannel:new("santoku.web.trace")
 
-return function ()
+return function (callback)
 
   local function emit (str)
     channel:postMessage(str)
   end
 
-  common(emit, global)
+  local onErr = common(emit, global).onErr
 
   global:addEventListener("fetch", function (_, ev)
     emit(JSON:stringify({
@@ -24,5 +24,12 @@ return function ()
       }
     }))
   end)
+
+  if callback then
+    local ok, err = pcall(callback)
+    if not ok then
+      onErr(err)
+    end
+  end
 
 end
