@@ -30,7 +30,7 @@ TEST_SPEC_DIST_DIR ?= $(TEST_DIR)/spec
 TEST_SPEC_SRC_DIR ?= test/spec
 
 TEST_SPEC_SRCS ?= $(shell find $(TEST_SPEC_SRC_DIR) -type f -name '*.lua')
-TEST_SPEC_DISTS ?= $(patsubst $(TEST_SPEC_SRC_DIR)/%.lua, $(TEST_SPEC_DIST_DIR)/%, $(TEST_SPEC_SRCS))
+TEST_SPEC_DISTS ?= $(patsubst $(TEST_SPEC_SRC_DIR)/%.lua, $(TEST_SPEC_DIST_DIR)/%.test, $(TEST_SPEC_SRCS))
 
 TEST_CC ?= emcc
 TEST_EM_VARS ?= CC="$(TEST_CC)" LD="$(TEST_CC)" AR="emar rcu" NM="emnm" RANLIB="emranlib"
@@ -156,9 +156,9 @@ $(TEST_LUAROCKS_CFG): $(TEST_LUAROCKS_CFG_T)
 			-f "$(TEST_LUAROCKS_CFG_T)" \
 			-o "$(TEST_LUAROCKS_CFG)"
 
-$(TEST_SPEC_DIST_DIR)/%: $(TEST_SPEC_SRC_DIR)/%.lua
+$(TEST_SPEC_DIST_DIR)/%.test: $(TEST_SPEC_SRC_DIR)/%.lua
 	mkdir -p "$(dir $@)"
-	$(TEST_VARS) toku bundle -C -M -f "$<" -o "$(dir $@)" \
+	$(TEST_VARS) toku bundle -C -M -f "$<" -o "$(dir $@)" -O "$(notdir $@)" \
 		-e LUA_PATH "$(TEST_LUA_PATH)" \
 		-e LUA_CPATH "$(TEST_LUA_CPATH)" \
 		-E LUACOV_CONFIG "$(PWD)/$(TEST_LUACOV_CFG)" \
