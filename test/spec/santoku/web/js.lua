@@ -1,7 +1,9 @@
 local assert = require("luassert")
 local test = require("santoku.test")
 local compat = require("santoku.compat")
+local gen = require("santoku.gen")
 local val = require("santoku.web.val")
+local js = require("santoku.web.js")
 
 -- TODO
 --
@@ -98,6 +100,11 @@ test("js", function ()
     local arr = val({ 1, 2, 3 }, true):lua()
     local a, b, c = compat.unpack(arr)
     assert.same({ 1, 2, 3 }, { a, b, c })
+  end)
+
+  test("pairs over a javascript object", function ()
+    local obj = val({ a = 1 }, true):lua()
+    assert.same({{"a", 1, n = 2}, n = 1}, gen.pairs(obj):vec())
   end)
 
 end)
