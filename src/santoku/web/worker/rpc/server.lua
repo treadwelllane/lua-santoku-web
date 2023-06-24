@@ -11,7 +11,7 @@ M.init = function (obj)
     local ch = ev.ports[0]
     local fn = ev.data[0]
     local args = ev.data:slice(1)
-    local out = val.array(obj[fn](compat.unpack(args)))
+    local out = val({ obj[fn](compat.unpack(args)) }, true)
     ch:postMessage(out)
   end)
 end
