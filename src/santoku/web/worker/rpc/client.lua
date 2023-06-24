@@ -18,8 +18,12 @@ M.init = function (fp, callback)
         return function (...)
           local mc = MessageChannel:new()
           local n = tup.len(...)
+          -- TODO: Consider await or similar
+          -- structure instead of expecting a
+          -- callback as the last function
+          -- argument, which might be confusing.
           local callback = tup.get(n, ...)
-          local args = val.array(k, tup.slice(0, n - 1))
+          local args = val({ k, tup.take(n - 1, ...) }, true)
           worker:postMessage(args, { mc.port2 })
           mc.port1.onmessage = function (_, ev)
             callback(compat.unpack(ev.data))
