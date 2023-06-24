@@ -686,6 +686,41 @@ int mtv_islua (lua_State *L) {
   return 1;
 }
 
+int mto_pairs_closure (lua_State *L) {
+  val *ep = peek_val(L, lua_upvalueindex(1));
+  int i = lua_tointeger(L, lua_upvalueindex(2));
+  int m = lua_tointeger(L, lua_upvalueindex(3));
+  if (i >= m) {
+    lua_pushnil(L);
+    lua_pushnil(L);
+    return 2;
+  } else {
+    val kv = (*ep)[i];
+    push_val_lua(L, new val(kv[0]), false);
+    push_val_lua(L, new val(kv[1]), false);
+    lua_pushinteger(L, i + 1);
+    lua_replace(L, lua_upvalueindex(2));
+    return 2;
+  }
+}
+
+int mto_pairs (lua_State *L) {
+  args_to_vals(L);
+  val *v = peek_val(L, -1);
+  val *ep = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
+    var v = Emval.toValue($0);
+    var entries = Object.entries(v);
+    return Emval.toHandle(entries);
+  }), v->as_handle())));
+  push_val(L, ep);
+  lua_pushinteger(L, 0);
+  lua_pushinteger(L, (*ep)["length"].as<int>());
+  lua_pushcclosure(L, mto_pairs_closure, 3);
+  lua_pushnil(L);
+  lua_pushnil(L);
+  return 3;
+}
+
 int mto_len (lua_State *L) {
   args_to_vals(L);
   val *v = peek_val(L, -1);
@@ -828,6 +863,8 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_setfield(L, -2, "__newindex"); // mtv
   lua_pushcfunction(L, mto_len);
   lua_setfield(L, -2, "__len"); // mtv
+  lua_pushcfunction(L, mto_pairs);
+  lua_setfield(L, -2, "__pairs"); // mtv
   lua_pop(L, 1); // ..
 
   luaL_newmetatable(L, MTP); // .. mtp
