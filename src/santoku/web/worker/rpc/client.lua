@@ -1,6 +1,7 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local tup = require("santoku.tuple")
+local compat = require("santoku.compat")
 
 local Worker = js.Worker
 local MessageChannel = js.MessageChannel
@@ -18,18 +19,10 @@ M.init = function (fp, callback)
           local mc = MessageChannel:new()
           local n = tup.len(...)
           local callback = tup.get(n, ...)
-          local args = val.array()
-          -- TODO: santoku web should expose
-          -- helper function to convert to js,
-          -- or at least allow structured clones
-          -- of proxy objects
-          args:set(0, k)
-          for i = 1, n - 1 do
-            args:set(i, tup.get(i, ...))
-          end
+          local args = val.array(k, tup.slice(0, n - 1))
           worker:postMessage(args, { mc.port2 })
           mc.port1.onmessage = function (_, ev)
-            callback(ev.data)
+            callback(compat.unpack(ev.data))
           end
         end
       end
