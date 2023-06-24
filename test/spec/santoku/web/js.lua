@@ -1,5 +1,6 @@
 local assert = require("luassert")
 local test = require("santoku.test")
+local compat = require("santoku.compat")
 local val = require("santoku.web.val")
 
 -- TODO
@@ -92,5 +93,11 @@ test("js", function ()
   -- test("x:lua(true) converts the val to a lua table", function ()
   --   -- TODO
   -- end)
+
+  test("unpack a javascript array", function ()
+    local arr = val({ 1, 2, 3 }, true):lua()
+    local a, b, c = compat.unpack(arr)
+    assert.same({ 1, 2, 3 }, { a, b, c })
+  end)
 
 end)

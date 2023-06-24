@@ -545,8 +545,14 @@ int mto_index (lua_State *L) {
   val *v = (val *)lua_touserdata(L, -1);
   lua_to_val(L, -3, false); // tbl key map val keyl
   val *k = peek_val(L, -1);
-  val n = (*v)[*k];
-  push_val_lua(L, new val(n), false);
+  val *n = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
+    var v = Emval.toValue($0);
+    var k = Emval.toValue($1);
+    if (v instanceof Array && typeof k == "number")
+      k = k - 1;
+    return Emval.toHandle(v[k]);
+  }), v->as_handle(), k->as_handle())));
+  push_val_lua(L, n, false);
   return 1;
 }
 
@@ -680,6 +686,18 @@ int mtv_islua (lua_State *L) {
   return 1;
 }
 
+int mto_len (lua_State *L) {
+  args_to_vals(L);
+  val *v = peek_val(L, -1);
+  lua_pushinteger(L, EM_ASM_INT(({
+    var v = Emval.toValue($0);
+    return v instanceof Array
+      ? v.length
+      : 0;
+  }), v->as_handle()));
+  return 1;
+}
+
 int mtv_typeof (lua_State *L) {
   args_to_vals(L);
   val *v = peek_val(L, -1);
@@ -808,6 +826,8 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_setfield(L, -2, "__index"); // mto
   lua_pushcfunction(L, mto_newindex);
   lua_setfield(L, -2, "__newindex"); // mtv
+  lua_pushcfunction(L, mto_len);
+  lua_setfield(L, -2, "__len"); // mtv
   lua_pop(L, 1); // ..
 
   luaL_newmetatable(L, MTP); // .. mtp
