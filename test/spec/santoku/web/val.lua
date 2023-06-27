@@ -2,6 +2,7 @@
 
 local assert = require("luassert")
 local test = require("santoku.test")
+local str = require("santoku.string")
 local val = require("santoku.web.val")
 
 test("val", function ()
@@ -69,12 +70,10 @@ test("val", function ()
 
   test("from number", function ()
 
-    -- TODO: Numbers lose precision round trip.
-    -- Not sure why
     test("creates a number value", function ()
       local a = val(100.6)
       assert.equals("number", a:typeof():lua())
-      -- assert.equals(100.6, a:lua())
+      assert.equals(100.6, a:lua())
     end)
 
   end)
@@ -84,11 +83,11 @@ test("val", function ()
     -- TODO: Booleans come back as a number
     test("creates a boolean value", function ()
       local a = val(true)
-      -- assert.equals("boolean", a:typeof():lua())
-      -- assert.equals(true, a:bool())
+      assert.equals("boolean", a:typeof():lua())
+      assert.equals(true, a:lua())
       local a = val(false)
-      -- assert.equals("boolean", a:typeof():lua())
-      -- assert.equals(false, a:bool())
+      assert.equals("boolean", a:typeof():lua())
+      assert.equals(false, a:lua())
     end)
 
   end)
@@ -367,6 +366,12 @@ test("val", function ()
     local BigInt = val.global("BigInt"):lua()
     local i = BigInt(nil, 1)
     assert.equals(1, i)
+  end)
+
+  test("val integer decimals", function ()
+    local i = val(1):lua()
+    local s = str.interp("int: %id", { id = i })
+    assert.equals("int: 1", s)
   end)
 
 end)
