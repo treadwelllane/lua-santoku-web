@@ -13,7 +13,7 @@ local sqlite = require("santoku.sqlite")
 local M = {}
 
 local function cast_param (p)
-  if p and p.instanceof and p:instanceof(js.Date) then
+  if type(p) == "table" and p.instanceof and p:instanceof(js.Date) then
     return p:getTime()
   else
     return p
