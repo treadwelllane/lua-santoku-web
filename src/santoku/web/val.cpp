@@ -229,6 +229,9 @@ bool get_islua (val *v) {
 }
 
 int lua_to_val (lua_State *L, int i, bool recurse) {
+  // TODO: Can we improve performance by only
+  // calling unmap_lua when we have a table or
+  // userdata?
   if (unmap_lua(L, i))
     return 1;
   int type = lua_type(L, i);
