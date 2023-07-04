@@ -229,7 +229,7 @@ bool get_islua (val *v) {
 }
 
 int lua_to_val (lua_State *L, int i, bool recurse) {
-  if (!recurse && unmap_lua(L, i))
+  if (unmap_lua(L, i))
     return 1;
   int type = lua_type(L, i);
   if (type == LUA_TSTRING) {
@@ -327,6 +327,7 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
         arr->set(j - 1, *el);
         lua_pop(L, 2);
       }
+      lua_pop(L, 1);
       push_val(L, arr);
     } else {
       val *obj = new val(val::object()); // val
