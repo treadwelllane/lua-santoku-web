@@ -1,23 +1,24 @@
 # Now
 
-- Error messages
-
-- Object.keys, Object.values, Object.entries,
-  pairs, ipairs
-
-- Implement c++ coverage and linting
+- Better error messages
 - Run tests with sanitizers
-- Reduce amount of heap-allocated vals if
-  possible
 - Ensure no memory leaks
+- Coverage
+- Linting
+
+- Support Object.keys, Object.values,
+  Object.entries, pairs, ipairs
 
 # Eventually
+
+- Implement c++ coverage and linting
 
 - Figure out trace onerror and fetch events,
   currently they don't work because they're
   registered asynchronously instead of on
   initial script evaluation.
 
+- Implement optional support for Asyncify which
 - Figure out how to implement :await() without a
   callback. Asyncify will work, but is there a
   way to do without it?
