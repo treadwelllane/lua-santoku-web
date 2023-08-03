@@ -52,6 +52,7 @@ int mtv_instanceof (lua_State *);
 int mtv_new (lua_State *);
 int mtv_call (lua_State *);
 int mtv_set (lua_State *);
+bool unmap_lua (lua_State *, int);
 
 void args_to_vals (lua_State *L) {
   int argc = lua_gettop(L);
@@ -62,11 +63,18 @@ void args_to_vals (lua_State *L) {
 }
 
 val *peek_val (lua_State *L, int i) {
+  bool pop = false;
+  if (lua_type(L, i) == LUA_TTABLE && unmap_lua(L, i))
+    pop = true;
+  else
+    luaL_checktype(L, i, LUA_TUSERDATA);
   void *vp = NULL;
   if (((vp = luaL_testudata(L, i, MTO)) == NULL) &&
       ((vp = luaL_testudata(L, i, MTP)) == NULL) &&
       ((vp = luaL_testudata(L, i, MTF)) == NULL))
     vp = luaL_checkudata(L, i, MTV);
+  if (pop)
+    lua_pop(L, 1);
   return *(val **)vp;
 }
 
@@ -828,6 +836,7 @@ luaL_Reg mto_fns[] = {
   { "typeof", mto_typeof },
   { "instanceof", mto_instanceof },
   { "val", mtv_val },
+  { "lua", mtv_lua },
   { NULL, NULL }
 };
 
