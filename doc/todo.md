@@ -1,5 +1,14 @@
 # Now
 
+- Documentation
+- Publish
+
+- Move todo.md to GitHub issues
+
+- Fix x:val(false/true) and x:lua(false/true)
+
+# Next
+
 - Better error messages
 - Run tests with sanitizers
 - Ensure no memory leaks
