@@ -12,11 +12,15 @@ M.redirect = function (path)
   location.href = path
 end
 
-M.clone = function (tpl, data)
+M.clone = function (tpl, data, parent)
   local clone = tpl.content:cloneNode(true)
   -- TODO: Should we use firstChild or just
   -- return the whole document fragment?
-  return M.populate(clone.firstElementChild, data)
+  local el =  M.populate(clone.firstElementChild, data)
+  if parent then
+    parent:append(el)
+  end
+  return el
 end
 
 M.populate = function (el, data)
@@ -30,6 +34,8 @@ M.populate = function (el, data)
         el:replaceChildren(document:createTextNode(data[attr.value] or ""))
       elseif attr.name == "data-value" then
         el.value = data[attr.value] or ""
+      elseif attr.name == "data-src" then
+        el.src = data[attr.value] or ""
       elseif attr.name == "data-checked" then
         el.checked = data[attr.value] or false
       end
