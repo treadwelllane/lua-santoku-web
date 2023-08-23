@@ -1,15 +1,31 @@
 local js = require("santoku.web.js")
+local val = require("santoku.web.val")
 local str = require("santoku.string")
 
 local window = js.window
+local history = window.history
 local document = window.document
 local location = window.location
 local Array = window.Array
 
 local M = {}
 
-M.redirect = function (path)
-  location.href = path
+window:addEventListener("popstate", function ()
+  history:go()
+end)
+
+M.forward = function (path, state, replace)
+  state = val(state, true)
+  if replace then
+    history:replaceState(state, nil, path)
+  else
+    history:pushState(state, nil, path)
+  end
+  history:go()
+end
+
+M.backward = function ()
+  history:back()
 end
 
 M.clone = function (tpl, data, parent)
@@ -83,6 +99,16 @@ M.clear = function (el)
   Array:from(el.children):forEach(function (_, child)
     M.clear(child)
   end)
+end
+
+-- TODO
+M.throttle = function (fn, time)
+  error("throttle: unimplemented")
+end
+
+-- TODO
+M.debounce = function (fn, time)
+  error("throttle: unimplemented")
 end
 
 return M
