@@ -3,8 +3,6 @@
 - Documentation
 - Publish
 
-- Move todo.md to GitHub issues
-
 - Fix x:val(false/true) and x:lua(false/true)
 
 # Next

@@ -8,7 +8,9 @@ local WebSocket = window.WebSocket
 
 local channel = BroadcastChannel:new("santoku.web.trace")
 
-return function (url, callback)
+return function (url, callback, maxbuflen)
+
+  maxbuflen = maxbuflen or 50
 
   local buffer = vec()
   local connected = false
@@ -19,6 +21,9 @@ return function (url, callback)
       sock:send(str)
     else
       buffer:append(str)
+      if buffer:len() > maxbuflen then
+        buffer:remove(1, 1)
+      end
     end
   end
 

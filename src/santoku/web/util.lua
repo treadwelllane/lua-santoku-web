@@ -5,7 +5,6 @@ local str = require("santoku.string")
 local window = js.window
 local history = window.history
 local document = window.document
-local location = window.location
 local Array = window.Array
 
 local M = {}
@@ -109,6 +108,21 @@ end
 -- TODO
 M.debounce = function (fn, time)
   error("throttle: unimplemented")
+end
+
+M.fit_image = function (e_img, e_main, image_ratio)
+  if not image_ratio then
+    image_ratio = e_img.width / e_img.height
+  end
+  local over_height = e_img.height - e_main.clientHeight
+  local over_width = e_img.width - e_main.clientWidth
+  if over_height > over_width then
+    e_img.height = e_main.clientHeight
+    e_img.width = e_img.height * image_ratio
+  else
+    e_img.width = e_main.clientWidth
+    e_img.height = e_img.width / image_ratio
+  end
 end
 
 return M
