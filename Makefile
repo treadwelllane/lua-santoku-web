@@ -1,7 +1,7 @@
 NAME ?= santoku-web
 VERSION ?= 0.0.44-1
-GIT_URL ?= git@github.com:broma0/lua-santoku-web.git
-HOMEPAGE ?= https://github.com/broma0/lua-santoku-web
+GIT_URL ?= git@github.com:treadwelllane/lua-santoku-web.git
+HOMEPAGE ?= https://github.com/treadwelllane/lua-santoku-web
 LICENSE ?= MIT
 
 BUILD_DIR ?= build/work
