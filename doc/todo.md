@@ -1,7 +1,8 @@
 # Now
 
+- Basic README
+- Correctly propagate lua errors
 - Documentation
-- Publish
 
 - Fix x:val(false/true) and x:lua(false/true)
 
