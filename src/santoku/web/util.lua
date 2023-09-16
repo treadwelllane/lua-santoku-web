@@ -2,16 +2,11 @@ local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local str = require("santoku.string")
 
-local window = js.window
-local history = window.history
-local document = window.document
-local Array = window.Array
+local history = js.history
+local document = js.document
+local Array = js.Array
 
 local M = {}
-
-window:addEventListener("popstate", function ()
-  history:go()
-end)
 
 M.forward = function (path, state, replace)
   state = val(state, true)

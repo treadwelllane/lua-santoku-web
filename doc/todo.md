@@ -1,5 +1,7 @@
 # Now
 
+- Date and other object gt, lt, etc. comparisons
+- Wrapped object equality checks
 - Basic README
 - Correctly propagate lua errors
 - Documentation
