@@ -7,29 +7,26 @@ local JSON = global.JSON
 
 local channel = BroadcastChannel:new("santoku.web.trace")
 
-return function (callback)
+return function (opts)
+
+  opts = opts or {}
 
   local function emit (str)
     channel:postMessage(str)
   end
 
-  local onErr = common(emit, global).onErr
+  common(emit, global, opts)
 
-  global:addEventListener("fetch", function (_, ev)
-    emit(JSON:stringify({
-      source = "fetch-event",
-      request = {
-        url = ev.request.url,
-        method = ev.request.method
-      }
-    }))
-  end)
-
-  if callback then
-    local ok, err = pcall(callback)
-    if not ok then
-      onErr(err)
-    end
+  if opts.fetch ~= false then
+    global:addEventListener("fetch", function (_, ev)
+      emit(JSON:stringify({
+        source = "fetch-event",
+        request = {
+          url = ev.request.url,
+          method = ev.request.method
+        }
+      }))
+    end)
   end
 
 end

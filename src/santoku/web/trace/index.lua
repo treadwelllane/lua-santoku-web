@@ -8,9 +8,11 @@ local WebSocket = window.WebSocket
 
 local channel = BroadcastChannel:new("santoku.web.trace")
 
-return function (url, callback, maxbuflen)
+return function (url, opts)
 
-  maxbuflen = maxbuflen or 50
+  opts = opts or {}
+
+  local maxbuflen = opts.maxbuflen or 50
 
   local buffer = vec()
   local connected = false
@@ -50,19 +52,12 @@ return function (url, callback, maxbuflen)
 
   end
 
-  local onErr = common(emit, window).onErr
+  common(emit, window)
 
   channel:addEventListener("message", function (_, ev)
     emit(ev.data)
   end)
 
   start()
-
-  if callback then
-    local ok, err = pcall(callback)
-    if not ok then
-      onErr(err)
-    end
-  end
 
 end
