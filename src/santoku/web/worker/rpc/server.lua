@@ -2,12 +2,10 @@ local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local compat = require("santoku.compat")
 
-local global = js.self
-
 local M = {}
 
-M.init = function (obj)
-  global:addEventListener("message", function (_, ev)
+M.init = function (obj, on_message)
+  on_message(function (ev)
     local ch = ev.ports[1]
     local fn = ev.data[1]
     local args = ev.data:slice(1)
