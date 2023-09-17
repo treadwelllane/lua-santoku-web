@@ -7,7 +7,6 @@ return function (callback, global, opts)
   local JSON = global.JSON
   local console = global.console
 
-  local oldfetch = global and global.fetch
   local logtypes = vec("log", "error")
   local oldlogs = {}
   local oldprint = nil
@@ -16,10 +15,7 @@ return function (callback, global, opts)
     oldprint = print
     _G.print = function (...)
       oldprint(...)
-      callback(JSON:stringify({
-        source = "print",
-        args = { ... }
-      }))
+      callback(JSON:stringify({ "print", { ... } }))
     end
   end
 
@@ -30,10 +26,7 @@ return function (callback, global, opts)
     oldlogs[typ] = console[typ]
     console[typ] = function (_, ...)
       oldlogs.log(console, ...)
-      callback(JSON:stringify({
-        source = "console",
-        typ, args = { ... }
-      }))
+      callback(JSON:stringify({ "console." .. typ, { ... } }))
     end
   end
 
@@ -52,8 +45,7 @@ return function (callback, global, opts)
   end
 
   return {
-    oldlogs = oldlogs,
-    oldfetch = oldfetch,
+    oldlogs = oldlogs
   }
 
 end
