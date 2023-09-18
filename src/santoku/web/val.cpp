@@ -481,8 +481,16 @@ int j_call (int Lp, int fnp, int argsp) {
   for (int i = 0; i < argc; i ++)
     push_val_lua(L, new val((*args)[val(i)]), false);
   int t = lua_gettop(L) - argc - 1;
-  lua_call(L, argc, LUA_MULTRET);
-  if (lua_gettop(L) > t) {
+  int rc = lua_pcall(L, argc, LUA_MULTRET, 0);
+  if (rc != LUA_OK) {
+    lua_to_val(L, -1, false);
+    val *v = peek_val(L, -1);
+    EM_ASM_PTR(({
+      var v = Emval.toValue($0);
+      throw v;
+    }), v->as_handle());
+    return 0;
+  } else if (lua_gettop(L) > t) {
     val *v = peek_val(L, -1);
     return (int)v->as_handle();
   } else {
@@ -620,8 +628,7 @@ int mtp_await (lua_State *L) {
       args.unshift(true);
       var r = f(...args);
       return r;
-    });
-    v.catch((...args) => {
+    }).catch((...args) => {
       args.unshift(false);
       var r = f(...args);
       return r;
