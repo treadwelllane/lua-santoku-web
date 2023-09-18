@@ -30,7 +30,7 @@ M.init = function (fp, callback)
           end
         end
       end
-    }))
+    }), worker)
   end
 end
 
