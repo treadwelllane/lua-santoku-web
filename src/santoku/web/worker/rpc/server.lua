@@ -1,4 +1,3 @@
-local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local compat = require("santoku.compat")
 
