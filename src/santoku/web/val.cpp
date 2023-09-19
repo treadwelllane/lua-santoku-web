@@ -625,13 +625,23 @@ int mtp_await (lua_State *L) {
     var v = Emval.toValue($0);
     var f = Emval.toValue($1);
     v.then((...args) => {
-      args.unshift(true);
-      var r = f(...args);
-      return r;
-    }).catch((...args) => {
-      args.unshift(false);
-      var r = f(...args);
-      return r;
+      try {
+        args.unshift(true);
+        var r = f(...args);
+        return r;
+      } catch (e) {
+        Module.error($0, Emval.toHandle(e));
+        return undefined;
+      }
+    }, (...args) => {
+      try {
+        args.unshift(false);
+        var r = f(...args);
+        return r;
+      } catch (e) {
+        Module.error($0, Emval.toHandle(e));
+        return undefined;
+      }
     });
   }), v->as_handle(), f->as_handle());
   return 0;
