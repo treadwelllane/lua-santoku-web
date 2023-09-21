@@ -11,9 +11,19 @@
 // "santoku.compat") or similar.
 
 extern "C" {
+
   #include "lua.h"
   #include "lauxlib.h"
-  int luaopen_santoku_web_val (lua_State *L);
+
+  int luaopen_santoku_web_val (lua_State *);
+  int j_arg (int, int);
+
+  // TODO: See todo at definition
+  /* const char *j_arg_type (int, int); */
+
+  int j_args (int, int, int);
+  int j_call (int, int, int);
+
 }
 
 #include "emscripten.h"
@@ -85,11 +95,11 @@ void push_val (lua_State *L, val *v) {
 }
 
 void map_lua (lua_State *L, val *v, int ref) {
-  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL); // map
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ref); // map lua
-  lua_pushlightuserdata(L, v); // map lua val
-  lua_settable(L, -3); // map
-  lua_pop(L, 1); //
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+  lua_pushlightuserdata(L, v);
+  lua_settable(L, -3);
+  lua_pop(L, 1);
   EM_ASM(({
     var v = Emval.toValue($0);
     if (v == null || v == undefined)
@@ -99,25 +109,25 @@ void map_lua (lua_State *L, val *v, int ref) {
 }
 
 bool unmap_lua (lua_State *L, int i) {
-  lua_pushvalue(L, i); // tbl
-  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL); // tbl map
-  lua_insert(L, -2); // map tbl
+  lua_pushvalue(L, i);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL);
+  lua_insert(L, -2);
   int t = lua_gettable(L, -2);
-  if (t == LUA_TNIL) { // map val
-    lua_pop(L, 2); //
+  if (t == LUA_TNIL) {
+    lua_pop(L, 2);
     return false;
-  } else { // map lu
-    push_val(L, (val *)lua_touserdata(L, -1)); // map lu val
-    lua_remove(L, -3); // lu val
-    lua_remove(L, -2); // val
+  } else {
+    push_val(L, (val *)lua_touserdata(L, -1));
+    lua_remove(L, -3);
+    lua_remove(L, -2);
     return true;
   }
 }
 
 void map_js (lua_State *L, val *v, int i) {
-  lua_pushvalue(L, i); // lua
-  int ref = luaL_ref(L, LUA_REGISTRYINDEX); //
-  lua_rawgeti(L, LUA_REGISTRYINDEX, ref); // lua
+  lua_pushvalue(L, i);
+  int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
   int rc = EM_ASM_INT(({
     var v = Emval.toValue($0);
     if (v == null || v == undefined)
@@ -127,11 +137,11 @@ void map_js (lua_State *L, val *v, int i) {
   }), v->as_handle(), ref);
   if (rc == 1)
     return;
-  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL); // lua map
-  lua_insert(L, -2); // map lua
-  lua_pushlightuserdata(L, v); // map lua val
-  lua_settable(L, -3); // map
-  lua_pop(L, 1); //
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL);
+  lua_insert(L, -2);
+  lua_pushlightuserdata(L, v);
+  lua_settable(L, -3);
+  lua_pop(L, 1);
 }
 
 bool unmap_js (lua_State *L, val *key) {
@@ -191,7 +201,7 @@ void push_val_lua (lua_State *L, val *v, bool recurse) {
     bool x = v->as<bool>();
     lua_pushboolean(L, x);
   } else if (type == "object") {
-    if (!unmap_js(L, v)) { // val
+    if (!unmap_js(L, v)) {
       bool isNull = EM_ASM_INT(({
         return Emval.toValue($0) == null
           ? 1 : 0;
@@ -203,14 +213,14 @@ void push_val_lua (lua_State *L, val *v, bool recurse) {
           return Emval.toValue($0) instanceof Promise
             ? 1 : 0;
         }), v->as_handle());
-        lua_newtable(L); // ret
+        lua_newtable(L);
         luaL_setmetatable(L, isPromise ? MTP : MTO);
         map_js(L, v, -1);
       }
     }
   } else if (type == "function") {
     if (!unmap_js(L, v)) {
-      lua_newtable(L); // ret
+      lua_newtable(L);
       luaL_setmetatable(L, MTF);
       map_js(L, v, -1);
     }
@@ -250,20 +260,20 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
   } else if (type == LUA_TBOOLEAN) {
     push_val(L, new val(lua_toboolean(L, i) ? true : false));
   } else if (type == LUA_TTABLE) {
-    lua_pushvalue(L, i); // val
-    lua_pushvalue(L, -1); // val val
-    lua_getglobal(L, "require"); // val val req
-    lua_pushstring(L, "santoku.compat"); // val val req str
-    lua_call(L, 1, 1); // val val lib
-    lua_pushstring(L, "isarray"); // val val lib prop
-    lua_gettable(L, -2); // val val lib fn
-    lua_insert(L, -3); // val fn val lib
-    lua_pop(L, 1); // val fn val
-    lua_call(L, 1, 1); // val bool
+    lua_pushvalue(L, i);
+    lua_pushvalue(L, -1);
+    lua_getglobal(L, "require");
+    lua_pushstring(L, "santoku.compat");
+    lua_call(L, 1, 1);
+    lua_pushstring(L, "isarray");
+    lua_gettable(L, -2);
+    lua_insert(L, -3);
+    lua_pop(L, 1);
+    lua_call(L, 1, 1);
     bool isarray = lua_toboolean(L, -1);
-    lua_pop(L, 1); // val
+    lua_pop(L, 1);
     if (!recurse) {
-      int tblref = luaL_ref(L, LUA_REGISTRYINDEX); //
+      int tblref = luaL_ref(L, LUA_REGISTRYINDEX);
       push_val(L, new val(val::take_ownership((EM_VAL) EM_ASM_PTR(({
         try {
           var obj = $2 ? [] : {};
@@ -318,58 +328,64 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
       map_lua(L, v, tblref);
       set_islua(peek_val(L, -1));
     } else if (isarray) {
-      lua_pushvalue(L, -1); // val val
-      lua_getglobal(L, "require"); // val val req
-      lua_pushstring(L, "santoku.table"); // val val req str
-      lua_call(L, 1, 1); // val val lib
-      lua_pushstring(L, "len"); // val val lib prop
-      lua_gettable(L, -2); // val val lib fn
-      lua_insert(L, -3); // val fn val lib
-      lua_pop(L, 1); // val fn val
-      lua_call(L, 1, 1); // val int
+      lua_pushvalue(L, -1);
+      lua_getglobal(L, "require");
+      lua_pushstring(L, "santoku.table");
+      lua_call(L, 1, 1);
+      lua_pushstring(L, "len");
+      lua_gettable(L, -2);
+      lua_insert(L, -3);
+      lua_pop(L, 1);
+      lua_call(L, 1, 1);
       int len = lua_tointeger(L, -1);
-      lua_pop(L, 1); // val
+      lua_pop(L, 1);
       val *arr = new val(val::array());
       for (int j = 1; j <= len; j ++) {
-        lua_pushinteger(L, j); // val idx
-        lua_gettable(L, -2); // val prop
-        lua_to_val(L, -1, true); // val prop val
-        val *el = peek_val(L, -1); // val prop val
+        lua_pushinteger(L, j);
+        lua_gettable(L, -2);
+        lua_to_val(L, -1, true);
+        val *el = peek_val(L, -1);
         arr->set(j - 1, *el);
         lua_pop(L, 2);
       }
       lua_pop(L, 1);
       push_val(L, arr);
     } else {
-      val *obj = new val(val::object()); // val
-      lua_pushnil(L); // val nil
-      while (lua_next(L, -2) != 0) { // val k v
-        lua_to_val(L, -2, true); // val k v kk
-        lua_to_val(L, -2, true); // val k v kk vv
-        val *kk = peek_val(L, -2); // val k v kk vv
-        val *vv = peek_val(L, -1); // val k v kk vv
+      val *obj = new val(val::object());
+      lua_pushnil(L);
+      while (lua_next(L, -2) != 0) {
+        lua_to_val(L, -2, true);
+        lua_to_val(L, -2, true);
+        val *kk = peek_val(L, -2);
+        val *vv = peek_val(L, -1);
         obj->set(*kk, *vv);
-        lua_pop(L, 3); // val k
+        lua_pop(L, 3);
       }
       lua_pop(L, 1);
       push_val(L, obj);
     }
   } else if (type == LUA_TFUNCTION) {
-    lua_pushvalue(L, i); // val
-    int fnref = luaL_ref(L, LUA_REGISTRYINDEX); //
+    lua_pushvalue(L, i);
+    int fnref = luaL_ref(L, LUA_REGISTRYINDEX);
     push_val(L, new val(val::take_ownership((EM_VAL) EM_ASM_PTR(({
       try {
         return Emval.toHandle(new Proxy(function () {}, {
           apply(_, this_, args) {
             args.unshift(this_);
-            return Emval.toValue(Module.call($0, $1, Emval.toHandle(args)));
+            // TODO: not always object, do we
+            // need something like j_arg_type?
+            // This does seem to work..
+            var r = Module.ccall("j_call", "object",
+                ["number", "number", "object"],
+                [$0, $1, Emval.toHandle(args)]);
+            return Emval.toValue(r);
           }
         }))
       } catch (e) {
         Module.error($0, Emval.toHandle(e));
         return undefined;
       }
-    }), L, fnref)))); // val
+    }), L, fnref))));
     val *v = peek_val(L, -1);
     map_lua(L, v, fnref);
     set_islua(v);
@@ -396,6 +412,18 @@ int j_arg (int Lp, int i) {
   return (int)v;
 }
 
+// TODO: See other todos, I have a feeling we
+// need this, but just specifying "object"
+// during Module.ccall invocations seems to
+// work.
+/* const char *j_arg_type (int Lp, int i) { */
+/*   lua_State *L = (lua_State *)Lp; */
+/*   lua_to_val(L, i, false); */
+/*   const char *typ = peek_val(L, -1)->typeof().as<string>().c_str(); */
+/*   lua_pop(L, 1); */
+/*   return typ; */
+/* } */
+
 int j_args (int Lp, int arg0, int argc) {
   lua_State *L = (lua_State *)Lp;
   return (int) EM_ASM_PTR(({
@@ -409,8 +437,12 @@ int j_args (int Lp, int arg0, int argc) {
                 return { done: true };
               } else {
                 i = i + 1;
-                var arg = Module.arg($0, i + $1 - 1);
-                var val = Emval.toValue(arg);
+                /* var type = Module.ccall("j_arg_type", "string", */
+                /*     ["number", "number"], */
+                /*     [$0, i + $1 - 1]); */
+                var val = Emval.toValue(Module.ccall("j_arg", /* type */ "object",
+                  ["number", "number"],
+                  [$0, i + $1 - 1]));
                 return { done: false, value: val };
               }
             }
@@ -507,25 +539,30 @@ void j_error (int Lp, int ep) {
 
 int j_len (int Lp, int tblref) {
   lua_State *L = (lua_State *)Lp;
-  lua_getglobal(L, "require"); // fn
-  lua_pushstring(L, "santoku.table"); // fn mod
-  lua_call(L, 1, 1); // lib
-  lua_pushstring(L, "len"); // lib str
-  lua_gettable(L, -2); // lib fn
-  lua_rawgeti(L, LUA_REGISTRYINDEX, tblref); // lib fn val
-  lua_call(L, 1, 1); // lib len
+  lua_getglobal(L, "require");
+  lua_pushstring(L, "santoku.table");
+  lua_call(L, 1, 1);
+  lua_pushstring(L, "len");
+  lua_gettable(L, -2);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, tblref);
+  lua_call(L, 1, 1);
   int len = lua_tointeger(L, -1);
-  lua_pop(L, 2); //
+  lua_pop(L, 2);
   return len;
 }
 
+// TODO: In progres replacing direct Module.x
+// calls with Module.ccall("x", ...). Tests are
+// passing with only the commented ones. Do we
+// need the rest?
 EMSCRIPTEN_BINDINGS(santoku_web_val) {
   emscripten::function("error", &j_error, allow_raw_pointers());
-  emscripten::function("arg", &j_arg, allow_raw_pointers());
-  emscripten::function("args", &j_args, allow_raw_pointers());
+  /* emscripten::function("arg", &j_arg, allow_raw_pointers()); */
+  /* emscripten::function("args", &j_args, allow_raw_pointers()); */
+  /* emscripten::function("arg_type", &j_arg_type, allow_raw_pointers()); */
   emscripten::function("get", &j_get, allow_raw_pointers());
   emscripten::function("set", &j_set, allow_raw_pointers());
-  emscripten::function("call", &j_call, allow_raw_pointers());
+  /* emscripten::function("call", &j_call, allow_raw_pointers()); */
   emscripten::function("ownKeys", &j_ownKeys, allow_raw_pointers());
   emscripten::function("len", &j_len, allow_raw_pointers());
 }
@@ -567,16 +604,16 @@ int mt_null (lua_State *L) {
 }
 
 int mto_index (lua_State *L) {
-  lua_rawgeti(L, LUA_REGISTRYINDEX, MTO_FNS); // tbl key fns
-  lua_pushvalue(L, -2); // tbl key fns key
-  if (lua_gettable(L, -2) != LUA_TNIL) // tbl key fns fn
+  lua_rawgeti(L, LUA_REGISTRYINDEX, MTO_FNS);
+  lua_pushvalue(L, -2);
+  if (lua_gettable(L, -2) != LUA_TNIL)
     return 1;
-  lua_pop(L, 2); // tbl key
-  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL); // tbl key map
-  lua_pushvalue(L, -3); // tbl key map tbl
-  lua_gettable(L, -2); // tbl key map val
+  lua_pop(L, 2);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL);
+  lua_pushvalue(L, -3);
+  lua_gettable(L, -2);
   val *v = (val *)lua_touserdata(L, -1);
-  lua_to_val(L, -3, false); // tbl key map val keyl
+  lua_to_val(L, -3, false);
   val *k = peek_val(L, -1);
   val *n = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
     var v = Emval.toValue($0);
@@ -590,7 +627,6 @@ int mto_index (lua_State *L) {
 }
 
 int mto_newindex (lua_State *L) {
-  // tbl key value
   return mtv_set(L);
 }
 
@@ -609,50 +645,42 @@ int mto_typeof (lua_State *L) {
 }
 
 int mtp_index (lua_State *L) {
-  lua_rawgeti(L, LUA_REGISTRYINDEX, MTP_FNS); // tbl key fns
-  lua_pushvalue(L, -2); // tbl key fns key
-  if (lua_gettable(L, -2) != LUA_TNIL) // tbl key fns fn
+  lua_rawgeti(L, LUA_REGISTRYINDEX, MTP_FNS);
+  lua_pushvalue(L, -2);
+  if (lua_gettable(L, -2) != LUA_TNIL)
     return 1;
-  lua_pop(L, 2); // tbl key
+  lua_pop(L, 2);
   return mto_index(L);
 }
 
+EM_ASYNC_JS(int, run_await, (int ref), {
+  try {
+    var v = Emval.toValue(ref);
+    var r = await v;
+    return Emval.toHandle({ status: true, result: r });
+  } catch (e) {
+    return Emval.toHandle({ status: false, result: e });
+  }
+});
+
 int mtp_await (lua_State *L) {
   args_to_vals(L);
-  val *v = peek_val(L, -2);
-  val *f = peek_val(L, -1);
-  EM_ASM(({
-    var v = Emval.toValue($0);
-    var f = Emval.toValue($1);
-    v.then((...args) => {
-      try {
-        args.unshift(true);
-        var r = f(...args);
-        return r;
-      } catch (e) {
-        Module.error($0, Emval.toHandle(e));
-        return undefined;
-      }
-    }, (...args) => {
-      try {
-        args.unshift(false);
-        var r = f(...args);
-        return r;
-      } catch (e) {
-        Module.error($0, Emval.toHandle(e));
-        return undefined;
-      }
-    });
-  }), v->as_handle(), f->as_handle());
-  return 0;
+  val *v = peek_val(L, -1);
+  val *vv = new val(val::take_ownership((EM_VAL) run_await((int)v->as_handle())));
+  val *status = new val((*vv)["status"]);
+  val *result = new val((*vv)["result"]);
+  lua_pop(L, 1);
+  push_val_lua(L, status, false);
+  push_val_lua(L, result, false);
+  return 2;
 }
 
 int mtf_index (lua_State *L) {
-  lua_rawgeti(L, LUA_REGISTRYINDEX, MTF_FNS); // tbl key fns
-  lua_pushvalue(L, -2); // tbl key fns key
-  if (lua_gettable(L, -2) != LUA_TNIL) // tbl key fns fn
+  lua_rawgeti(L, LUA_REGISTRYINDEX, MTF_FNS);
+  lua_pushvalue(L, -2);
+  if (lua_gettable(L, -2) != LUA_TNIL)
     return 1;
-  lua_pop(L, 2); // tbl key
+  lua_pop(L, 2);
   return mto_index(L);
 }
 
@@ -809,7 +837,9 @@ int mtv_call (lua_State *L) {
       var ths = Emval.toValue($2);
       if (ths != undefined)
         fn = fn.bind(ths);
-      var args = Emval.toValue(Module.args($0, $3, $4));
+      var args = Emval.toValue(Module.ccall("j_args", "object",
+        ["number", "number", "number"],
+        [$0, $3, $4]));
       var args = [ ...args ];
       return Emval.toHandle(fn(...args));
     } catch (e) {
@@ -828,8 +858,12 @@ int mtv_new (lua_State *L) {
   val *r = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
     try {
       var obj = Emval.toValue($1);
-      var args = Emval.toValue(Module.args($0, $2, $3));
-      return Emval.toHandle(new obj(...args));
+      var args = Emval.toValue(Module.ccall("j_args", "object",
+        ["number", "number", "number"],
+        [$0, $2, $3]));
+      var args = [ ...args ];
+      var inst = new obj(...args);
+      return Emval.toHandle(inst);
     } catch (e) {
       Module.error($0, Emval.toHandle(e));
       return undefined;
@@ -882,49 +916,49 @@ luaL_Reg mt_fns[] = {
 
 int luaopen_santoku_web_val (lua_State *L) {
 
-  lua_newtable(L); // tbl
+  lua_newtable(L);
 
-  lua_newtable(L); // tbl mt
-  lua_pushcfunction(L, mt_call); // tbl mt ffn
-  lua_setfield(L, -2, "__call"); // tbl mt
-  lua_setmetatable(L, -2); // tbl
+  lua_newtable(L);
+  lua_pushcfunction(L, mt_call);
+  lua_setfield(L, -2, "__call");
+  lua_setmetatable(L, -2);
 
-  luaL_setfuncs(L, mt_fns, 0); // tbl
+  luaL_setfuncs(L, mt_fns, 0);
 
-  luaL_newmetatable(L, MTV); // .. mtv
-  lua_newtable(L); // mtv idx
-  luaL_setfuncs(L, mtv_fns, 0); // mtv idx
-  lua_setfield(L, -2, "__index"); // mtv
+  luaL_newmetatable(L, MTV);
+  lua_newtable(L);
+  luaL_setfuncs(L, mtv_fns, 0);
+  lua_setfield(L, -2, "__index");
   lua_pushcfunction(L, mto_newindex);
-  lua_setfield(L, -2, "__newindex"); // mtv
-  lua_pop(L, 1); // ..
+  lua_setfield(L, -2, "__newindex");
+  lua_pop(L, 1);
 
-  luaL_newmetatable(L, MTO); // .. mto
-  lua_pushcfunction(L, mto_index); // mto ifn
-  lua_setfield(L, -2, "__index"); // mto
+  luaL_newmetatable(L, MTO);
+  lua_pushcfunction(L, mto_index);
+  lua_setfield(L, -2, "__index");
   lua_pushcfunction(L, mto_newindex);
-  lua_setfield(L, -2, "__newindex"); // mtv
+  lua_setfield(L, -2, "__newindex");
   lua_pushcfunction(L, mto_len);
-  lua_setfield(L, -2, "__len"); // mtv
+  lua_setfield(L, -2, "__len");
   lua_pushcfunction(L, mto_pairs);
-  lua_setfield(L, -2, "__pairs"); // mtv
-  lua_pop(L, 1); // ..
+  lua_setfield(L, -2, "__pairs");
+  lua_pop(L, 1);
 
-  luaL_newmetatable(L, MTP); // .. mtp
-  lua_pushcfunction(L, mtp_index); // mtp ifn
-  lua_setfield(L, -2, "__index"); // mtp
+  luaL_newmetatable(L, MTP);
+  lua_pushcfunction(L, mtp_index);
+  lua_setfield(L, -2, "__index");
   lua_pushcfunction(L, mto_newindex);
-  lua_setfield(L, -2, "__newindex"); // mtv
-  lua_pop(L, 1); // ..
+  lua_setfield(L, -2, "__newindex");
+  lua_pop(L, 1);
 
-  luaL_newmetatable(L, MTF); // .. mtf
-  lua_pushcfunction(L, mtf_index); // mtp ifn
-  lua_setfield(L, -2, "__index"); // mtp
+  luaL_newmetatable(L, MTF);
+  lua_pushcfunction(L, mtf_index);
+  lua_setfield(L, -2, "__index");
   lua_pushcfunction(L, mto_newindex);
-  lua_setfield(L, -2, "__newindex"); // mtv
-  lua_pushcfunction(L, mtf_call); // mtp cfn
-  lua_setfield(L, -2, "__call"); // mtp
-  lua_pop(L, 1); // ..
+  lua_setfield(L, -2, "__newindex");
+  lua_pushcfunction(L, mtf_call);
+  lua_setfield(L, -2, "__call");
+  lua_pop(L, 1);
 
   EM_ASM(({
     Module.IDX_VAL_REF = new WeakMap();
