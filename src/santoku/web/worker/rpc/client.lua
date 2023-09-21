@@ -27,7 +27,7 @@ M.init = function (fp)
                 resolve(this, ev.data)
               end
             end):await())
-            return compat.unpack(ret)
+            return check(compat.unpack(ret))
           end)
         end
       end
