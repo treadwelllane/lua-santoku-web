@@ -1,5 +1,8 @@
 # Now
 
+- Clean up which functions return with push_val_lua
+  and which with push_val_lua: get, call,
+  typeof, etc
 - Date and other object gt, lt, etc. comparisons
 - Wrapped object equality checks
 - Basic README

@@ -5,8 +5,19 @@ local str = require("santoku.string")
 local history = js.history
 local document = js.document
 local Array = js.Array
+local Promise = js.Promise
 
 local M = {}
+
+M.promise = function (ok, res)
+  return Promise:new(function (this, resolve, reject)
+    if not ok then
+      reject(this, res)
+    else
+      resolve(this, res)
+    end
+  end)
+end
 
 M.forward = function (path, state, replace)
   state = val(state, true)
