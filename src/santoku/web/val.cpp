@@ -18,11 +18,13 @@ extern "C" {
   int luaopen_santoku_web_val (lua_State *);
   int j_arg (int, int);
 
-  // TODO: See todo at definition
-  /* const char *j_arg_type (int, int); */
-
+  void j_error (int, int);
   int j_args (int, int, int);
   int j_call (int, int, int);
+  int j_get (int, int, int);
+  void j_set (int, int, int, int);
+  int j_len (int, int);
+  int j_ownKeys (int, int);
 
 }
 
@@ -192,8 +194,12 @@ void push_val_lua (lua_State *L, val *v, bool recurse) {
     int64_t n = EM_ASM_INT(({
       var bi = Emval.toValue($1);
       if (bi > Number.MAX_SAFE_INTEGER ||
-          bi < Number.MIN_SAFE_INTEGER)
-        Module.error($0, "Conversion from bigint to number failed: too large or too small");
+          bi < Number.MIN_SAFE_INTEGER) {
+        Module.ccall("j_error", null,
+            ["number", "number"],
+            [$0, Emval.toHandle("Conversion from bigint to number failed: too large or too small")],
+            { async: false });
+      }
       return Number(bi);
     }), L, v->as_handle());
     lua_pushinteger(L, n);
@@ -282,12 +288,24 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
               var isnumber;
               try { isnumber = !isNaN(+k); }
               catch (_) { isnumber = false; }
-              if (o instanceof Array && k == "length")
-                return Module.len($0, $1);
-              if (o instanceof Array && isnumber)
-                return Emval.toValue(Module.get($0, $1, Emval.toHandle(+k + 1)));
-              if (typeof k == "string")
-                return Emval.toValue(Module.get($0, $1, Emval.toHandle(k)));
+              if (o instanceof Array && k == "length") {
+                return Module.ccall("j_len", "number",
+                  ["number", "number"],
+                  [$0, $1],
+                  { async: false });
+              }
+              if (o instanceof Array && isnumber) {
+                return Emval.toValue(Module.ccall("j_get", "number",
+                      ["number", "number", "number"],
+                      [$0, $1, Emval.toHandle(+k + 1)],
+                      { async: false }));
+              }
+              if (typeof k == "string") {
+                return Emval.toValue(Module.ccall("j_get", "number",
+                      ["number", "number", "number"],
+                      [$0, $1, Emval.toHandle(k)]),
+                      { async: false });
+              }
               if (k == Symbol.iterator) {
                 // TODO: This creates an
                 // intermediary array, which is not
@@ -307,21 +325,34 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
               };
             },
             ownKeys(o) {
-              var keys = Emval.toValue(Module.ownKeys($0, $1));
+              var keys = Emval.toValue(Module.ccall("j_ownKeys", "number",
+                    ["number", "number"],
+                    [$0, $1],
+                    { async: false }));
               if (o instanceof Array)
                 keys.push("length");
               return keys;
             },
             set(o, v, k) {
-              if (o instanceof Array && typeof k == "number")
-                Module.set($0, $1, Emval.toHandle(k + 1), Emval.toHandle(v));
-              else
-                Module.set($0, $1, Emval.toHandle(k), Emval.toHandle(v));
+              if (o instanceof Array && typeof k == "number") {
+                Module.ccall("j_set", null,
+                    ["number", "number", "number", "number"],
+                    [$0, $1, Emval.toHandle(k + 1), Emval.toHandle(v)],
+                    { async: false });
+              }
+              else {
+                Module.ccall("j_set", null,
+                    ["number", "number", "number", "number"],
+                    [$0, $1, Emval.toHandle(k), Emval.toHandle(v)],
+                    { async: false });
+              }
             }
           }))
         } catch (e) {
-          Module.error($0, Emval.toHandle(e));
-          return undefined;
+          Module.ccall("j_error", null,
+              ["number", "number"],
+              [$0, Emval.toHandle(e)],
+              { async: false });
         }
       }), L, tblref, isarray))));
       val *v = peek_val(L, -1);
@@ -372,18 +403,23 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
         return Emval.toHandle(new Proxy(function () {}, {
           apply(_, this_, args) {
             args.unshift(this_);
-            // TODO: not always object, do we
-            // need something like j_arg_type?
-            // This does seem to work..
-            var r = Module.ccall("j_call", "object",
-                ["number", "number", "object"],
-                [$0, $1, Emval.toHandle(args)]);
-            return Emval.toValue(r);
+            return Module.toValue(Module.ccall("j_call", "number",
+                  ["number", "number", "number"],
+                  [$0, $1, Emval.toHandle(args)],
+                  /* TODO: Ideally, we should check */
+                  /* if this function is currently */
+                  /* running asynchronously, and */
+                  /* only then pass async: true. */
+                  /* Oddly though, this seems to */
+                  /* work. */
+                  { async: true }));
           }
         }))
       } catch (e) {
-        Module.error($0, Emval.toHandle(e));
-        return undefined;
+        Module.ccall("j_error", null,
+            ["number", "number"],
+            [$0, Emval.toHandle(e)],
+            { async: false });
       }
     }), L, fnref))));
     val *v = peek_val(L, -1);
@@ -412,18 +448,6 @@ int j_arg (int Lp, int i) {
   return (int)v;
 }
 
-// TODO: See other todos, I have a feeling we
-// need this, but just specifying "object"
-// during Module.ccall invocations seems to
-// work.
-/* const char *j_arg_type (int Lp, int i) { */
-/*   lua_State *L = (lua_State *)Lp; */
-/*   lua_to_val(L, i, false); */
-/*   const char *typ = peek_val(L, -1)->typeof().as<string>().c_str(); */
-/*   lua_pop(L, 1); */
-/*   return typ; */
-/* } */
-
 int j_args (int Lp, int arg0, int argc) {
   lua_State *L = (lua_State *)Lp;
   return (int) EM_ASM_PTR(({
@@ -437,12 +461,10 @@ int j_args (int Lp, int arg0, int argc) {
                 return { done: true };
               } else {
                 i = i + 1;
-                /* var type = Module.ccall("j_arg_type", "string", */
-                /*     ["number", "number"], */
-                /*     [$0, i + $1 - 1]); */
-                var val = Emval.toValue(Module.ccall("j_arg", /* type */ "object",
-                  ["number", "number"],
-                  [$0, i + $1 - 1]));
+                var val = Emval.toValue(Module.ccall("j_arg", "number",
+                      ["number", "number"],
+                      [$0, i + $1 - 1],
+                      { async: false }));
                 return { done: false, value: val };
               }
             }
@@ -450,8 +472,10 @@ int j_args (int Lp, int arg0, int argc) {
         }
       })
     } catch (e) {
-      Module.error($0, Emval.toHandle(e));
-      return undefined;
+      Module.ccall("j_error", null,
+          ["number", "number"],
+          [$0, Emval.toHandle(e)],
+          { async: false });
     }
   }), Lp, arg0, argc);
 }
@@ -474,8 +498,10 @@ int j_ownKeys (int Lp, int tblref) {
           return Emval.toHandle(String(v));
         }
       } catch (e) {
-        Module.error($0, Emval.toHandle(e));
-        return undefined;
+        Module.ccall("j_error", null,
+            ["number", "number"],
+            [$0, Emval.toHandle(e)],
+            { async: false });
       }
     }), keys->as_handle(), v->as_handle())));
     keys->call<val>("push", *s);
@@ -549,22 +575,6 @@ int j_len (int Lp, int tblref) {
   int len = lua_tointeger(L, -1);
   lua_pop(L, 2);
   return len;
-}
-
-// TODO: In progres replacing direct Module.x
-// calls with Module.ccall("x", ...). Tests are
-// passing with only the commented ones. Do we
-// need the rest?
-EMSCRIPTEN_BINDINGS(santoku_web_val) {
-  emscripten::function("error", &j_error, allow_raw_pointers());
-  /* emscripten::function("arg", &j_arg, allow_raw_pointers()); */
-  /* emscripten::function("args", &j_args, allow_raw_pointers()); */
-  /* emscripten::function("arg_type", &j_arg_type, allow_raw_pointers()); */
-  emscripten::function("get", &j_get, allow_raw_pointers());
-  emscripten::function("set", &j_set, allow_raw_pointers());
-  /* emscripten::function("call", &j_call, allow_raw_pointers()); */
-  emscripten::function("ownKeys", &j_ownKeys, allow_raw_pointers());
-  emscripten::function("len", &j_len, allow_raw_pointers());
 }
 
 int mt_call (lua_State *L) {
@@ -837,14 +847,17 @@ int mtv_call (lua_State *L) {
       var ths = Emval.toValue($2);
       if (ths != undefined)
         fn = fn.bind(ths);
-      var args = Emval.toValue(Module.ccall("j_args", "object",
+      var args = Emval.toValue(Module.ccall("j_args", "number",
         ["number", "number", "number"],
-        [$0, $3, $4]));
+        [$0, $3, $4],
+        { async: false }));
       var args = [ ...args ];
       return Emval.toHandle(fn(...args));
     } catch (e) {
-      Module.error($0, Emval.toHandle(e));
-      return undefined;
+      Module.ccall("j_error", null,
+          ["number", "number"],
+          [$0, Emval.toHandle(e)],
+          { async: false });
     }
   }), L, v->as_handle(), t->as_handle(), -n + 2, n - 2)));
   push_val(L, r);
@@ -858,15 +871,18 @@ int mtv_new (lua_State *L) {
   val *r = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
     try {
       var obj = Emval.toValue($1);
-      var args = Emval.toValue(Module.ccall("j_args", "object",
+      var args = Emval.toValue(Module.ccall("j_args", "number",
         ["number", "number", "number"],
-        [$0, $2, $3]));
+        [$0, $2, $3],
+        { async: false }));
       var args = [ ...args ];
       var inst = new obj(...args);
       return Emval.toHandle(inst);
     } catch (e) {
-      Module.error($0, Emval.toHandle(e));
-      return undefined;
+      Module.ccall("j_error", null,
+          ["number", "number"],
+          [$0, Emval.toHandle(e)],
+          { async: false });
     }
   }), L, v->as_handle(), -n + 1, n - 1)));
   push_val(L, r);
@@ -983,6 +999,13 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_newtable(L);
   luaL_setfuncs(L, mtf_fns, 0);
   MTF_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
+
+  EM_ASM({
+    Module.toValue = function (p) {
+      return p instanceof Promise
+        ? p : Emval.toValue(p);
+    }
+  });
 
   return 1;
 }

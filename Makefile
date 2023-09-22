@@ -1,5 +1,5 @@
 NAME ?= santoku-web
-VERSION ?= 0.0.56-1
+VERSION ?= 0.0.57-1
 GIT_URL ?= git@github.com:treadwelllane/lua-santoku-web.git
 HOMEPAGE ?= https://github.com/treadwelllane/lua-santoku-web
 LICENSE ?= MIT
@@ -16,7 +16,7 @@ BUILD_CPP ?= $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.so, $(SRC_CPP))
 INST_LUA ?= $(patsubst $(SRC_DIR)/%.lua, $(INST_LUADIR)/%.lua, $(SRC_LUA))
 INST_CPP ?= $(patsubst $(SRC_DIR)/%.cpp, $(INST_LIBDIR)/%.so, $(SRC_CPP))
 
-ASYNCIFY_FLAGS ?= -sASYNCIFY=1 -sASSERTIONS -O3 -sEXPORTED_RUNTIME_METHODS=ccall -sEXPORTED_FUNCTIONS=_main,_j_args,_j_arg,_j_call
+ASYNCIFY_FLAGS ?= -sASYNCIFY=1 -sASSERTIONS -O3 -sEXPORTED_RUNTIME_METHODS=ccall -sEXPORTED_FUNCTIONS=_main,_j_args,_j_arg,_j_call,_j_set,_j_get,_j_len,_j_ownKeys,_j_error
 
 LOCAL_CFLAGS ?= $(if $(LUA_INCDIR), -I$(LUA_INCDIR)) --std=c++17 --bind $(ASYNCIFY_FLAGS)
 LOCAL_LDFLAGS ?= $(if $(LUA_LIBDIR), -L$(LUA_LIBDIR)) $(ASYNCIFY_FLAGS)
