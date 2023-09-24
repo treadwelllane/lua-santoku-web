@@ -5,7 +5,6 @@ HOMEPAGE ?= https://github.com/treadwelllane/lua-santoku-web
 LICENSE ?= MIT
 
 BUILD_DIR ?= build/work
-TEST_DIR ?= build/test
 CONFIG_DIR ?= config
 SRC_DIR ?= src
 
@@ -16,10 +15,19 @@ BUILD_CPP ?= $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.so, $(SRC_CPP))
 INST_LUA ?= $(patsubst $(SRC_DIR)/%.lua, $(INST_LUADIR)/%.lua, $(SRC_LUA))
 INST_CPP ?= $(patsubst $(SRC_DIR)/%.cpp, $(INST_LIBDIR)/%.so, $(SRC_CPP))
 
-ASYNCIFY_FLAGS ?= -sASYNCIFY=1 -sASSERTIONS -O3 -sEXPORTED_RUNTIME_METHODS=ccall -sEXPORTED_FUNCTIONS=_main,_j_args,_j_arg,_j_call,_j_set,_j_get,_j_len,_j_ownKeys,_j_error
+ifeq ($(ASYNCIFY),1)
+ASYNCIFY_CFLAGS ?= -DASYNCIFY -O3
+# TODO: Should only specify -sASSERTIONS by
+# default when compiling for tests
+ASYNCIFY_LDFLAGS ?= -sASYNCIFY=1 -sASSERTIONS -O3
+ASYNCIFY_LDFLAGS_LIB ?= $(ASYNCIFY_LDFLAGS)
+TEST_DIR ?= build/test-asyncify
+else
+TEST_DIR ?= build/test
+endif
 
-LOCAL_CFLAGS ?= $(if $(LUA_INCDIR), -I$(LUA_INCDIR)) --std=c++17 --bind $(ASYNCIFY_FLAGS)
-LOCAL_LDFLAGS ?= $(if $(LUA_LIBDIR), -L$(LUA_LIBDIR)) $(ASYNCIFY_FLAGS)
+LOCAL_CFLAGS ?= $(if $(LUA_INCDIR), -I$(LUA_INCDIR)) --std=c++17 --bind $(ASYNCIFY_CFLAGS)
+LOCAL_LDFLAGS ?= $(if $(LUA_LIBDIR), -L$(LUA_LIBDIR)) -sEXPORTED_RUNTIME_METHODS=ccall -sEXPORTED_FUNCTIONS=_main,_j_args,_j_arg,_j_call,_j_set,_j_get,_j_len,_j_ownKeys,_j_error $(ASYNCIFY_LDFLAGS_LIB)
 
 LIBFLAG ?= -shared
 
@@ -29,22 +37,32 @@ ROCKSPEC_T ?= $(CONFIG_DIR)/template.rockspec
 LUAROCKS ?= luarocks
 
 TEST_SPEC_DIST_DIR ?= $(TEST_DIR)/spec
+TEST_SPEC_WORK_DIR ?= $(TEST_DIR)/work/spec
 TEST_SPEC_SRC_DIR ?= test/spec
 
 TEST_SPEC_SRCS ?= $(shell find $(TEST_SPEC_SRC_DIR) -type f -name '*.lua')
 TEST_SPEC_DISTS ?= $(patsubst $(TEST_SPEC_SRC_DIR)/%.lua, $(TEST_SPEC_DIST_DIR)/%.test, $(TEST_SPEC_SRCS))
 
+ifdef TEST
+TESTED_FILES := $(patsubst $(TEST_SPEC_SRC_DIR)/%.lua, $(TEST_SPEC_DIST_DIR)/%.test, $(TEST))
+else
+TESTED_FILES = $(TEST_SPEC_DISTS)
+endif
+
+SANITIZER_FLAGS ?= #-fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-return=always -fsanitize-address-use-after-scope
+SANITIZER_VARS ?= #ASAN_SYMBOLIZER_PATH="$(shell which llvm-symbolizer)"
+
 TEST_CC ?= emcc
-TEST_EM_VARS ?= CC="$(TEST_CC)" LD="$(TEST_CC)" AR="emar rcu" NM="emnm" RANLIB="emranlib"
-TEST_CFLAGS ?= -I $(TEST_LUA_INC_DIR) --bind $(ASYNCIFY_FLAGS)
-TEST_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) $(ASYNCIFY_FLAGS) -lnodefs.js -lnoderawfs.js
+TEST_EM_VARS ?= $(SANITIZER_VARS) CC="$(TEST_CC)" LD="$(TEST_CC)" AR="emar rcu" NM="emnm" RANLIB="emranlib"
+TEST_CFLAGS ?= -I $(TEST_LUA_INC_DIR) --bind -sALLOW_MEMORY_GROWTH $(ASYNCIFY_CFLAGS) $(SANITIZER_FLAGS)
+TEST_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) $(ASYNCIFY_LDFLAGS_LIB) $(SANITIZER_FLAGS) -lnodefs.js -lnoderawfs.js
 TEST_VARS ?= $(TEST_EM_VARS) LUAROCKS='$(TEST_LUAROCKS)' BUILD_DIR="$(TEST_DIR)/build" CFLAGS="$(TEST_CFLAGS)" LDFLAGS="$(TEST_LDFLAGS)" LIBFLAG="$(TEST_LIBFLAG)"
 TEST_LUAROCKS_VARS ?= $(TEST_EM_VARS)	CFLAGS="$(TEST_LUAROCKS_CFLAGS)" LDFLAGS="$(TEST_LUAROCKS_LDFLAGS)" LIBFLAG="$(TEST_LUAROCKS_LIBFLAG)"
-TEST_LUAROCKS_CFLAGS ?= -I $(TEST_LUA_INC_DIR) $(CFLAGS) $(ASYNCIFY_FLAGS)
-TEST_LUAROCKS_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LDFLAGS) $(ASYNCIFY_FLAGS)
+TEST_LUAROCKS_CFLAGS ?= -I $(TEST_LUA_INC_DIR) $(CFLAGS) $(ASYNCIFY_CFLAGS)
+TEST_LUAROCKS_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LDFLAGS) $(ASYNCIFY_LDFLAGS_LIB)
 TEST_LUAROCKS_LIBFLAG ?= $(LIBFLAG)
-TEST_LUA_CFLAGS ?= $(CFLAGS) $(ASYNCIFY_FLAGS)
-TEST_LUA_LDFLAGS ?= $(LDFLAGS) $(ASYNCIFY_FLAGS) -lnodefs.js -lnoderawfs.js
+TEST_LUA_CFLAGS ?= $(CFLAGS) $(ASYNCIFY_CFLAGS)
+TEST_LUA_LDFLAGS ?= $(LDFLAGS) $(ASYNCIFY_LDFLAGS) -lnodefs.js -lnoderawfs.js
 TEST_LUA_VARS ?= $(TEST_EM_VARS) CFLAGS="$(TEST_LUA_CFLAGS)" LDFLAGS="$(TEST_LUA_LDFLAGS)"
 TEST_LUA_PATH ?= $(TEST_LUAROCKS_TREE)/share/lua/$(TEST_LUA_MINMAJ)/?.lua;$(TEST_LUAROCKS_TREE)/share/lua/$(TEST_LUA_MINMAJ)/?/init.lua
 TEST_LUA_CPATH ?= $(TEST_LUAROCKS_TREE)/lib/lua/$(TEST_LUA_MINMAJ)/?.so
@@ -55,8 +73,8 @@ TEST_LUAROCKS_TREE ?= $(TEST_DIR)/luarocks
 TEST_LUAROCKS ?= LUAROCKS_CONFIG="$(TEST_LUAROCKS_CFG)" luarocks --tree "$(TEST_LUAROCKS_TREE)"
 
 TEST_LUA_VERSION ?= 5.4.4
-TEST_LUA_MAKE ?= $(MAKE) $(TEST_LUA_VARS)
-TEST_LUA_MAKE_LOCAL ?= $(MAKE) $(TEST_LUA_VARS) local
+TEST_LUA_MAKE ?= $(TEST_EM_VARS) $(MAKE) $(TEST_LUA_VARS)
+TEST_LUA_MAKE_LOCAL ?= $(TEST_EM_VARS) $(MAKE) $(TEST_LUA_VARS) local
 TEST_LUA_MINMAJ ?= $(shell echo $(TEST_LUA_VERSION) | grep -o ".\..")
 TEST_LUA_ARCHIVE ?= lua-$(TEST_LUA_VERSION).tar.gz
 TEST_LUA_DL ?= $(TEST_DIR)/$(TEST_LUA_ARCHIVE)
@@ -108,9 +126,9 @@ iterate: $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_LUA_DIST_DIR)
 	done
 
 # TODO: This should be luarocks-install, but how to we set INST_LIB/BINDIR?
-luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_SPEC_DISTS) $(TEST_LUACOV_CFG)
+luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TESTED_FILES) $(TEST_LUACOV_CFG)
 	@if LUA_PATH="$(TEST_LUA_PATH)" LUA_CPATH="$(TEST_LUA_CPATH)" \
-		toku test -s -i node $(TEST_SPEC_DISTS); \
+		toku test -s -i node $(TESTED_FILES); \
 	then \
 		luacov -c "$(PWD)/$(TEST_LUACOV_CFG)"; \
 		cat "$(TEST_LUACOV_REPORT_FILE)" | \
@@ -158,7 +176,7 @@ $(TEST_LUAROCKS_CFG): $(TEST_LUAROCKS_CFG_T)
 			-f "$(TEST_LUAROCKS_CFG_T)" \
 			-o "$(TEST_LUAROCKS_CFG)"
 
-$(TEST_SPEC_DIST_DIR)/%.test: $(TEST_SPEC_SRC_DIR)/%.lua
+$(TEST_SPEC_DIST_DIR)/%.test: $(TEST_SPEC_WORK_DIR)/%.lua
 	mkdir -p "$(dir $@)"
 	$(TEST_VARS) toku bundle -C -M -f "$<" -o "$(dir $@)" -O "$(notdir $@)" \
 		-e LUA_PATH "$(TEST_LUA_PATH)" \
@@ -166,6 +184,11 @@ $(TEST_SPEC_DIST_DIR)/%.test: $(TEST_SPEC_SRC_DIR)/%.lua
 		-E LUACOV_CONFIG "$(PWD)/$(TEST_LUACOV_CFG)" \
 		-l luacov -l luacov.hook \
 		-i debug
+
+$(TEST_SPEC_WORK_DIR)/%.lua: $(TEST_SPEC_SRC_DIR)/%.lua
+	mkdir -p "$(dir $@)"
+	ASYNCIFY=$(ASYNCIFY) \
+		$(TEST_VARS) toku template -f "$<" -o "$@"
 
 $(TEST_LUACOV_CFG): $(TEST_LUACOV_CFG_T)
 	mkdir -p "$(dir $@)"

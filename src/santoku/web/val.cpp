@@ -65,6 +65,8 @@ int mtv_new (lua_State *);
 int mtv_call (lua_State *);
 int mtv_set (lua_State *);
 bool unmap_lua (lua_State *, int);
+bool unmap_js (lua_State *, val *);
+void map_js (lua_State *, val *, int, int);
 
 void args_to_vals (lua_State *L) {
   int argc = lua_gettop(L);
@@ -126,9 +128,12 @@ bool unmap_lua (lua_State *L, int i) {
   }
 }
 
-void map_js (lua_State *L, val *v, int i) {
+void map_js (lua_State *L, val *v, int i, int ref) {
   lua_pushvalue(L, i);
-  int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  if (ref == LUA_NOREF)
+    ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  else
+    lua_pop(L, 1);
   lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
   int rc = EM_ASM_INT(({
     var v = Emval.toValue($0);
@@ -221,14 +226,14 @@ void push_val_lua (lua_State *L, val *v, bool recurse) {
         }), v->as_handle());
         lua_newtable(L);
         luaL_setmetatable(L, isPromise ? MTP : MTO);
-        map_js(L, v, -1);
+        map_js(L, v, -1, LUA_NOREF);
       }
     }
   } else if (type == "function") {
     if (!unmap_js(L, v)) {
       lua_newtable(L);
       luaL_setmetatable(L, MTF);
-      map_js(L, v, -1);
+      map_js(L, v, -1, LUA_NOREF);
     }
   } else if (type == "undefined") {
     lua_pushnil(L);
@@ -236,20 +241,6 @@ void push_val_lua (lua_State *L, val *v, bool recurse) {
     printf("Unhandled JS type, pushing nil: %s\n", type.c_str());
     lua_pushnil(L);
   }
-}
-
-void set_islua (val *v) {
-  EM_ASM(({
-    var v = Emval.toValue($0);
-    Module.IDX_IS_LUA.add(v);
-  }), v->as_handle());
-}
-
-bool get_islua (val *v) {
-  return (bool) EM_ASM_INT(({
-    var v = Emval.toValue($0);
-    return Module.IDX_IS_LUA.has(v);
-  }), v->as_handle());
 }
 
 int lua_to_val (lua_State *L, int i, bool recurse) {
@@ -296,14 +287,14 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
               }
               if (o instanceof Array && isnumber) {
                 return Emval.toValue(Module.ccall("j_get", "number",
-                      ["number", "number", "number"],
-                      [$0, $1, Emval.toHandle(+k + 1)],
+                      ["number", "number", "number", "number"],
+                      [$0, $1, Emval.toHandle(+k + 1), 0],
                       { async: false }));
               }
               if (typeof k == "string") {
                 return Emval.toValue(Module.ccall("j_get", "number",
-                      ["number", "number", "number"],
-                      [$0, $1, Emval.toHandle(k)]),
+                      ["number", "number", "number", "number"],
+                      [$0, $1, Emval.toHandle(k), 1]),
                       { async: false });
               }
               if (k == Symbol.iterator) {
@@ -356,8 +347,9 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
         }
       }), L, tblref, isarray))));
       val *v = peek_val(L, -1);
-      map_lua(L, v, tblref);
-      set_islua(peek_val(L, -1));
+      lua_rawgeti(L, LUA_REGISTRYINDEX, tblref);
+      map_js(L, v, -1, tblref);
+      lua_pop(L, 1);
     } else if (isarray) {
       lua_pushvalue(L, -1);
       lua_getglobal(L, "require");
@@ -406,6 +398,7 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
             return Module.toValue(Module.ccall("j_call", "number",
                   ["number", "number", "number"],
                   [$0, $1, Emval.toHandle(args)],
+#ifdef ASYNCIFY
                   /* TODO: Ideally, we should check */
                   /* if this function is currently */
                   /* running asynchronously, and */
@@ -413,6 +406,9 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
                   /* Oddly though, this seems to */
                   /* work. */
                   { async: true }));
+#else
+                  { async: false }));
+#endif
           }
         }))
       } catch (e) {
@@ -423,8 +419,9 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
       }
     }), L, fnref))));
     val *v = peek_val(L, -1);
-    map_lua(L, v, fnref);
-    set_islua(v);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, fnref);
+    map_js(L, v, -1, fnref);
+    lua_pop(L, 1);
   } else if (type == LUA_TUSERDATA) {
     // TODO: Should this really just be passed
     // through?
@@ -663,6 +660,8 @@ int mtp_index (lua_State *L) {
   return mto_index(L);
 }
 
+#ifdef ASYNCIFY
+
 EM_ASYNC_JS(int, run_await, (int ref), {
   try {
     var v = Emval.toValue(ref);
@@ -684,6 +683,33 @@ int mtp_await (lua_State *L) {
   push_val_lua(L, result, false);
   return 2;
 }
+
+#else
+
+int mtp_await (lua_State *L) {
+  args_to_vals(L);
+  val *v = peek_val(L, -2);
+  val *f = peek_val(L, -1);
+  EM_ASM(({
+    var v = Emval.toValue($0);
+    var f = Emval.toValue($1);
+    /* NOTE: Intentionally not catching errors in the */
+    /* callback so they're thrown to javascript. Lua */
+    /* won't be able to handle them at this point. */
+    v.then((...args) => {
+      args.unshift(true);
+      var r = f(...args);
+      return r;
+    }, (...args) => {
+      args.unshift(false);
+      var r = f(...args);
+      return r;
+    });
+  }), v->as_handle(), f->as_handle());
+  return 0;
+}
+
+#endif
 
 int mtf_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTF_FNS);
@@ -754,16 +780,6 @@ int mtv_set (lua_State *L) {
   val *o = peek_val(L, -3);
   o->set(*k, *v);
   return 0;
-}
-
-int mtv_isval (lua_State *L) {
-  lua_pushboolean(L, !get_islua(peek_val(L, -1)));
-  return 1;
-}
-
-int mtv_islua (lua_State *L) {
-  lua_pushboolean(L, get_islua(peek_val(L, -1)));
-  return 1;
 }
 
 int mto_pairs_closure (lua_State *L) {
@@ -849,8 +865,7 @@ int mtv_call (lua_State *L) {
         fn = fn.bind(ths);
       var args = Emval.toValue(Module.ccall("j_args", "number",
         ["number", "number", "number"],
-        [$0, $3, $4],
-        { async: false }));
+        [$0, $3, $4]));
       var args = [ ...args ];
       return Emval.toHandle(fn(...args));
     } catch (e) {
@@ -912,8 +927,6 @@ luaL_Reg mtv_fns[] = {
   { "lua", mtv_lua },
   { "get", mtv_get },
   { "set", mtv_set },
-  { "islua", mtv_islua },
-  { "isval", mtv_isval },
   { "typeof", mtv_typeof },
   { "instanceof", mtv_instanceof },
   { "call", mtv_call },
@@ -978,7 +991,6 @@ int luaopen_santoku_web_val (lua_State *L) {
 
   EM_ASM(({
     Module.IDX_VAL_REF = new WeakMap();
-    Module.IDX_IS_LUA = new WeakSet();
   }));
 
   lua_newtable(L);
@@ -1000,12 +1012,24 @@ int luaopen_santoku_web_val (lua_State *L) {
   luaL_setfuncs(L, mtf_fns, 0);
   MTF_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
 
+#ifdef ASYNCIFY
+
   EM_ASM({
-    Module.toValue = function (p) {
+    Module.toValue = function (p, ...args) {
       return p instanceof Promise
-        ? p : Emval.toValue(p);
+        ? p : Emval.toValue(p, ...args);
     }
   });
+
+#else
+
+  EM_ASM({
+    Module.toValue = function (...args) {
+      return Emval.toValue(...args);
+    }
+  });
+
+#endif
 
   return 1;
 }

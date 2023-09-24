@@ -1,5 +1,3 @@
--- TODO: low-level binding to emscripten/val.h
-
 local assert = require("luassert")
 local test = require("santoku.test")
 local str = require("santoku.string")

@@ -8,6 +8,8 @@ local Promise = js.Promise
 
 test("asyncify", function ()
 
+<% template:show(os.getenv("ASYNCIFY") == "1") %>
+
   test("promise setTimeout", function ()
     local p = Promise:new(function (this, resolve)
       global:setTimeout(function ()
@@ -18,5 +20,9 @@ test("asyncify", function ()
     assert.equals(true, ok)
     assert.equals(10, res)
   end)
+
+<% template:show(os.getenv("ASYNCIFY") ~= "1") %>
+
+<% template:show() %>
 
 end)
