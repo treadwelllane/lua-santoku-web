@@ -4,7 +4,6 @@ local err = require("santoku.err")
 local tup = require("santoku.tuple")
 local compat = require("santoku.compat")
 
-local Promise = js.Promise
 local Worker = js.Worker
 local MessageChannel = js.MessageChannel
 
@@ -15,20 +14,19 @@ M.init = function (fp)
     local worker = check(pcall(Worker.new, Worker, fp))
     return setmetatable({}, {
       __index = function (_, k)
-        -- TODO: get await working with this
         return function (...)
-          local args = tup(...)
-          return err.pwrap(function (check)
-            local ret = check(Promise:new(function (this, resolve)
-              local mc = MessageChannel:new()
-              local args = val({ k, args() }, true)
-              worker:postMessage(args, { mc.port2 })
-              mc.port1.onmessage = function (_, ev)
-                resolve(this, ev.data)
-              end
-            end):await())
-            return check(compat.unpack(ret))
-          end)
+          local mc = MessageChannel:new()
+          local n = tup.len(...)
+          -- TODO: Consider await or similar
+          -- structure instead of expecting a
+          -- callback as the last function
+          -- argument, which might be confusing.
+          local callback = tup.get(n, ...)
+          local args = val({ k, tup.take(n - 1, ...) }, true)
+          worker:postMessage(args, { mc.port2 })
+          mc.port1.onmessage = function (_, ev)
+            callback(compat.unpack(ev.data))
+          end
         end
       end
     }), worker
