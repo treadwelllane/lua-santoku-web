@@ -5,6 +5,7 @@ HOMEPAGE ?= https://github.com/treadwelllane/lua-santoku-web
 LICENSE ?= MIT
 
 BUILD_DIR ?= build/work
+TEST_DIR ?= build/test
 CONFIG_DIR ?= config
 SRC_DIR ?= src
 
@@ -15,19 +16,8 @@ BUILD_CPP ?= $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.so, $(SRC_CPP))
 INST_LUA ?= $(patsubst $(SRC_DIR)/%.lua, $(INST_LUADIR)/%.lua, $(SRC_LUA))
 INST_CPP ?= $(patsubst $(SRC_DIR)/%.cpp, $(INST_LIBDIR)/%.so, $(SRC_CPP))
 
-ifeq ($(ASYNCIFY),1)
-ASYNCIFY_CFLAGS ?= -DASYNCIFY -O3
-# TODO: Should only specify -sASSERTIONS by
-# default when compiling for tests
-ASYNCIFY_LDFLAGS ?= -sASYNCIFY=1 -sASSERTIONS -O3
-ASYNCIFY_LDFLAGS_LIB ?= $(ASYNCIFY_LDFLAGS)
-TEST_DIR ?= build/test-asyncify
-else
-TEST_DIR ?= build/test
-endif
-
-LOCAL_CFLAGS ?= $(if $(LUA_INCDIR), -I$(LUA_INCDIR)) --std=c++17 --bind $(ASYNCIFY_CFLAGS)
-LOCAL_LDFLAGS ?= $(if $(LUA_LIBDIR), -L$(LUA_LIBDIR)) -sEXPORTED_RUNTIME_METHODS=ccall -sEXPORTED_FUNCTIONS=_main,_j_args,_j_arg,_j_call,_j_set,_j_get,_j_len,_j_ownKeys,_j_error $(ASYNCIFY_LDFLAGS_LIB)
+LOCAL_CFLAGS ?= $(if $(LUA_INCDIR), -I$(LUA_INCDIR)) --std=c++17 --bind
+LOCAL_LDFLAGS ?= $(if $(LUA_LIBDIR), -L$(LUA_LIBDIR))
 
 LIBFLAG ?= -shared
 
@@ -37,7 +27,6 @@ ROCKSPEC_T ?= $(CONFIG_DIR)/template.rockspec
 LUAROCKS ?= luarocks
 
 TEST_SPEC_DIST_DIR ?= $(TEST_DIR)/spec
-TEST_SPEC_WORK_DIR ?= $(TEST_DIR)/work/spec
 TEST_SPEC_SRC_DIR ?= test/spec
 
 TEST_SPEC_SRCS ?= $(shell find $(TEST_SPEC_SRC_DIR) -type f -name '*.lua')
@@ -54,15 +43,15 @@ SANITIZER_VARS ?= #ASAN_SYMBOLIZER_PATH="$(shell which llvm-symbolizer)"
 
 TEST_CC ?= emcc
 TEST_EM_VARS ?= $(SANITIZER_VARS) CC="$(TEST_CC)" LD="$(TEST_CC)" AR="emar rcu" NM="emnm" RANLIB="emranlib"
-TEST_CFLAGS ?= -I $(TEST_LUA_INC_DIR) --bind -sALLOW_MEMORY_GROWTH $(ASYNCIFY_CFLAGS) $(SANITIZER_FLAGS)
-TEST_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) $(ASYNCIFY_LDFLAGS_LIB) $(SANITIZER_FLAGS) -lnodefs.js -lnoderawfs.js
+TEST_CFLAGS ?= -I $(TEST_LUA_INC_DIR) --bind -sALLOW_MEMORY_GROWTH $(SANITIZER_FLAGS)
+TEST_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) $(SANITIZER_FLAGS) -lnodefs.js -lnoderawfs.js
 TEST_VARS ?= $(TEST_EM_VARS) LUAROCKS='$(TEST_LUAROCKS)' BUILD_DIR="$(TEST_DIR)/build" CFLAGS="$(TEST_CFLAGS)" LDFLAGS="$(TEST_LDFLAGS)" LIBFLAG="$(TEST_LIBFLAG)"
 TEST_LUAROCKS_VARS ?= $(TEST_EM_VARS)	CFLAGS="$(TEST_LUAROCKS_CFLAGS)" LDFLAGS="$(TEST_LUAROCKS_LDFLAGS)" LIBFLAG="$(TEST_LUAROCKS_LIBFLAG)"
-TEST_LUAROCKS_CFLAGS ?= -I $(TEST_LUA_INC_DIR) $(CFLAGS) $(ASYNCIFY_CFLAGS)
-TEST_LUAROCKS_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LDFLAGS) $(ASYNCIFY_LDFLAGS_LIB)
+TEST_LUAROCKS_CFLAGS ?= -I $(TEST_LUA_INC_DIR) $(CFLAGS)
+TEST_LUAROCKS_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LDFLAGS)
 TEST_LUAROCKS_LIBFLAG ?= $(LIBFLAG)
-TEST_LUA_CFLAGS ?= $(CFLAGS) $(ASYNCIFY_CFLAGS)
-TEST_LUA_LDFLAGS ?= $(LDFLAGS) $(ASYNCIFY_LDFLAGS) -lnodefs.js -lnoderawfs.js
+TEST_LUA_CFLAGS ?= $(CFLAGS)
+TEST_LUA_LDFLAGS ?= $(LDFLAGS) -lnodefs.js -lnoderawfs.js
 TEST_LUA_VARS ?= $(TEST_EM_VARS) CFLAGS="$(TEST_LUA_CFLAGS)" LDFLAGS="$(TEST_LUA_LDFLAGS)"
 TEST_LUA_PATH ?= $(TEST_LUAROCKS_TREE)/share/lua/$(TEST_LUA_MINMAJ)/?.lua;$(TEST_LUAROCKS_TREE)/share/lua/$(TEST_LUA_MINMAJ)/?/init.lua
 TEST_LUA_CPATH ?= $(TEST_LUAROCKS_TREE)/lib/lua/$(TEST_LUA_MINMAJ)/?.so
@@ -176,7 +165,7 @@ $(TEST_LUAROCKS_CFG): $(TEST_LUAROCKS_CFG_T)
 			-f "$(TEST_LUAROCKS_CFG_T)" \
 			-o "$(TEST_LUAROCKS_CFG)"
 
-$(TEST_SPEC_DIST_DIR)/%.test: $(TEST_SPEC_WORK_DIR)/%.lua
+$(TEST_SPEC_DIST_DIR)/%.test: $(TEST_SPEC_SRC_DIR)/%.lua
 	mkdir -p "$(dir $@)"
 	$(TEST_VARS) toku bundle -C -M -f "$<" -o "$(dir $@)" -O "$(notdir $@)" \
 		-e LUA_PATH "$(TEST_LUA_PATH)" \
@@ -184,11 +173,6 @@ $(TEST_SPEC_DIST_DIR)/%.test: $(TEST_SPEC_WORK_DIR)/%.lua
 		-E LUACOV_CONFIG "$(PWD)/$(TEST_LUACOV_CFG)" \
 		-l luacov -l luacov.hook \
 		-i debug
-
-$(TEST_SPEC_WORK_DIR)/%.lua: $(TEST_SPEC_SRC_DIR)/%.lua
-	mkdir -p "$(dir $@)"
-	ASYNCIFY=$(ASYNCIFY) \
-		$(TEST_VARS) toku template -f "$<" -o "$@"
 
 $(TEST_LUACOV_CFG): $(TEST_LUACOV_CFG_T)
 	mkdir -p "$(dir $@)"

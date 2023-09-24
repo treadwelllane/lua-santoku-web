@@ -11,21 +11,9 @@
 // "santoku.compat") or similar.
 
 extern "C" {
-
   #include "lua.h"
   #include "lauxlib.h"
-
   int luaopen_santoku_web_val (lua_State *);
-  int j_arg (int, int);
-
-  void j_error (int, int);
-  int j_args (int, int, int);
-  int j_call (int, int, int);
-  int j_get (int, int, int);
-  void j_set (int, int, int, int);
-  int j_len (int, int);
-  int j_ownKeys (int, int);
-
 }
 
 #include "emscripten.h"
@@ -199,12 +187,8 @@ void push_val_lua (lua_State *L, val *v, bool recurse) {
     int64_t n = EM_ASM_INT(({
       var bi = Emval.toValue($1);
       if (bi > Number.MAX_SAFE_INTEGER ||
-          bi < Number.MIN_SAFE_INTEGER) {
-        Module.ccall("j_error", null,
-            ["number", "number"],
-            [$0, Emval.toHandle("Conversion from bigint to number failed: too large or too small")],
-            { async: false });
-      }
+          bi < Number.MIN_SAFE_INTEGER)
+        Module.error($0, "Conversion from bigint to number failed: too large or too small");
       return Number(bi);
     }), L, v->as_handle());
     lua_pushinteger(L, n);
@@ -279,24 +263,12 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
               var isnumber;
               try { isnumber = !isNaN(+k); }
               catch (_) { isnumber = false; }
-              if (o instanceof Array && k == "length") {
-                return Module.ccall("j_len", "number",
-                  ["number", "number"],
-                  [$0, $1],
-                  { async: false });
-              }
-              if (o instanceof Array && isnumber) {
-                return Emval.toValue(Module.ccall("j_get", "number",
-                      ["number", "number", "number", "number"],
-                      [$0, $1, Emval.toHandle(+k + 1), 0],
-                      { async: false }));
-              }
-              if (typeof k == "string") {
-                return Emval.toValue(Module.ccall("j_get", "number",
-                      ["number", "number", "number", "number"],
-                      [$0, $1, Emval.toHandle(k), 1]),
-                      { async: false });
-              }
+              if (o instanceof Array && k == "length")
+                return Module.len($0, $1);
+              if (o instanceof Array && isnumber)
+                return Emval.toValue(Module.get($0, $1, Emval.toHandle(+k + 1)));
+              if (typeof k == "string")
+                return Emval.toValue(Module.get($0, $1, Emval.toHandle(k)));
               if (k == Symbol.iterator) {
                 // TODO: This creates an
                 // intermediary array, which is not
@@ -316,34 +288,21 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
               };
             },
             ownKeys(o) {
-              var keys = Emval.toValue(Module.ccall("j_ownKeys", "number",
-                    ["number", "number"],
-                    [$0, $1],
-                    { async: false }));
+              var keys = Emval.toValue(Module.ownKeys($0, $1));
               if (o instanceof Array)
                 keys.push("length");
               return keys;
             },
             set(o, v, k) {
-              if (o instanceof Array && typeof k == "number") {
-                Module.ccall("j_set", null,
-                    ["number", "number", "number", "number"],
-                    [$0, $1, Emval.toHandle(k + 1), Emval.toHandle(v)],
-                    { async: false });
-              }
-              else {
-                Module.ccall("j_set", null,
-                    ["number", "number", "number", "number"],
-                    [$0, $1, Emval.toHandle(k), Emval.toHandle(v)],
-                    { async: false });
-              }
+              if (o instanceof Array && typeof k == "number")
+                Module.set($0, $1, Emval.toHandle(k + 1), Emval.toHandle(v));
+              else
+                Module.set($0, $1, Emval.toHandle(k), Emval.toHandle(v));
             }
           }))
         } catch (e) {
-          Module.ccall("j_error", null,
-              ["number", "number"],
-              [$0, Emval.toHandle(e)],
-              { async: false });
+          Module.error($0, Emval.toHandle(e));
+          return undefined;
         }
       }), L, tblref, isarray))));
       val *v = peek_val(L, -1);
@@ -395,27 +354,12 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
         return Emval.toHandle(new Proxy(function () {}, {
           apply(_, this_, args) {
             args.unshift(this_);
-            return Module.toValue(Module.ccall("j_call", "number",
-                  ["number", "number", "number"],
-                  [$0, $1, Emval.toHandle(args)],
-#ifdef ASYNCIFY
-                  /* TODO: Ideally, we should check */
-                  /* if this function is currently */
-                  /* running asynchronously, and */
-                  /* only then pass async: true. */
-                  /* Oddly though, this seems to */
-                  /* work. */
-                  { async: true }));
-#else
-                  { async: false }));
-#endif
+            return Emval.toValue(Module.call($0, $1, Emval.toHandle(args)));
           }
         }))
       } catch (e) {
-        Module.ccall("j_error", null,
-            ["number", "number"],
-            [$0, Emval.toHandle(e)],
-            { async: false });
+        Module.error($0, Emval.toHandle(e));
+        return undefined;
       }
     }), L, fnref))));
     val *v = peek_val(L, -1);
@@ -458,10 +402,8 @@ int j_args (int Lp, int arg0, int argc) {
                 return { done: true };
               } else {
                 i = i + 1;
-                var val = Emval.toValue(Module.ccall("j_arg", "number",
-                      ["number", "number"],
-                      [$0, i + $1 - 1],
-                      { async: false }));
+                var arg = Module.arg($0, i + $1 - 1);
+                var val = Emval.toValue(arg);
                 return { done: false, value: val };
               }
             }
@@ -469,10 +411,8 @@ int j_args (int Lp, int arg0, int argc) {
         }
       })
     } catch (e) {
-      Module.ccall("j_error", null,
-          ["number", "number"],
-          [$0, Emval.toHandle(e)],
-          { async: false });
+      Module.error($0, Emval.toHandle(e));
+      return undefined;
     }
   }), Lp, arg0, argc);
 }
@@ -495,10 +435,8 @@ int j_ownKeys (int Lp, int tblref) {
           return Emval.toHandle(String(v));
         }
       } catch (e) {
-        Module.ccall("j_error", null,
-            ["number", "number"],
-            [$0, Emval.toHandle(e)],
-            { async: false });
+        Module.error($0, Emval.toHandle(e));
+        return undefined;
       }
     }), keys->as_handle(), v->as_handle())));
     keys->call<val>("push", *s);
@@ -572,6 +510,17 @@ int j_len (int Lp, int tblref) {
   int len = lua_tointeger(L, -1);
   lua_pop(L, 2);
   return len;
+}
+
+EMSCRIPTEN_BINDINGS(santoku_web_val) {
+  emscripten::function("error", &j_error, allow_raw_pointers());
+  emscripten::function("arg", &j_arg, allow_raw_pointers());
+  emscripten::function("args", &j_args, allow_raw_pointers());
+  emscripten::function("get", &j_get, allow_raw_pointers());
+  emscripten::function("set", &j_set, allow_raw_pointers());
+  emscripten::function("call", &j_call, allow_raw_pointers());
+  emscripten::function("ownKeys", &j_ownKeys, allow_raw_pointers());
+  emscripten::function("len", &j_len, allow_raw_pointers());
 }
 
 int mt_call (lua_State *L) {
@@ -660,32 +609,6 @@ int mtp_index (lua_State *L) {
   return mto_index(L);
 }
 
-#ifdef ASYNCIFY
-
-EM_ASYNC_JS(int, run_await, (int ref), {
-  try {
-    var v = Emval.toValue(ref);
-    var r = await v;
-    return Emval.toHandle({ status: true, result: r });
-  } catch (e) {
-    return Emval.toHandle({ status: false, result: e });
-  }
-});
-
-int mtp_await (lua_State *L) {
-  args_to_vals(L);
-  val *v = peek_val(L, -1);
-  val *vv = new val(val::take_ownership((EM_VAL) run_await((int)v->as_handle())));
-  val *status = new val((*vv)["status"]);
-  val *result = new val((*vv)["result"]);
-  lua_pop(L, 1);
-  push_val_lua(L, status, false);
-  push_val_lua(L, result, false);
-  return 2;
-}
-
-#else
-
 int mtp_await (lua_State *L) {
   args_to_vals(L);
   val *v = peek_val(L, -2);
@@ -708,8 +631,6 @@ int mtp_await (lua_State *L) {
   }), v->as_handle(), f->as_handle());
   return 0;
 }
-
-#endif
 
 int mtf_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTF_FNS);
@@ -863,16 +784,12 @@ int mtv_call (lua_State *L) {
       var ths = Emval.toValue($2);
       if (ths != undefined)
         fn = fn.bind(ths);
-      var args = Emval.toValue(Module.ccall("j_args", "number",
-        ["number", "number", "number"],
-        [$0, $3, $4]));
+      var args = Emval.toValue(Module.args($0, $3, $4));
       var args = [ ...args ];
       return Emval.toHandle(fn(...args));
     } catch (e) {
-      Module.ccall("j_error", null,
-          ["number", "number"],
-          [$0, Emval.toHandle(e)],
-          { async: false });
+      Module.error($0, Emval.toHandle(e));
+      return undefined;
     }
   }), L, v->as_handle(), t->as_handle(), -n + 2, n - 2)));
   push_val(L, r);
@@ -886,18 +803,11 @@ int mtv_new (lua_State *L) {
   val *r = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
     try {
       var obj = Emval.toValue($1);
-      var args = Emval.toValue(Module.ccall("j_args", "number",
-        ["number", "number", "number"],
-        [$0, $2, $3],
-        { async: false }));
-      var args = [ ...args ];
-      var inst = new obj(...args);
-      return Emval.toHandle(inst);
+      var args = Emval.toValue(Module.args($0, $2, $3));
+      return Emval.toHandle(new obj(...args));
     } catch (e) {
-      Module.ccall("j_error", null,
-          ["number", "number"],
-          [$0, Emval.toHandle(e)],
-          { async: false });
+      Module.error($0, Emval.toHandle(e));
+      return undefined;
     }
   }), L, v->as_handle(), -n + 1, n - 1)));
   push_val(L, r);
@@ -1011,25 +921,6 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_newtable(L);
   luaL_setfuncs(L, mtf_fns, 0);
   MTF_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
-
-#ifdef ASYNCIFY
-
-  EM_ASM({
-    Module.toValue = function (p, ...args) {
-      return p instanceof Promise
-        ? p : Emval.toValue(p, ...args);
-    }
-  });
-
-#else
-
-  EM_ASM({
-    Module.toValue = function (...args) {
-      return Emval.toValue(...args);
-    }
-  });
-
-#endif
 
   return 1;
 }
