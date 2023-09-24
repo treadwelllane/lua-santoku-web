@@ -1,24 +1,26 @@
 # Now
 
-- If ASYNCIFY is not specified, make test and
-  iterate should run both
+- Implement implicit this with MTF.bind(...) and
+  ENV.this = xxx
 
-- Clean up map/unmap_lua/js
+- Remove support for < 5.4
+- Remove unneeded fns like undefined, null,
+  object, array, etc.
+
+- Ensure that all MTVs return MTVs, and all MTO,
+  MTF, MTP return wrapped
+
+- Fix memory leaks
 
 - Correctly propagate lua errors
 
-- Clean up which functions return with push_val_lua
-  and which with push_val_lua: get, call,
-  typeof, etc
-
 - Date and other object gt, lt, etc. comparisons
-
 - Wrapped object equality checks
+
+- Fix x:val(false/true) and x:lua(false/true)
 
 - Basic README
 - Documentation
-
-- Fix x:val(false/true) and x:lua(false/true)
 
 # Next
 
