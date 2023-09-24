@@ -771,6 +771,13 @@ int mtv_instanceof (lua_State *L) {
   return 1;
 }
 
+int mtv_userdata (lua_State *L) {
+  args_to_vals(L);
+  val *v = peek_val(L, -1);
+  lua_pushlightuserdata(L, v);
+  return 1;
+}
+
 int mtv_call (lua_State *L) {
   args_to_vals(L);
   int n = lua_gettop(L);
@@ -839,6 +846,7 @@ luaL_Reg mtv_fns[] = {
   { "set", mtv_set },
   { "typeof", mtv_typeof },
   { "instanceof", mtv_instanceof },
+  { "userdata", mtv_userdata },
   { "call", mtv_call },
   { "new", mtv_new },
   { NULL, NULL }
