@@ -56,8 +56,8 @@ bool unmap_lua (lua_State *, int);
 bool unmap_js (lua_State *, val *);
 void map_js (lua_State *, val *, int, int);
 
-void args_to_vals (lua_State *L) {
-  int argc = lua_gettop(L);
+void args_to_vals (lua_State *L, int n) {
+  int argc = n < 0 ? lua_gettop(L) : n;
   for (int i = -argc; i < 0; i ++) {
     lua_to_val(L, i, false);
     lua_replace(L, i - 1);
@@ -66,10 +66,11 @@ void args_to_vals (lua_State *L) {
 
 val *peek_val (lua_State *L, int i) {
   bool pop = false;
-  if (lua_type(L, i) == LUA_TTABLE && unmap_lua(L, i))
+  if (lua_type(L, i) == LUA_TTABLE && unmap_lua(L, i)) {
     pop = true;
-  else
+  } else {
     luaL_checktype(L, i, LUA_TUSERDATA);
+  }
   void *vp = NULL;
   if (((vp = luaL_testudata(L, i, MTO)) == NULL) &&
       ((vp = luaL_testudata(L, i, MTP)) == NULL) &&
@@ -256,54 +257,49 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
     if (!recurse) {
       int tblref = luaL_ref(L, LUA_REGISTRYINDEX);
       push_val(L, new val(val::take_ownership((EM_VAL) EM_ASM_PTR(({
-        try {
-          var obj = $2 ? [] : {};
-          return Emval.toHandle(new Proxy(obj, {
-            get(o, k) {
-              var isnumber;
-              try { isnumber = !isNaN(+k); }
-              catch (_) { isnumber = false; }
-              if (o instanceof Array && k == "length")
-                return Module.len($0, $1);
-              if (o instanceof Array && isnumber)
-                return Emval.toValue(Module.get($0, $1, Emval.toHandle(+k + 1)));
-              if (typeof k == "string")
-                return Emval.toValue(Module.get($0, $1, Emval.toHandle(k)));
-              if (k == Symbol.iterator) {
-                // TODO: This creates an
-                // intermediary array, which is not
-                // likely necessary
-                return Object.values(o)[k];
-              }
-              return Reflect.get(o, k);
-            },
-            // TODO: Should we extend this and
-            // ownKeys to support __index
-            // properties?
-            getOwnPropertyDescriptor(o, k) {
-              return Object.getOwnPropertyDescriptor(o, k) || {
-                configurable: true,
-                enumerable: true,
-                value: o[k]
-              };
-            },
-            ownKeys(o) {
-              var keys = Emval.toValue(Module.ownKeys($0, $1));
-              if (o instanceof Array)
-                keys.push("length");
-              return keys;
-            },
-            set(o, v, k) {
-              if (o instanceof Array && typeof k == "number")
-                Module.set($0, $1, Emval.toHandle(k + 1), Emval.toHandle(v));
-              else
-                Module.set($0, $1, Emval.toHandle(k), Emval.toHandle(v));
+        var obj = $2 ? [] : {};
+        return Emval.toHandle(new Proxy(obj, {
+          get(o, k) {
+            var isnumber;
+            try { isnumber = !isNaN(+k); }
+            catch (_) { isnumber = false; }
+            if (o instanceof Array && k == "length")
+              return Module.len($0, $1);
+            if (o instanceof Array && isnumber)
+              return Emval.toValue(Module.get($0, $1, Emval.toHandle(+k + 1)));
+            if (typeof k == "string")
+              return Emval.toValue(Module.get($0, $1, Emval.toHandle(k)));
+            if (k == Symbol.iterator) {
+              // TODO: This creates an
+              // intermediary array, which is not
+              // likely necessary
+              return Object.values(o)[k];
             }
-          }))
-        } catch (e) {
-          Module.error($0, Emval.toHandle(e));
-          return undefined;
-        }
+            return Reflect.get(o, k);
+          },
+          // TODO: Should we extend this and
+          // ownKeys to support __index
+          // properties?
+          getOwnPropertyDescriptor(o, k) {
+            return Object.getOwnPropertyDescriptor(o, k) || {
+              configurable: true,
+              enumerable: true,
+              value: o[k]
+            };
+          },
+          ownKeys(o) {
+            var keys = Emval.toValue(Module.ownKeys($0, $1));
+            if (o instanceof Array)
+              keys.push("length");
+            return keys;
+          },
+          set(o, v, k) {
+            if (o instanceof Array && typeof k == "number")
+              Module.set($0, $1, Emval.toHandle(k + 1), Emval.toHandle(v));
+            else
+              Module.set($0, $1, Emval.toHandle(k), Emval.toHandle(v));
+          }
+        }))
       }), L, tblref, isarray))));
       val *v = peek_val(L, -1);
       lua_rawgeti(L, LUA_REGISTRYINDEX, tblref);
@@ -350,17 +346,12 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
     lua_pushvalue(L, i);
     int fnref = luaL_ref(L, LUA_REGISTRYINDEX);
     push_val(L, new val(val::take_ownership((EM_VAL) EM_ASM_PTR(({
-      try {
-        return Emval.toHandle(new Proxy(function () {}, {
-          apply(_, this_, args) {
-            args.unshift(this_);
-            return Emval.toValue(Module.call($0, $1, Emval.toHandle(args)));
-          }
-        }))
-      } catch (e) {
-        Module.error($0, Emval.toHandle(e));
-        return undefined;
-      }
+      return Emval.toHandle(new Proxy(function () {}, {
+        apply(_, this_, args) {
+          args.unshift(this_);
+          return Emval.toValue(Module.call($0, $1, Emval.toHandle(args)));
+        }
+      }))
     }), L, fnref))));
     val *v = peek_val(L, -1);
     lua_rawgeti(L, LUA_REGISTRYINDEX, fnref);
@@ -392,28 +383,23 @@ int j_arg (int Lp, int i) {
 int j_args (int Lp, int arg0, int argc) {
   lua_State *L = (lua_State *)Lp;
   return (int) EM_ASM_PTR(({
-    try {
-      return Emval.toHandle({
-        [Symbol.iterator]() {
-          var i = 0;
-          return {
-            next() {
-              if (i == $2) {
-                return { done: true };
-              } else {
-                i = i + 1;
-                var arg = Module.arg($0, i + $1 - 1);
-                var val = Emval.toValue(arg);
-                return { done: false, value: val };
-              }
+    return Emval.toHandle({
+      [Symbol.iterator]() {
+        var i = 0;
+        return {
+          next() {
+            if (i == $2) {
+              return { done: true };
+            } else {
+              i = i + 1;
+              var arg = Module.arg($0, i + $1 - 1);
+              var val = Emval.toValue(arg);
+              return { done: false, value: val };
             }
-          };
-        }
-      })
-    } catch (e) {
-      Module.error($0, Emval.toHandle(e));
-      return undefined;
-    }
+          }
+        };
+      }
+    })
   }), Lp, arg0, argc);
 }
 
@@ -426,17 +412,12 @@ int j_ownKeys (int Lp, int tblref) {
     lua_to_val(L, -2, false);
     val *v = peek_val(L, -1);
     val *s = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
-      try {
-        var ks = Emval.toValue($0);
-        var v = Emval.toValue($1);
-        if (ks instanceof Array && typeof v == "number") {
-          return Emval.toHandle(String(v - 1));
-        } else {
-          return Emval.toHandle(String(v));
-        }
-      } catch (e) {
-        Module.error($0, Emval.toHandle(e));
-        return undefined;
+      var ks = Emval.toValue($0);
+      var v = Emval.toValue($1);
+      if (ks instanceof Array && typeof v == "number") {
+        return Emval.toHandle(String(v - 1));
+      } else {
+        return Emval.toHandle(String(v));
       }
     }), keys->as_handle(), v->as_handle())));
     keys->call<val>("push", *s);
@@ -484,6 +465,7 @@ int j_call (int Lp, int fnp, int argsp) {
     }), v->as_handle());
     return 0;
   } else if (lua_gettop(L) > t) {
+    args_to_vals(L, lua_gettop(L) - t);
     val *v = peek_val(L, -1);
     return (int)v->as_handle();
   } else {
@@ -539,26 +521,6 @@ int mt_global (lua_State *L) {
   return 1;
 }
 
-int mt_array (lua_State *L) {
-  push_val(L, new val(val::array()));
-  return 1;
-}
-
-int mt_object (lua_State *L) {
-  push_val(L, new val(val::object()));
-  return 1;
-}
-
-int mt_undefined (lua_State *L) {
-  push_val(L, new val(val::undefined()));
-  return 1;
-}
-
-int mt_null (lua_State *L) {
-  push_val(L, new val(val::null()));
-  return 1;
-}
-
 int mto_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTO_FNS);
   lua_pushvalue(L, -2);
@@ -610,7 +572,7 @@ int mtp_index (lua_State *L) {
 }
 
 int mtp_await (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   val *v = peek_val(L, -2);
   val *f = peek_val(L, -1);
   EM_ASM(({
@@ -687,7 +649,7 @@ int mtv_lua (lua_State *L) {
 }
 
 int mtv_get (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   val *k = peek_val(L, -1);
   val *o = peek_val(L, -2);
   push_val(L, new val((*o)[*k]));
@@ -695,7 +657,7 @@ int mtv_get (lua_State *L) {
 }
 
 int mtv_set (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   val *v = peek_val(L, -1);
   val *k = peek_val(L, -2);
   val *o = peek_val(L, -3);
@@ -722,7 +684,7 @@ int mto_pairs_closure (lua_State *L) {
 }
 
 int mto_pairs (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   val *v = peek_val(L, -1);
   val *ep = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
     var v = Emval.toValue($0);
@@ -739,7 +701,7 @@ int mto_pairs (lua_State *L) {
 }
 
 int mto_len (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   val *v = peek_val(L, -1);
   lua_pushinteger(L, EM_ASM_INT(({
     var v = Emval.toValue($0);
@@ -751,7 +713,7 @@ int mto_len (lua_State *L) {
 }
 
 int mtv_typeof (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   val *v = peek_val(L, -1);
   val *t = new val(v->typeof());
   push_val(L, t);
@@ -759,7 +721,7 @@ int mtv_typeof (lua_State *L) {
 }
 
 int mtv_instanceof (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   val *v = peek_val(L, -2);
   val *c = peek_val(L, -1);
   lua_pushboolean(L, EM_ASM_INT(({
@@ -772,50 +734,40 @@ int mtv_instanceof (lua_State *L) {
 }
 
 int mtv_userdata (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   val *v = peek_val(L, -1);
   lua_pushlightuserdata(L, v);
   return 1;
 }
 
 int mtv_call (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   int n = lua_gettop(L);
   val *v = peek_val(L, -n);
   val *t = lua_type(L, -n + 1) == LUA_TNIL
     ? new val(val::undefined())
     : peek_val(L, -n + 1);
   val *r = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
-    try {
-      var fn = Emval.toValue($1);
-      var ths = Emval.toValue($2);
-      if (ths != undefined)
-        fn = fn.bind(ths);
-      var args = Emval.toValue(Module.args($0, $3, $4));
-      var args = [ ...args ];
-      return Emval.toHandle(fn(...args));
-    } catch (e) {
-      Module.error($0, Emval.toHandle(e));
-      return undefined;
-    }
+    var fn = Emval.toValue($1);
+    var ths = Emval.toValue($2);
+    if (ths != undefined)
+      fn = fn.bind(ths);
+    var args = Emval.toValue(Module.args($0, $3, $4));
+    var args = [ ...args ];
+    return Emval.toHandle(fn(...args));
   }), L, v->as_handle(), t->as_handle(), -n + 2, n - 2)));
   push_val(L, r);
   return 1;
 }
 
 int mtv_new (lua_State *L) {
-  args_to_vals(L);
+  args_to_vals(L, -1);
   int n = lua_gettop(L);
   val *v = peek_val(L, -n);
   val *r = new val(val::take_ownership((EM_VAL)EM_ASM_PTR(({
-    try {
-      var obj = Emval.toValue($1);
-      var args = Emval.toValue(Module.args($0, $2, $3));
-      return Emval.toHandle(new obj(...args));
-    } catch (e) {
-      Module.error($0, Emval.toHandle(e));
-      return undefined;
-    }
+    var obj = Emval.toValue($1);
+    var args = Emval.toValue(Module.args($0, $2, $3));
+    return Emval.toHandle(new obj(...args));
   }), L, v->as_handle(), -n + 1, n - 1)));
   push_val(L, r);
   return 1;
@@ -854,10 +806,6 @@ luaL_Reg mtv_fns[] = {
 
 luaL_Reg mt_fns[] = {
   { "global", mt_global },
-  { "array", mt_array },
-  { "object", mt_object },
-  { "undefined", mt_undefined },
-  { "null", mt_null },
   { NULL, NULL }
 };
 

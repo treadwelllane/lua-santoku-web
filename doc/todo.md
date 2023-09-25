@@ -1,8 +1,5 @@
 # Now
 
-- Implement implicit this with MTF.bind(...) and
-  ENV.this = xxx
-
 - Remove support for < 5.4
 - Remove unneeded fns like undefined, null,
   object, array, etc.
@@ -34,6 +31,9 @@
   Object.entries, pairs, ipairs
 
 # Eventually
+
+- Is it possible to implement implicit-this
+  without causing confusion?
 
 - Implement c++ coverage and linting
 
