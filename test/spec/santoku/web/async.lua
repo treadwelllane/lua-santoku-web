@@ -1,11 +1,55 @@
-local js = require("santoku.web.js")
-local test = require("santoku.test")
 local assert = require("luassert")
+local test = require("santoku.test")
+local js = require("santoku.web.js")
+local val = require("santoku.web.val")
 
 local global = js.global
 local Promise = js.Promise
 
-test("errors", function ()
+if os.getenv("SANITIZE") ~= "0" then
+  print("Skipping async tests when sanitizer is active.")
+  print("Re-run with SANITIZER=0 to run async tests")
+  return
+end
+
+test("async code", function ()
+
+  test("setTimeout", function ()
+    local setTimeout = val.global("setTimeout")
+    setTimeout:call(nil, function (this, a, b)
+      assert.equals("hello", a)
+      assert.equals("world", b)
+    end, 0, "hello", "world")
+  end)
+
+  test("win:setTimeout", function ()
+    local win = val.global("global"):lua()
+    win:setTimeout(function (this, a, b, ...)
+      assert.equals("hello", a)
+      assert.equals("world", b)
+    end, 0, "hello", "world")
+  end)
+
+  test("promise", function ()
+    local Promise = val.global("Promise")
+    local p = Promise:new(function (this, resolve)
+      resolve(this, "hello")
+    end)
+    local thn = p:get("then")
+    thn:call(p, function (this, msg)
+      assert.equals("hello", msg)
+    end)
+  end)
+
+  test("promise :lua()", function ()
+    local Promise = val.global("Promise")
+    local p = Promise:new(function (this, resolve)
+      resolve(this, "hello")
+    end):lua()
+    p["then"](p, function (this, msg)
+      assert.equals("hello", msg)
+    end)
+  end)
 
   test("promise rejection", function ()
     Promise:new(function (this, _, reject)
@@ -25,6 +69,7 @@ test("errors", function ()
     end)
   end)
 
+  -- TODO: This causes a memory leak. Why?
   test("promise js exception", function ()
     Promise:new(function ()
       js.eval(nil, "throw 'test'")

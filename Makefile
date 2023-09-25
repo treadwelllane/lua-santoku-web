@@ -38,13 +38,15 @@ else
 TESTED_FILES = $(TEST_SPEC_DISTS)
 endif
 
-SANITIZER_FLAGS ?= #-fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-return=always -fsanitize-address-use-after-scope
-SANITIZER_VARS ?= #ASAN_SYMBOLIZER_PATH="$(shell which llvm-symbolizer)"
+ifneq ($(SANITIZE), 0)
+SANITIZER_FLAGS ?= -fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-return=always -fsanitize-address-use-after-scope
+SANITIZER_VARS ?= ASAN_SYMBOLIZER_PATH="$(shell which llvm-symbolizer)"
+endif
 
 TEST_CC ?= emcc
 TEST_EM_VARS ?= $(SANITIZER_VARS) CC="$(TEST_CC)" LD="$(TEST_CC)" AR="emar rcu" NM="emnm" RANLIB="emranlib"
-TEST_CFLAGS ?= -I $(TEST_LUA_INC_DIR) --bind -sALLOW_MEMORY_GROWTH $(SANITIZER_FLAGS)
-TEST_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) $(SANITIZER_FLAGS) -lnodefs.js -lnoderawfs.js
+TEST_CFLAGS ?= -gsource-map -I $(TEST_LUA_INC_DIR) --bind -sALLOW_MEMORY_GROWTH $(SANITIZER_FLAGS)
+TEST_LDFLAGS ?= -gsource-map -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) $(SANITIZER_FLAGS) -lnodefs.js -lnoderawfs.js
 TEST_VARS ?= $(TEST_EM_VARS) LUAROCKS='$(TEST_LUAROCKS)' BUILD_DIR="$(TEST_DIR)/build" CFLAGS="$(TEST_CFLAGS)" LDFLAGS="$(TEST_LDFLAGS)" LIBFLAG="$(TEST_LIBFLAG)"
 TEST_LUAROCKS_VARS ?= $(TEST_EM_VARS)	CFLAGS="$(TEST_LUAROCKS_CFLAGS)" LDFLAGS="$(TEST_LUAROCKS_LDFLAGS)" LIBFLAG="$(TEST_LUAROCKS_LIBFLAG)"
 TEST_LUAROCKS_CFLAGS ?= -I $(TEST_LUA_INC_DIR) $(CFLAGS)
