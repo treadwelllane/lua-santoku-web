@@ -6,8 +6,18 @@ local history = js.history
 local document = js.document
 local Array = js.Array
 local Promise = js.Promise
+local global = js.self or js.global or js.window
 
 local M = {}
+
+-- TODO: Implement retry, backoff, etc
+M.fetch = function (... --[[, opts]])
+  -- opts = opts or {}
+  -- retry_times = opts.retry_times or 1
+  -- retry_backoff_ms = opts.retry_backoff_ms or 0
+  -- retry_backoff_multiply = opts.retry_backoff_multiply or 1
+  return global:fetch(... --[[, opts]])
+end
 
 M.promise = function (ok, res)
   return Promise:new(function (this, resolve, reject)
