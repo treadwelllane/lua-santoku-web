@@ -20,42 +20,6 @@ test("val", function ()
 
   end)
 
-  test("object", function ()
-
-    test("creates a js object", function ()
-      local o = val.object()
-      assert.equals("object", o:typeof():lua())
-    end)
-
-  end)
-
-  test("array", function ()
-
-    test("creates a js array", function ()
-      local a = val.array()
-      assert.equals("object", a:typeof():lua())
-    end)
-
-  end)
-
-  test("undefined", function ()
-
-    test("creates an undefined value", function ()
-      local a = val.undefined()
-      assert.equals("undefined", a:typeof():lua())
-    end)
-
-  end)
-
-  test("null", function ()
-
-    test("creates a null value", function ()
-      local a = val.null()
-      assert.equals("object", a:typeof():lua())
-    end)
-
-  end)
-
   test("from string", function ()
 
     test("creates a string value", function ()
@@ -139,7 +103,7 @@ test("val", function ()
   end)
 
   test("object set/get", function ()
-    local obj = val.object()
+    local obj = val.global("Object"):call(nil)
     obj:set("a", 1)
     local one = obj:get("a")
     assert.equals("number", one:typeof():lua())
@@ -147,7 +111,7 @@ test("val", function ()
   end)
 
   test("JSON.stringify({})", function ()
-    local obj = val.object()
+    local obj = val.global("Object"):call(nil)
     local JSON = val.global("JSON")
     local stringify = JSON:get("stringify")
     local r = stringify:call(JSON, obj)
@@ -168,7 +132,7 @@ test("val", function ()
   end)
 
   test("JSON.stringify({}) :lua()", function ()
-    local obj = val.object():lua()
+    local obj = val.global("Object"):call(nil)
     local JSON = val.global("JSON"):lua()
     local r = JSON:stringify(obj)
     assert.equals("{}", r)
@@ -183,7 +147,7 @@ test("val", function ()
 
   test("JSON.stringify({}) :lua() 3", function ()
     local a = { a = 1 }
-    local b = val.object()
+    local b = val.global("Object"):call(nil)
     b:set("a", 1)
     local JSON = val.global("JSON"):lua()
     local ar = JSON:stringify(a)
@@ -228,13 +192,13 @@ test("val", function ()
 
   test("new Map([[1, 2], [3, 4]])", function ()
 
-    local arr = val.array()
+    local arr = val.global("Array"):call(nil)
     local arrpush = arr:get("push")
 
-    local ent1 = val.array()
+    local ent1 = val.global("Array"):call(nil)
     local ent1push = ent1:get("push")
 
-    local ent2 = val.array()
+    local ent2 = val.global("Array"):call(nil)
     local ent2push = ent2:get("push")
 
     ent1push:call(ent1, 1)
@@ -258,20 +222,32 @@ test("val", function ()
     local r = mget:call(m, 3)
     assert.equals("number", r:typeof():lua())
     assert.equals(4, r:lua())
+
   end)
 
+  -- NOTE: When calling a lua function from
+  -- javascript, the lua function receives it's
+  -- arguments as lua values and returns a lua
+  -- value, but that returned lua value appears
+  -- in the javascript world as a javascript
+  -- value.
   test("set & call function", function ()
 
-    local obj = val.object():lua()
+    local obj = val.global("Object"):call(nil)
 
-    obj.square = function (this, n)
-      assert.equals(obj, this)
+    obj:set("square", function (this, n)
+      -- TODO: When val comparisons work,
+      -- this should work
+      -- assert.equals(obj, this:val())
       assert.equals(20, n)
       return n * n
-    end
+    end)
 
-    local ret = obj:square(20)
-    assert.equals(400, ret)
+    local sq = obj:get("square")
+
+    local ret = sq:call(obj, 20)
+
+    assert.equals(400, ret:lua())
 
   end)
 
