@@ -16,4 +16,9 @@ test("memory", function ()
     assert.equals(1, o:get(0):lua())
   end)
 
+  test("object construct", function ()
+    local obj = val.global("Object"):call(nil)
+    assert.equals("object", obj:typeof():lua())
+  end)
+
 end)

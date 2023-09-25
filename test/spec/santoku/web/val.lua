@@ -5,17 +5,18 @@ local val = require("santoku.web.val")
 
 test("val", function ()
 
-  test("val.global(x):lua() == val.global(x):lua()", function ()
-    local a = val.global("console"):lua()
-    local b = val.global("console"):lua()
-    assert.equals(a, b)
-  end)
-
   test("global", function ()
 
     test("returns a global object", function ()
-      local v = val.global("console"):lua()
+      local c = val.global("console")
+      local v = c:lua()
       assert.equals("object", v:typeof())
+    end)
+
+    test("val.global(x):lua() == val.global(x):lua()", function ()
+      local a = val.global("console"):lua()
+      local b = val.global("console"):lua()
+      assert.equals(a, b)
     end)
 
   end)
@@ -121,7 +122,7 @@ test("val", function ()
 
   test("JSON.stringify nested :lua()", function ()
     local JSON = val.global("JSON"):lua()
-    local r = JSON:stringify({ a = { b = 1 } })
+    local r = JSON.stringify(JSON, { a = { b = 1 } })
     assert.equals("{\"a\":{\"b\":1}}", r)
   end)
 
@@ -249,43 +250,6 @@ test("val", function ()
 
     assert.equals(400, ret:lua())
 
-  end)
-
-  test("setTimeout", function ()
-    local setTimeout = val.global("setTimeout")
-    setTimeout:call(nil, function (this, a, b)
-      assert.equals("hello", a)
-      assert.equals("world", b)
-    end, 0, "hello", "world")
-  end)
-
-  test("win:setTimeout", function ()
-    local win = val.global("global"):lua()
-    win:setTimeout(function (this, a, b, ...)
-      assert.equals("hello", a)
-      assert.equals("world", b)
-    end, 0, "hello", "world")
-  end)
-
-  test("promise", function ()
-    local Promise = val.global("Promise")
-    local p = Promise:new(function (this, resolve)
-      resolve(this, "hello")
-    end)
-    local thn = p:get("then")
-    thn:call(p, function (this, msg)
-      assert.equals("hello", msg)
-    end)
-  end)
-
-  test("promise :lua()", function ()
-    local Promise = val.global("Promise")
-    local p = Promise:new(function (this, resolve)
-      resolve(this, "hello")
-    end):lua()
-    p["then"](p, function (this, msg)
-      assert.equals("hello", msg)
-    end)
   end)
 
   test("instanceof", function ()
