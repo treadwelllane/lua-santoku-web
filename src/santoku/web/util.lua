@@ -19,13 +19,15 @@ M.fetch = function (... --[[, opts]])
   return global:fetch(... --[[, opts]])
 end
 
-M.promise = function (ok, res)
+M.promise = function (fn)
   return Promise:new(function (this, resolve, reject)
-    if not ok then
-      reject(this, res)
-    else
-      resolve(this, res)
-    end
+    return fn(function (ok, ...)
+      if not ok then
+        return reject(this, ...)
+      else
+        return resolve(this, ...)
+      end
+    end)
   end)
 end
 
