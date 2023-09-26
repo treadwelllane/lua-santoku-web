@@ -1,5 +1,5 @@
 NAME ?= santoku-web
-VERSION ?= 0.0.61-1
+VERSION ?= 0.0.62-1
 GIT_URL ?= git@github.com:treadwelllane/lua-santoku-web.git
 HOMEPAGE ?= https://github.com/treadwelllane/lua-santoku-web
 LICENSE ?= MIT
