@@ -1,7 +1,5 @@
 # Now
 
-- Correctly propagate lua errors
-
 - Basic README
 - Documentation
 
@@ -25,6 +23,10 @@
   JS (non-wasm) side of things?
 
 # Eventually
+
+- Why does throwing string errors, which in turn
+  calls Module.error($0, Emval.toHandle(<str>))
+  not cause a memory leak?
 
 - Is it possible to implement implicit-this
   without causing confusion?

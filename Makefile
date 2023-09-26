@@ -38,7 +38,7 @@ else
 TESTED_FILES = $(TEST_SPEC_DISTS)
 endif
 
-ifneq ($(SANITIZE), 0)
+ifneq ($(SANITIZE),0)
 SANITIZER_FLAGS ?= -fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-return=always -fsanitize-address-use-after-scope
 SANITIZER_VARS ?= ASAN_SYMBOLIZER_PATH="$(shell which llvm-symbolizer)"
 endif
@@ -118,8 +118,8 @@ iterate: $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_LUA_DIST_DIR)
 
 # TODO: This should be luarocks-install, but how to we set INST_LIB/BINDIR?
 luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TESTED_FILES) $(TEST_LUACOV_CFG)
-	@if LUA_PATH="$(TEST_LUA_PATH)" LUA_CPATH="$(TEST_LUA_CPATH)" \
-		toku test -s -i node $(TESTED_FILES); \
+	@if LUA_PATH="$(TEST_LUA_PATH)" LUA_CPATH="$(TEST_LUA_CPATH)" SANITIZE="$(SANITIZE)" \
+			toku test -s -i node $(TESTED_FILES); \
 	then \
 		luacov -c "$(PWD)/$(TEST_LUACOV_CFG)"; \
 		cat "$(TEST_LUACOV_REPORT_FILE)" | \
@@ -173,6 +173,7 @@ $(TEST_SPEC_DIST_DIR)/%.test: $(TEST_SPEC_SRC_DIR)/%.lua
 		-e LUA_PATH "$(TEST_LUA_PATH)" \
 		-e LUA_CPATH "$(TEST_LUA_CPATH)" \
 		-E LUACOV_CONFIG "$(PWD)/$(TEST_LUACOV_CFG)" \
+		-E SANITIZE "$(SANITIZE)" \
 		-l luacov -l luacov.hook \
 		-i debug
 

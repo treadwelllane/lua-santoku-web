@@ -21,4 +21,17 @@ test("memory", function ()
     assert.equals("object", obj:typeof():lua())
   end)
 
+  test("throw lua string error", function ()
+    val.global("eval"):call(nil, [[
+      function test_throw_string () {
+        throw 'string error';
+      }
+    ]])
+    local ok, err = pcall(function ()
+      val.global("test_throw_string"):call(nil)
+    end)
+    assert.equals(false, ok)
+    assert.equals("string error", err)
+  end)
+
 end)

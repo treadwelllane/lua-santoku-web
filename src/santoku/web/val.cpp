@@ -194,7 +194,7 @@ void push_val_lua (lua_State *L, val v, bool recurse) {
       var bi = Emval.toValue($1);
       if (bi > Number.MAX_SAFE_INTEGER ||
           bi < Number.MIN_SAFE_INTEGER)
-        Module.error($0, "Conversion from bigint to number failed: too large or too small");
+        Module.error($0, Emval.toHandle("Conversion from bigint to number failed: too large or too small"));
       return Number(bi);
     }), L, v.as_handle());
     lua_pushinteger(L, n);
@@ -584,21 +584,24 @@ int mtp_await (lua_State *L) {
   val v = peek_val(L, -2);
   val f = peek_val(L, -1);
   EM_ASM(({
-    var v = Emval.toValue($0);
-    var f = Emval.toValue($1);
-    /* NOTE: Intentionally not catching errors in the */
-    /* callback so they're thrown to javascript. Lua */
-    /* won't be able to handle them at this point. */
+    var v = Emval.toValue($1);
+    var f = Emval.toValue($2);
     v.then((...args) => {
       args.unshift(true);
       var r = f(...args);
       return r;
-    }, (...args) => {
-      args.unshift(false);
-      var r = f(...args);
-      return r;
+    }).catch((...args) => {
+      try {
+        args.unshift(false);
+        var r = f(...args);
+        return r;
+      } catch (e) {
+        return setTimeout(() => {
+          throw e;
+        });
+      }
     });
-  }), v.as_handle(), f.as_handle());
+  }), L, v.as_handle(), f.as_handle());
   return 0;
 }
 
@@ -751,13 +754,17 @@ int mtv_call (lua_State *L) {
     ? val::undefined()
     : peek_val(L, -n + 1);
   val r = val::take_ownership((EM_VAL)EM_ASM_PTR(({
-    var fn = Emval.toValue($1);
-    var ths = Emval.toValue($2);
-    if (ths != undefined)
-      fn = fn.bind(ths);
-    var args = Emval.toValue(Module.args($0, $3, $4));
-    var args = [ ...args ];
-    return Emval.toHandle(fn(...args));
+    try {
+      var fn = Emval.toValue($1);
+      var ths = Emval.toValue($2);
+      if (ths != undefined)
+        fn = fn.bind(ths);
+      var args = Emval.toValue(Module.args($0, $3, $4));
+      var args = [ ...args ];
+      return Emval.toHandle(fn(...args));
+    } catch (e) {
+      return Module.error($0, Emval.toHandle(e));
+    }
   }), L, v.as_handle(), t.as_handle(), -n + 2, n - 2));
   push_val(L, r);
   return 1;

@@ -8,7 +8,7 @@ local Promise = js.Promise
 
 if os.getenv("SANITIZE") ~= "0" then
   print("Skipping async tests when sanitizer is active.")
-  print("Re-run with SANITIZER=0 to run async tests")
+  print("Re-run with SANITIZE=0 to run async tests")
   return
 end
 
@@ -72,7 +72,7 @@ test("async code", function ()
   -- TODO: This causes a memory leak. Why?
   test("promise js exception", function ()
     Promise:new(function ()
-      js.eval(nil, "throw 'test'")
+      global:eval("throw 'test'")
     end):await(function (_, ok, err)
       assert.equals(false, ok)
       assert.equals("test", err)
@@ -111,5 +111,22 @@ test("async code", function ()
       assert.equals("failed", unhandled)
     end, 100)
   end)
+
+  -- test("js error in js invoked callback", function ()
+  --   local unhandled = nil
+  --   js.process:on("unhandledRejection", function () end)
+  --   js.process:on("uncaughtException", function (_, err)
+  --     print("> uncaught", err)
+  --     unhandled = err
+  --   end)
+  --   global:setTimeout(function ()
+  --     -- global:eval("throw 'hi'")
+  --     error("hi")
+  --   end)
+  --   -- global:setTimeout(function ()
+  --   --   print("x")
+  --   --   assert.equals("hi", unhandled)
+  --   -- end, 1000)
+  -- end)
 
 end)
