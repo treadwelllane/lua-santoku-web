@@ -11,11 +11,15 @@ return function (callback, global, opts)
   local oldlogs = {}
   local oldprint = nil
 
+  local function format (...)
+    return JSON:stringify({ opts.name or "(no label)", ... })
+  end
+
   local function wrapPrint ()
     oldprint = print
     _G.print = function (...)
       oldprint(...)
-      callback(JSON:stringify({ "print", { ... } }))
+      callback(format("print", { ... }))
     end
   end
 
@@ -26,7 +30,7 @@ return function (callback, global, opts)
     oldlogs[typ] = console[typ]
     console[typ] = function (_, ...)
       oldlogs.log(console, ...)
-      callback(JSON:stringify({ "console." .. typ, { ... } }))
+      callback(format("console." .. typ, { ... }))
     end
   end
 
@@ -39,21 +43,21 @@ return function (callback, global, opts)
   local function wrapError ()
     if global.addEventListener then
       global:addEventListener("error", function (_, ev)
-        callback(JSON:stringify({ "error", ev and ev.message or ev }))
+        callback(format("error", ev and ev.message or ev))
       end)
       global:addEventListener("uncaughtException", function (_, ev)
-        callback(JSON:stringify({ "uncaughtException", ev and ev.message or ev }))
+        callback(format("uncaughtException", ev and ev.message or ev))
       end)
       global:addEventListener("unhandledRejection", function (_, ev)
-        callback(JSON:stringify({ "unhandledRejection", ev and ev.message or ev }))
+        callback(format("unhandledRejection", ev and ev.message or ev))
       end)
     end
     if global.process and global.process.on then
       global.process:on("uncaughtException", function (_, ev)
-        callback(JSON:stringify({ "uncaughtException", ev and ev.message or ev }))
+        callback(format("uncaughtException", ev and ev.message or ev))
       end)
       global.process:on("unhandledRejection", function (_, ev)
-        callback(JSON:stringify({ "unhandledRejection", ev and ev.message or ev }))
+        callback(format("unhandledRejection", ev and ev.message or ev))
       end)
     end
   end

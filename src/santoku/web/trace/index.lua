@@ -52,7 +52,7 @@ return function (url, opts)
 
   end
 
-  common(emit, window)
+  common(emit, window, opts)
 
   channel:addEventListener("message", function (_, ev)
     emit(ev.data)
