@@ -1,6 +1,7 @@
 local vec = require("santoku.vector")
+local tup = require("santoku.tuple")
 
-return function (callback, global, opts)
+return function (callback, global, opts, run)
 
   opts = opts or {}
 
@@ -72,6 +73,13 @@ return function (callback, global, opts)
 
   if opts.error ~= false then
     wrapError()
+  end
+
+  if run then
+    local res = tup(pcall(run))
+    if not res() then
+      callback(format("error", select(2, res())))
+    end
   end
 
   return {
