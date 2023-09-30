@@ -98,6 +98,167 @@ int mtv_gc (lua_State *L) {
   return 0;
 }
 
+int mtv_eq (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 == v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_lt (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 < v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_le (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 <= v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_sub (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 - v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_mul (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 * v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_div (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 / v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_mod (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 % v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_pow (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 ^ v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_band (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 & v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_bor (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 | v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_bxor (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 ^ v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_unm (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    return - v0;
+  }, v0.as_handle()));
+  return 1;
+}
+
+int mtv_bnot (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    return ~ v0;
+  }, v0.as_handle()));
+  return 1;
+}
+
+int mtv_shl (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 << v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+int mtv_shr (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 >> v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
 /* TODO: Is there a way to avoid heap allocation of */
 /* the val? */
 void push_val (lua_State *L, val v) {
@@ -835,8 +996,36 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_setfield(L, -2, "__index");
   lua_pushcfunction(L, mtv_gc);
   lua_setfield(L, -2, "__gc");
-  /* lua_pushcfunction(L, mto_newindex); */
-  /* lua_setfield(L, -2, "__newindex"); */
+  lua_pushcfunction(L, mtv_eq);
+  lua_setfield(L, -2, "__eq");
+  lua_pushcfunction(L, mtv_lt);
+  lua_setfield(L, -2, "__lt");
+  lua_pushcfunction(L, mtv_le);
+  lua_setfield(L, -2, "__le");
+  lua_pushcfunction(L, mtv_sub);
+  lua_setfield(L, -2, "__sub");
+  lua_pushcfunction(L, mtv_mul);
+  lua_setfield(L, -2, "__mul");
+  lua_pushcfunction(L, mtv_div);
+  lua_setfield(L, -2, "__div");
+  lua_pushcfunction(L, mtv_mod);
+  lua_setfield(L, -2, "__mod");
+  lua_pushcfunction(L, mtv_pow);
+  lua_setfield(L, -2, "__pow");
+  lua_pushcfunction(L, mtv_unm);
+  lua_setfield(L, -2, "__unm");
+  lua_pushcfunction(L, mtv_band);
+  lua_setfield(L, -2, "__band");
+  lua_pushcfunction(L, mtv_bor);
+  lua_setfield(L, -2, "__bor");
+  lua_pushcfunction(L, mtv_bxor);
+  lua_setfield(L, -2, "__bxor");
+  lua_pushcfunction(L, mtv_bnot);
+  lua_setfield(L, -2, "__bnot");
+  lua_pushcfunction(L, mtv_shl);
+  lua_setfield(L, -2, "__shl");
+  lua_pushcfunction(L, mtv_shr);
+  lua_setfield(L, -2, "__shr");
   lua_pop(L, 1);
 
   luaL_newmetatable(L, MTO);
@@ -848,6 +1037,36 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_setfield(L, -2, "__len");
   lua_pushcfunction(L, mto_pairs);
   lua_setfield(L, -2, "__pairs");
+  lua_pushcfunction(L, mtv_eq);
+  lua_setfield(L, -2, "__eq");
+  lua_pushcfunction(L, mtv_lt);
+  lua_setfield(L, -2, "__lt");
+  lua_pushcfunction(L, mtv_le);
+  lua_setfield(L, -2, "__le");
+  lua_pushcfunction(L, mtv_sub);
+  lua_setfield(L, -2, "__sub");
+  lua_pushcfunction(L, mtv_mul);
+  lua_setfield(L, -2, "__mul");
+  lua_pushcfunction(L, mtv_div);
+  lua_setfield(L, -2, "__div");
+  lua_pushcfunction(L, mtv_mod);
+  lua_setfield(L, -2, "__mod");
+  lua_pushcfunction(L, mtv_pow);
+  lua_setfield(L, -2, "__pow");
+  lua_pushcfunction(L, mtv_unm);
+  lua_setfield(L, -2, "__unm");
+  lua_pushcfunction(L, mtv_band);
+  lua_setfield(L, -2, "__band");
+  lua_pushcfunction(L, mtv_bor);
+  lua_setfield(L, -2, "__bor");
+  lua_pushcfunction(L, mtv_bxor);
+  lua_setfield(L, -2, "__bxor");
+  lua_pushcfunction(L, mtv_bnot);
+  lua_setfield(L, -2, "__bnot");
+  lua_pushcfunction(L, mtv_shl);
+  lua_setfield(L, -2, "__shl");
+  lua_pushcfunction(L, mtv_shr);
+  lua_setfield(L, -2, "__shr");
   lua_pop(L, 1);
 
   luaL_newmetatable(L, MTP);
