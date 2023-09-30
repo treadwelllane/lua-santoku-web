@@ -13,8 +13,7 @@
 
 - Fix x:val(false/true) and x:lua(false/true)
 
-- Date and other object gt, lt, etc. comparisons
-- Wrapped object equality checks
+- Test binary and unary operators
 
 - Even though sanitizer reports no leaks, ensure
   that IDX_VAL_REF and IDX_TBL_VAL are correctly

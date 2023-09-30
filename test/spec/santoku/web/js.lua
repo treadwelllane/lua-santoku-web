@@ -51,4 +51,10 @@ test("js", function ()
   --   print(entries:lua(true))
   -- end)
 
+  test("equality", function ()
+    local c0 = js.console
+    local c1 = js.console
+    assert.equals(c0:val(), c1:val())
+  end)
+
 end)
