@@ -56,33 +56,64 @@ M.clone = function (tpl, data, parent)
   return el
 end
 
+local function parse_attr_value (data, attr, attrs)
+
+  if attr.value and data[attr.value] and data[attr.value] ~= "" then
+    return data[attr.value]
+  end
+
+  local def = attrs:getNamedItem(attr.name .. "-default")
+
+  if def then
+    return def.value
+  else
+    return ""
+  end
+
+end
+
 M.populate = function (el, data)
+
   if not data then
     return el
   end
+
   if el.hasAttributes and el:hasAttributes() then
-    Array:from(el.attributes):forEach(function (_, attr)
+
+    local attrs = Array:from(el.attributes)
+
+    attrs:forEach(function (_, attr)
+      -- TODO: This may cause some trouble for things that shouldn't be
+      -- interpolated, like hrefs.
       attr.value = str.interp(attr.value, data)
+    end)
+
+    attrs:forEach(function (_, attr)
       if attr.name == "data-text" then
-        el:replaceChildren(document:createTextNode(data[attr.value] or ""))
+        el:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
       elseif attr.name == "data-value" then
-        el.value = data[attr.value] or ""
+        el.value = parse_attr_value(data, attr, el.attributes)
       elseif attr.name == "data-src" then
-        el.src = data[attr.value] or ""
+        el.src = parse_attr_value(data, attr, el.attributes)
       elseif attr.name == "data-checked" then
         el.checked = data[attr.value] or false
       end
     end)
+
   end
+
   Array:from(el.childNodes):forEach(function (_, node)
     if node.nodeType == 3 then -- text
       node.nodeValue = str.interp(node.nodeValue, data)
     end
   end)
+
   Array:from(el.children):forEach(function (_, child)
     M.populate(child, data)
   end)
+
   return el
+
 end
 
 M.update = function (data, el)
