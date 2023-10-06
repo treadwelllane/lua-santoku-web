@@ -1,5 +1,5 @@
 NAME ?= santoku-web
-VERSION ?= 0.0.67-1
+VERSION ?= 0.0.68-1
 GIT_URL ?= git@github.com:treadwelllane/lua-santoku-web.git
 HOMEPAGE ?= https://github.com/treadwelllane/lua-santoku-web
 LICENSE ?= MIT
@@ -46,14 +46,14 @@ endif
 TEST_CC ?= emcc
 TEST_EM_VARS ?= $(SANITIZER_VARS) CC="$(TEST_CC)" LD="$(TEST_CC)" AR="emar rcu" NM="emnm" RANLIB="emranlib"
 TEST_CFLAGS ?= -gsource-map -I $(TEST_LUA_INC_DIR) --bind -sALLOW_MEMORY_GROWTH $(SANITIZER_FLAGS)
-TEST_LDFLAGS ?= -gsource-map -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) $(SANITIZER_FLAGS) -lnodefs.js -lnoderawfs.js
+TEST_LDFLAGS ?= -sWASM_BIGINT -gsource-map -L $(TEST_LUA_LIB_DIR) $(LOCAL_LDFLAGS) $(LIBFLAG) $(SANITIZER_FLAGS) -lnodefs.js -lnoderawfs.js
 TEST_VARS ?= $(TEST_EM_VARS) LUAROCKS='$(TEST_LUAROCKS)' BUILD_DIR="$(TEST_DIR)/build" CFLAGS="$(TEST_CFLAGS)" LDFLAGS="$(TEST_LDFLAGS)" LIBFLAG="$(TEST_LIBFLAG)"
 TEST_LUAROCKS_VARS ?= $(TEST_EM_VARS)	CFLAGS="$(TEST_LUAROCKS_CFLAGS)" LDFLAGS="$(TEST_LUAROCKS_LDFLAGS)" LIBFLAG="$(TEST_LUAROCKS_LIBFLAG)"
 TEST_LUAROCKS_CFLAGS ?= -I $(TEST_LUA_INC_DIR) $(CFLAGS)
 TEST_LUAROCKS_LDFLAGS ?= -L $(TEST_LUA_LIB_DIR) $(LDFLAGS)
 TEST_LUAROCKS_LIBFLAG ?= $(LIBFLAG)
 TEST_LUA_CFLAGS ?= $(CFLAGS)
-TEST_LUA_LDFLAGS ?= $(LDFLAGS) -lnodefs.js -lnoderawfs.js
+TEST_LUA_LDFLAGS ?= -sWASM_BIGINT $(LDFLAGS) -lnodefs.js -lnoderawfs.js
 TEST_LUA_VARS ?= $(TEST_EM_VARS) CFLAGS="$(TEST_LUA_CFLAGS)" LDFLAGS="$(TEST_LUA_LDFLAGS)"
 TEST_LUA_PATH ?= $(TEST_LUAROCKS_TREE)/share/lua/$(TEST_LUA_MINMAJ)/?.lua;$(TEST_LUAROCKS_TREE)/share/lua/$(TEST_LUA_MINMAJ)/?/init.lua
 TEST_LUA_CPATH ?= $(TEST_LUAROCKS_TREE)/lib/lua/$(TEST_LUA_MINMAJ)/?.so
@@ -196,7 +196,7 @@ $(TEST_LUA_DIST_DIR): $(TEST_LUA_DL)
 	cp "$(TEST_LUA_DIR)/src/"*.wasm "$(TEST_LUA_DIST_DIR)/bin/"
 
 $(TEST_LUA_DL):
-	curl -o "$(TEST_LUA_DL)" "$(TEST_LUA_URL)"
+	curl -LsSo "$(TEST_LUA_DL)" "$(TEST_LUA_URL)"
 
 echo:
 	find $(TEST_DIR) -type f -name '*.d'
