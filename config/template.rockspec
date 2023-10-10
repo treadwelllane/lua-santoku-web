@@ -14,7 +14,7 @@ description = {
 
 dependencies = {
   "lua >= 5.1",
-  "santoku >= 0.0.44-1",
+  "santoku >= 0.0.83-1",
   "lsqlite3 >= 0.9.5-1"
 }
 
