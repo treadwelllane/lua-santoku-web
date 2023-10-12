@@ -299,4 +299,9 @@ test("val", function ()
     assert.equals("int: 1", s)
   end)
 
+  test("val uint8array to string", function ()
+    assert.equals("", val.global("Uint8Array"):new():lua())
+    assert.equals("ABC", val.global("Uint8Array"):new({ 65, 66, 67 }):lua())
+  end)
+
 end)
