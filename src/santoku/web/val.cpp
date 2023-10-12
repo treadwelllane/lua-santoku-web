@@ -376,11 +376,8 @@ void push_val_lua (lua_State *L, val v, bool recurse) {
             ? 1 : 0;
         }), v.as_handle());
         if (isUInt8Array) {
-          val str = val::take_ownership((EM_VAL) EM_ASM_PTR(({
-            return Emval.toHandle((new TextDecoder()).decode(Emval.toValue($0)));
-          }), v.as_handle()));
-          string x = str.as<string>();
-          lua_pushstring(L, x.c_str());
+          vector<char> vec = convertJSArrayToNumberVector<char>(v);
+          lua_pushlstring(L, vec.data(), vec.size());
         } else {
           bool isPromise = EM_ASM_INT(({
             return Emval.toValue($0) instanceof Promise
