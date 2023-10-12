@@ -799,8 +799,8 @@ int mta_index (lua_State *L) {
 int mta_str (lua_State *L) {
   args_to_vals(L, -1);
   val v = peek_val(L, -1);
-  vector<char> vec = convertJSArrayToNumberVector<char>(v);
-  lua_pushlstring(L, vec.data(), vec.size());
+  vector<uint8_t> vec = convertJSArrayToNumberVector<uint8_t>(v);
+  lua_pushlstring(L, (char *) vec.data(), vec.size());
   return 1;
 }
 
