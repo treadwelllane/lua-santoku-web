@@ -300,8 +300,13 @@ test("val", function ()
   end)
 
   test("val uint8array to string", function ()
-    assert.equals("", val.global("Uint8Array"):new():lua())
-    assert.equals("ABC", val.global("Uint8Array"):new({ 65, 66, 67 }):lua())
+    assert.equals("", val.global("Uint8Array"):new():lua():str())
+    assert.equals("ABC", val.global("Uint8Array"):new({ 65, 66, 67 }):lua():str())
+  end)
+
+  test("val string to uint8array", function ()
+    assert.equals(true, val.bytes("ABC"):instanceof(val.global("Uint8Array")))
+    assert.equals("ABC", val.bytes("ABC"):str())
   end)
 
 end)

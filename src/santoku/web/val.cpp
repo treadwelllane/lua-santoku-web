@@ -26,6 +26,9 @@ using namespace emscripten;
 // Proxy to JS, with :val(), :typeof(), instanceof()
 #define MTO "santoku_web_object"
 
+// Proxy to JS, with :val(), :typeof(), instanceof(), string()
+#define MTA "santoku_web_object"
+
 // Same as MTO, with __call and :new(...)
 #define MTF "santoku_web_function"
 
@@ -41,6 +44,7 @@ int IDX_TBL_VAL;
 
 int MTO_FNS;
 int MTP_FNS;
+int MTA_FNS;
 int MTF_FNS;
 
 int lua_to_val (lua_State *, int, bool);
@@ -376,8 +380,9 @@ void push_val_lua (lua_State *L, val v, bool recurse) {
             ? 1 : 0;
         }), v.as_handle());
         if (isUInt8Array) {
-          vector<char> vec = convertJSArrayToNumberVector<char>(v);
-          lua_pushlstring(L, vec.data(), vec.size());
+          lua_newtable(L);
+          luaL_setmetatable(L, MTA);
+          map_js(L, v, -1, LUA_NOREF);
         } else {
           bool isPromise = EM_ASM_INT(({
             return Emval.toValue($0) instanceof Promise
@@ -699,6 +704,13 @@ int mt_global (lua_State *L) {
   return 1;
 }
 
+int mt_bytes (lua_State *L) {
+  size_t size;
+  const char *str = luaL_checklstring(L, -1, &size);
+  push_val_lua(L, val(typed_memory_view(size, (uint8_t *) str)), false);
+  return 1;
+}
+
 int mto_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTO_FNS);
   lua_pushvalue(L, -2);
@@ -773,6 +785,23 @@ int mtp_await (lua_State *L) {
     });
   }), L, v.as_handle(), f.as_handle());
   return 0;
+}
+
+int mta_index (lua_State *L) {
+  lua_rawgeti(L, LUA_REGISTRYINDEX, MTA_FNS);
+  lua_pushvalue(L, -2);
+  if (lua_gettable(L, -2) != LUA_TNIL)
+    return 1;
+  lua_pop(L, 2);
+  return mto_index(L);
+}
+
+int mta_str (lua_State *L) {
+  args_to_vals(L, -1);
+  val v = peek_val(L, -1);
+  vector<char> vec = convertJSArrayToNumberVector<char>(v);
+  lua_pushlstring(L, vec.data(), vec.size());
+  return 1;
 }
 
 int mtf_index (lua_State *L) {
@@ -958,6 +987,11 @@ luaL_Reg mtp_fns[] = {
   { NULL, NULL }
 };
 
+luaL_Reg mta_fns[] = {
+  { "str", mta_str },
+  { NULL, NULL }
+};
+
 luaL_Reg mtf_fns[] = {
   { "new", mtf_new },
   { NULL, NULL }
@@ -985,61 +1019,13 @@ luaL_Reg mtv_fns[] = {
 
 luaL_Reg mt_fns[] = {
   { "global", mt_global },
+  { "bytes", mt_bytes },
   { NULL, NULL }
 };
 
-int luaopen_santoku_web_val (lua_State *L) {
-
-  lua_newtable(L);
-
-  lua_newtable(L);
-  lua_pushcfunction(L, mt_call);
-  lua_setfield(L, -2, "__call");
-  lua_setmetatable(L, -2);
-
-  luaL_setfuncs(L, mt_fns, 0);
-
-  luaL_newmetatable(L, MTV);
-  lua_newtable(L);
-  luaL_setfuncs(L, mtv_fns, 0);
-  lua_setfield(L, -2, "__index");
+void set_common_obj_mtfns (lua_State *L) {
   lua_pushcfunction(L, mtv_gc);
   lua_setfield(L, -2, "__gc");
-  lua_pushcfunction(L, mtv_eq);
-  lua_setfield(L, -2, "__eq");
-  lua_pushcfunction(L, mtv_lt);
-  lua_setfield(L, -2, "__lt");
-  lua_pushcfunction(L, mtv_le);
-  lua_setfield(L, -2, "__le");
-  lua_pushcfunction(L, mtv_sub);
-  lua_setfield(L, -2, "__sub");
-  lua_pushcfunction(L, mtv_mul);
-  lua_setfield(L, -2, "__mul");
-  lua_pushcfunction(L, mtv_div);
-  lua_setfield(L, -2, "__div");
-  lua_pushcfunction(L, mtv_mod);
-  lua_setfield(L, -2, "__mod");
-  lua_pushcfunction(L, mtv_pow);
-  lua_setfield(L, -2, "__pow");
-  lua_pushcfunction(L, mtv_unm);
-  lua_setfield(L, -2, "__unm");
-  lua_pushcfunction(L, mtv_band);
-  lua_setfield(L, -2, "__band");
-  lua_pushcfunction(L, mtv_bor);
-  lua_setfield(L, -2, "__bor");
-  lua_pushcfunction(L, mtv_bxor);
-  lua_setfield(L, -2, "__bxor");
-  lua_pushcfunction(L, mtv_bnot);
-  lua_setfield(L, -2, "__bnot");
-  lua_pushcfunction(L, mtv_shl);
-  lua_setfield(L, -2, "__shl");
-  lua_pushcfunction(L, mtv_shr);
-  lua_setfield(L, -2, "__shr");
-  lua_pop(L, 1);
-
-  luaL_newmetatable(L, MTO);
-  lua_pushcfunction(L, mto_index);
-  lua_setfield(L, -2, "__index");
   lua_pushcfunction(L, mto_newindex);
   lua_setfield(L, -2, "__newindex");
   lua_pushcfunction(L, mto_len);
@@ -1077,22 +1063,46 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_pushcfunction(L, mtv_shr);
   lua_setfield(L, -2, "__shr");
   lua_pop(L, 1);
+}
+
+int luaopen_santoku_web_val (lua_State *L) {
+
+  lua_newtable(L);
+
+  lua_newtable(L);
+  lua_pushcfunction(L, mt_call);
+  lua_setfield(L, -2, "__call");
+  lua_setmetatable(L, -2);
+
+  luaL_setfuncs(L, mt_fns, 0);
+
+  luaL_newmetatable(L, MTV);
+  lua_newtable(L);
+  luaL_setfuncs(L, mtv_fns, 0);
+  lua_setfield(L, -2, "__index");
+  set_common_obj_mtfns(L);
+
+  luaL_newmetatable(L, MTO);
+  lua_pushcfunction(L, mto_index);
+  lua_setfield(L, -2, "__index");
+  set_common_obj_mtfns(L);
+
+  luaL_newmetatable(L, MTA);
+  lua_pushcfunction(L, mta_index);
+  lua_setfield(L, -2, "__index");
+  set_common_obj_mtfns(L);
 
   luaL_newmetatable(L, MTP);
   lua_pushcfunction(L, mtp_index);
   lua_setfield(L, -2, "__index");
-  lua_pushcfunction(L, mto_newindex);
-  lua_setfield(L, -2, "__newindex");
-  lua_pop(L, 1);
+  set_common_obj_mtfns(L);
 
   luaL_newmetatable(L, MTF);
   lua_pushcfunction(L, mtf_index);
   lua_setfield(L, -2, "__index");
-  lua_pushcfunction(L, mto_newindex);
-  lua_setfield(L, -2, "__newindex");
   lua_pushcfunction(L, mtf_call);
   lua_setfield(L, -2, "__call");
-  lua_pop(L, 1);
+  set_common_obj_mtfns(L);
 
   EM_ASM(({
     Module.IDX_VAL_REF = new WeakMap();
@@ -1112,6 +1122,10 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_newtable(L);
   luaL_setfuncs(L, mtp_fns, 0);
   MTP_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
+
+  lua_newtable(L);
+  luaL_setfuncs(L, mta_fns, 0);
+  MTA_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
 
   lua_newtable(L);
   luaL_setfuncs(L, mtf_fns, 0);
