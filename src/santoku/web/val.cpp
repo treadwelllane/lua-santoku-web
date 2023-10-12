@@ -371,13 +371,25 @@ void push_val_lua (lua_State *L, val v, bool recurse) {
       if (isNull) {
         lua_pushnil(L);
       } else {
-        bool isPromise = EM_ASM_INT(({
-          return Emval.toValue($0) instanceof Promise
+        bool isUInt8Array = EM_ASM_INT(({
+          return Emval.toValue($0) instanceof Uint8Array
             ? 1 : 0;
         }), v.as_handle());
-        lua_newtable(L);
-        luaL_setmetatable(L, isPromise ? MTP : MTO);
-        map_js(L, v, -1, LUA_NOREF);
+        if (isUInt8Array) {
+          val str = val::take_ownership((EM_VAL) EM_ASM_PTR(({
+            return Emval.toHandle((new TextDecoder()).decode(Emval.toValue($0)));
+          }), v.as_handle()));
+          string x = str.as<string>();
+          lua_pushstring(L, x.c_str());
+        } else {
+          bool isPromise = EM_ASM_INT(({
+            return Emval.toValue($0) instanceof Promise
+              ? 1 : 0;
+          }), v.as_handle());
+          lua_newtable(L);
+          luaL_setmetatable(L, isPromise ? MTP : MTO);
+          map_js(L, v, -1, LUA_NOREF);
+        }
       }
     }
   } else if (type == "function") {
