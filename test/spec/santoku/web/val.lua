@@ -310,4 +310,33 @@ test("val", function ()
     assert.equals("ABC", val.bytes("ABC"):str())
   end)
 
+  -- test("IDX_VAL_REF and IDX_TBL_VAL should be empty", function ()
+
+  --   print(">", val.IDX_TBL_VAL, val.IDX_VAL_REF)
+
+  --   collectgarbage()
+  --   collectgarbage()
+
+  --   local cnt
+
+  --   print("IDX_TBL_VAL")
+  --   cnt = 0
+  --   for k, v in pairs(val.IDX_TBL_VAL) do
+  --     print(k, v)
+  --     cnt = cnt + 1
+  --   end
+
+  --   print("Count: ", cnt)
+
+  --   print("IDX_VAL_REF")
+  --   cnt = 0
+  --   for k, v in pairs(val.IDX_VAL_REF) do
+  --     print(k, v)
+  --     cnt = cnt + 1
+  --   end
+
+  --   print("Count: ", cnt, val.IDX_VAL_REF.size)
+
+  -- end)
+
 end)
