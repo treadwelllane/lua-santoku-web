@@ -305,7 +305,8 @@ test("val", function ()
   end)
 
   test("val string to uint8array", function ()
-    assert.equals(true, val.bytes("ABC"):instanceof(val.global("Uint8Array")))
+    local b = val.bytes("ABC")
+    assert.equals(true, b:instanceof(val.global("Uint8Array")))
     assert.equals("ABC", val.bytes("ABC"):str())
   end)
 
