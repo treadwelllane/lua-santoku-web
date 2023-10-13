@@ -330,7 +330,18 @@ void map_js (lua_State *L, val v, int i, int ref) {
   lua_pop(L, 1);
 }
 
-void push_val_lua (lua_State *L, val v, bool recurse) {
+void push_new_uv (lua_State *L, int uv) {
+  if (uv != INT_MIN) {
+    lua_pushvalue(L, uv); // uv_old
+    lua_newuserdatauv(L, 0, 1); // uv_old uv_new
+    lua_insert(L, -2); // uv_new uv_old
+    lua_setiuservalue(L, -2, 1); // uv_new
+  } else {
+    lua_newuserdatauv(L, 0, 0); // uv_new
+  }
+}
+
+void push_val_lua_uv (lua_State *L, val v, bool recurse, int uv) {
   string type = v.typeof().as<string>();
   if (type == "string") {
     string x = v.as<string>();
@@ -380,7 +391,7 @@ void push_val_lua (lua_State *L, val v, bool recurse) {
             ? 1 : 0;
         }), v.as_handle());
         if (isUInt8Array) {
-          lua_newtable(L);
+          push_new_uv(L, uv);
           luaL_setmetatable(L, MTA);
           map_js(L, v, -1, LUA_NOREF);
         } else {
@@ -388,7 +399,7 @@ void push_val_lua (lua_State *L, val v, bool recurse) {
             return Emval.toValue($0) instanceof Promise
               ? 1 : 0;
           }), v.as_handle());
-          lua_newtable(L);
+          push_new_uv(L, uv);
           luaL_setmetatable(L, isPromise ? MTP : MTO);
           map_js(L, v, -1, LUA_NOREF);
         }
@@ -396,7 +407,7 @@ void push_val_lua (lua_State *L, val v, bool recurse) {
     }
   } else if (type == "function") {
     if (!unmap_js(L, v)) {
-      lua_newtable(L);
+      push_new_uv(L, uv);
       luaL_setmetatable(L, MTF);
       map_js(L, v, -1, LUA_NOREF);
     }
@@ -406,6 +417,10 @@ void push_val_lua (lua_State *L, val v, bool recurse) {
     printf("Unhandled JS type, pushing nil: %s\n", type.c_str());
     lua_pushnil(L);
   }
+}
+
+void push_val_lua (lua_State *L, val v, bool recurse) {
+  push_val_lua_uv(L, v, recurse, INT_MIN);
 }
 
 int lua_to_val (lua_State *L, int i, bool recurse) {
