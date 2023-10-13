@@ -97,8 +97,22 @@ val peek_val (lua_State *L, int i) {
 }
 
 int mtv_gc (lua_State *L) {
+
   val *v = peek_valp(L, -1);
+
+  if (unmap_js(L, *v)) {
+    lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL); // t idx
+    lua_insert(L, -2); // idx t
+    lua_pushnil(L);
+    lua_settable(L, -3);
+  }
+
+  EM_ASM(({
+    Module.IDX_VAL_REF.delete(Emval.toValue($0));
+  }), v->as_handle());
+
   delete v;
+
   return 0;
 }
 
@@ -723,6 +737,9 @@ int mt_bytes (lua_State *L) {
   size_t size;
   const char *str = luaL_checklstring(L, -1, &size);
   push_val_lua_uv(L, val(typed_memory_view(size, (uint8_t *) str)), false, -1);
+  // uint8_t *buf = (uint8_t *) lua_newuserdatauv(L, size, 0);
+  // memcpy(buf, str, size);
+  // push_val_lua_uv(L, val(typed_memory_view(size, (uint8_t *) buf)), false, -1);
   return 1;
 }
 
@@ -1120,14 +1137,11 @@ int luaopen_santoku_web_val (lua_State *L) {
   set_common_obj_mtfns(L);
 
   EM_ASM(({
-    Module.IDX_VAL_REF = new WeakMap();
+    Module.IDX_VAL_REF = new Map();
+    global.Module = Module;
   }));
 
   lua_newtable(L);
-  lua_newtable(L);
-  lua_pushstring(L, "k");
-  lua_setfield(L, -2, "__mode");
-  lua_setmetatable(L, -2);
   IDX_TBL_VAL = luaL_ref(L, LUA_REGISTRYINDEX);
 
   lua_newtable(L);
@@ -1145,6 +1159,14 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_newtable(L);
   luaL_setfuncs(L, mtf_fns, 0);
   MTF_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_TBL_VAL);
+  lua_setfield(L, -2, "IDX_TBL_VAL");
+
+  push_val_lua(L, val::take_ownership((EM_VAL) EM_ASM_PTR(({
+    return Emval.toHandle(Module.IDX_VAL_REF);
+  }))), false);
+  lua_setfield(L, -2, "IDX_VAL_REF");
 
   return 1;
 }
