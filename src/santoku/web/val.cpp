@@ -722,7 +722,7 @@ int mt_global (lua_State *L) {
 int mt_bytes (lua_State *L) {
   size_t size;
   const char *str = luaL_checklstring(L, -1, &size);
-  push_val_lua(L, val(typed_memory_view(size, (uint8_t *) str)), false);
+  push_val_lua_uv(L, val(typed_memory_view(size, (uint8_t *) str)), false, -1);
   return 1;
 }
 
