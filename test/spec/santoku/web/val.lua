@@ -3,14 +3,22 @@ local test = require("santoku.test")
 local str = require("santoku.string")
 local val = require("santoku.web.val")
 
+collectgarbage("stop")
+
 test("val", function ()
 
   test("global", function ()
 
     test("returns a global object", function ()
-      local c = val.global("console")
-      local v = c:lua()
-      assert.equals("object", v:typeof())
+      local c0 = val.global("console")
+      local v0 = c0:lua()
+      local c1 = val.global("console")
+      local v1 = c1:lua()
+      local c2 = val.global("console")
+      local v2 = c2:lua()
+      assert.equals("object", v0:typeof())
+      assert.equals("object", v1:typeof())
+      assert.equals("object", v2:typeof())
     end)
 
     test("val.global(x):lua() == val.global(x):lua()", function ()
@@ -165,7 +173,8 @@ test("val", function ()
   end)
 
   test("Math.max(1, 3, 2) :lua()", function ()
-    local Math = val.global("Math"):lua()
+    local vMath = val.global("Math")
+    local Math = vMath:lua()
     local r = Math:max(1, 3, 2)
     assert.equals(3, r)
   end)
@@ -260,7 +269,8 @@ test("val", function ()
 
   test("array keys", function ()
     local t = { 1, 2, 3, 4, 5 }
-    local Object = val.global("Object"):lua()
+    local vObject = val.global("Object")
+    local Object = vObject:lua()
     local ki = 0
     Object:keys(t):forEach(function (_, k)
       assert.equals(ki .. "", k)
@@ -310,33 +320,19 @@ test("val", function ()
     assert.equals("ABC", val.bytes("ABC"):str())
   end)
 
-  -- test("IDX_VAL_REF and IDX_TBL_VAL should be empty", function ()
-
-  --   print(">", val.IDX_TBL_VAL, val.IDX_VAL_REF)
-
-  --   collectgarbage()
-  --   collectgarbage()
-
-  --   local cnt
-
-  --   print("IDX_TBL_VAL")
-  --   cnt = 0
-  --   for k, v in pairs(val.IDX_TBL_VAL) do
-  --     print(k, v)
-  --     cnt = cnt + 1
-  --   end
-
-  --   print("Count: ", cnt)
-
-  --   print("IDX_VAL_REF")
-  --   cnt = 0
-  --   for k, v in pairs(val.IDX_VAL_REF) do
-  --     print(k, v)
-  --     cnt = cnt + 1
-  --   end
-
-  --   print("Count: ", cnt, val.IDX_VAL_REF.size)
-
-  -- end)
-
 end)
+
+collectgarbage("collect")
+collectgarbage("collect")
+
+local cnt = 0
+for k, v in pairs(val.IDX_TBL_VAL) do
+  -- print(k, v)
+  cnt = cnt + 1
+end
+
+-- print("IDX_TBL_VAL:", cnt)
+-- print("IDX_VAL_REF:", val.IDX_VAL_REF.size)
+
+assert.equals(1, cnt, "IDX_TBL_VAL not clean")
+assert.equals(1, val.IDX_VAL_REF.size, "IDX_VAL_REF not clean")
