@@ -4,6 +4,8 @@ local assert = require("luassert")
 local test = require("santoku.test")
 local val = require("santoku.web.val")
 
+collectgarbage("stop")
+
 test("memory", function ()
 
   test("object get str", function ()
@@ -35,3 +37,18 @@ test("memory", function ()
   end)
 
 end)
+
+collectgarbage("collect")
+collectgarbage("collect")
+
+local cnt = 0
+for k, v in pairs(val.IDX_TBL_VAL) do
+  -- print(k, v)
+  cnt = cnt + 1
+end
+
+-- print("IDX_TBL_VAL:", cnt)
+-- print("IDX_VAL_REF:", val.IDX_VAL_REF.size)
+
+assert.equals(1, cnt, "IDX_TBL_VAL not clean")
+assert.equals(1, val.IDX_VAL_REF.size, "IDX_VAL_REF not clean")
