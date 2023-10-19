@@ -896,10 +896,17 @@ int mt_global (lua_State *L) {
   return 1;
 }
 
+// NOTE: We copy the uint8array by calling slice
+// because as the WASM memory grows, the memory
+// view backing the uint8array will be
+// invalidated, resulting in "detached array
+// buffer" errors. Is it somehow possible to
+// update the pointer when this happens? Maybe..
 int mt_bytes (lua_State *L) {
   size_t size;
   const char *str = luaL_checklstring(L, -1, &size); // str
-  push_val(L, val(typed_memory_view(size, (uint8_t *) str)), -1); // str val
+  val v = val(typed_memory_view(size, (uint8_t *) str));
+  push_val(L, v.call<val>("slice"), -1); // str val
   val_to_lua(L, -1, false, true); // str val lua
   return 1;
 }
