@@ -39,16 +39,18 @@ test("memory", function ()
 end)
 
 collectgarbage("collect")
-collectgarbage("collect")
+val.global("gc"):call(nil)
 
-local cnt = 0
-for k, v in pairs(val.IDX_TBL_VAL) do
-  -- print(k, v)
-  cnt = cnt + 1
-end
+val.global("setTimeout", function ()
 
--- print("IDX_TBL_VAL:", cnt)
--- print("IDX_VAL_REF:", val.IDX_VAL_REF.size)
+  local cntt = 0
+  for k, v in pairs(val.IDX_REF_TBL) do
+    -- print(k, v)
+    cntt = cntt + 1
+  end
 
-assert.equals(1, cnt, "IDX_TBL_VAL not clean")
-assert.equals(1, val.IDX_VAL_REF.size, "IDX_VAL_REF not clean")
+  -- print("IDX_REF_TBL:", cntt)
+
+  assert.equals(0, cntt, "IDX_REF_TBL not clean")
+
+end, 5000)

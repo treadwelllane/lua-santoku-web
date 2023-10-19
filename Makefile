@@ -1,5 +1,5 @@
 NAME ?= santoku-web
-VERSION ?= 0.0.76-1
+VERSION ?= 0.0.77-1
 
 GIT_URL ?= git@github.com:treadwelllane/lua-santoku-web.git
 HOMEPAGE ?= https://github.com/treadwelllane/lua-santoku-web
@@ -120,7 +120,7 @@ iterate: $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TEST_LUA_DIST_DIR)
 # TODO: This should be luarocks-install, but how to we set INST_LIB/BINDIR?
 luarocks-test: install $(TEST_LUAROCKS_CFG) $(ROCKSPEC) $(TESTED_FILES) $(TEST_LUACOV_CFG)
 	@if LUA_PATH="$(TEST_LUA_PATH)" LUA_CPATH="$(TEST_LUA_CPATH)" SANITIZE="$(SANITIZE)" \
-			toku test -s -i node $(TESTED_FILES); \
+			toku test -s -i 'node --trace-gc --expose-gc' $(TESTED_FILES); \
 	then \
 		luacov -c "$(PWD)/$(TEST_LUACOV_CFG)"; \
 		cat "$(TEST_LUACOV_REPORT_FILE)" | \

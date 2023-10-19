@@ -27,6 +27,8 @@ test_dependencies = {
   -- in this array, which isn't so bad.
   "luafilesystem >= 1.8.0-1",
 
+  "inspect >= 3.1.3-0",
+
   -- TODO: santoku cli should be a
   -- globally-installed dev dependency checked
   -- for via make

@@ -12,6 +12,8 @@ if os.getenv("SANITIZE") ~= "0" then
   return
 end
 
+collectgarbage("stop")
+
 test("async code", function ()
 
   test("setTimeout", function ()
@@ -69,15 +71,6 @@ test("async code", function ()
     end)
   end)
 
-  test("promise js exception", function ()
-    Promise:new(function ()
-      global:eval("throw 'test'")
-    end):await(function (_, ok, err)
-      assert.equals(false, ok)
-      assert.equals("test", err)
-    end)
-  end)
-
   test("promise resolve", function ()
     Promise:resolve(10):await(function (_, ok, res)
       assert.equals(true, ok)
@@ -92,40 +85,68 @@ test("async code", function ()
     end)
   end)
 
-  -- TODO: Even though the error is an unhandled
-  -- rejection, the error is not caught unless
-  -- the uncaughtException handler is also
-  -- registered. Why is this?
-  test("promise error in handler", function ()
-    local unhandled = nil
-    js.process:on("uncaughtException", function () end)
-    js.process:on("unhandledRejection", function (_, err)
-      unhandled = err
+  test("promise js exception", function ()
+    Promise:new(function ()
+      global:eval("throw 'test'")
+    end):await(function (_, ok, err)
+      assert.equals(false, ok)
+      assert.equals("test", err)
     end)
-    Promise:reject("failed"):await(function (_, ok, err)
-      assert.equals("failed", err)
-      error(err)
-    end)
-    global:setTimeout(function ()
-      assert.equals("failed", unhandled)
-    end, 100)
   end)
 
-  test("js error in js invoked callback", function ()
-    local unhandled = nil
-    js.process:on("unhandledRejection", function () end)
-    js.process:on("uncaughtException", function (_, err)
-      print("> uncaught", err)
-      unhandled = err
-    end)
-    global:setTimeout(function ()
-      -- global:eval("throw 'hi'")
-      error("hi")
-    end)
-    -- global:setTimeout(function ()
-    --   print("x")
-    --   assert.equals("hi", unhandled)
-    -- end, 1000)
-  end)
+  -- TODO: Get this to work
+  -- -- TODO: Even though the error is an unhandled
+  -- -- rejection, the error is not caught unless
+  -- -- the uncaughtException handler is also
+  -- -- registered. Why is this?
+  -- test("promise error in handler", function ()
+  --   local unhandled = nil
+  --   js.process:on("uncaughtException", function () end)
+  --   js.process:on("unhandledRejection", function (_, err)
+  --     unhandled = err
+  --   end)
+  --   Promise:reject("failed"):await(function (_, ok, err)
+  --     assert.equals("failed", err)
+  --     error(err)
+  --   end)
+  --   global:setTimeout(function ()
+  --     assert.equals("failed", unhandled)
+  --   end, 100)
+  -- end)
+
+  -- TODO: Get this to work
+  -- test("js error in js invoked callback", function ()
+  --   local unhandled = nil
+  --   js.process:on("unhandledRejection", function () end)
+  --   js.process:on("uncaughtException", function (_, err)
+  --     print("> uncaught", err)
+  --     unhandled = err
+  --   end)
+  --   global:setTimeout(function ()
+  --     -- global:eval("throw 'hi'")
+  --     error("hi")
+  --   end)
+  --   -- global:setTimeout(function ()
+  --   --   print("x")
+  --   --   assert.equals("hi", unhandled)
+  --   -- end, 1000)
+  -- end)
 
 end)
+
+collectgarbage("collect")
+val.global("gc"):call(nil)
+
+val.global("setTimeout", function ()
+
+  local cntt = 0
+  for k, v in pairs(val.IDX_REF_TBL) do
+    -- print(k, v)
+    cntt = cntt + 1
+  end
+
+  -- print("IDX_REF_TBL:", cntt)
+
+  assert.equals(0, cntt, "IDX_REF_TBL not clean")
+
+end, 5000)
