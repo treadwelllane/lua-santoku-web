@@ -15,12 +15,6 @@
 
 - Test binary and unary operators
 
-- Even though sanitizer reports no leaks, ensure
-  that IDX_VAL_REF and IDX_TBL_VAL are correctly
-  getting pruned as objects are garbage
-  collected. Is there a garbage analyzer for the
-  JS (non-wasm) side of things?
-
 # Eventually
 
 - Why does throwing string errors, which in turn
