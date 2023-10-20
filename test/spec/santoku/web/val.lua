@@ -328,6 +328,16 @@ test("val", function ()
     assert.equals("ABC", val.bytes("ABC"):str())
   end)
 
+  test("convert multiple objects to val", function ()
+    local arr = val({ { a = 1, b = 2 }, { c = 3, d = 4 }, { e = 5, f = 6 } }, true):lua()
+    assert.equals(arr[1].a, 1)
+    assert.equals(arr[1].b, 2)
+    assert.equals(arr[2].c, 3)
+    assert.equals(arr[2].d, 4)
+    assert.equals(arr[3].e, 5)
+    assert.equals(arr[3].f, 6)
+  end)
+
 end)
 
 collectgarbage("collect")
