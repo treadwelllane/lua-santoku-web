@@ -608,19 +608,20 @@ void table_to_val (lua_State *L, int i, bool recurse) {
 
   } else {
 
+    lua_pushvalue(L, i_tbl); // tbl
     val obj = val::object();
 
-    lua_pushnil(L);
-    while (lua_next(L, -2) != 0) {
-      lua_to_val(L, -2, true);
-      lua_to_val(L, -2, true);
+    lua_pushnil(L); // tbl nil
+    while (lua_next(L, -2) != 0) { // tbl k v
+      lua_to_val(L, -2, true); // tbl k v kv
+      lua_to_val(L, -2, true); // tbl k v kv vv
       val kk = peek_val(L, -2);
       val vv = peek_val(L, -1);
       obj.set(kk, vv);
-      lua_pop(L, 3);
+      lua_pop(L, 3); // tbl k
     }
 
-    lua_pop(L, 1);
+    lua_pop(L, 1); // tbl
     push_val(L, obj, INT_MIN);
 
   }
