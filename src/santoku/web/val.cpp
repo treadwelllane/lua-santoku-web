@@ -82,6 +82,9 @@ int mtv_new (lua_State *);
 int mtv_set (lua_State *);
 int mtv_typeof (lua_State *);
 
+// TODO: Duplicated across santoku-python and
+// santoku-web, should be split into separate
+// library
 void tk_lua_callmod (lua_State *L, int nargs, int nret, const char *smod, const char *sfn)
 {
   lua_getglobal(L, "require"); // arg req
