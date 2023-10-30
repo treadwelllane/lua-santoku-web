@@ -173,6 +173,7 @@ $(TEST_SPEC_DIST_DIR)/%.test: $(TEST_SPEC_SRC_DIR)/%.lua
 	$(TEST_VARS) toku bundle -C -M -f "$<" -o "$(dir $@)" -O "$(notdir $@)" \
 		-e LUA_PATH "$(TEST_LUA_PATH)" \
 		-e LUA_CPATH "$(TEST_LUA_CPATH)" \
+		--ldflags " $(PWD)/$(TEST_LUA_LIB)" \
 		-E LUACOV_CONFIG "$(PWD)/$(TEST_LUACOV_CFG)" \
 		-E SANITIZE "$(SANITIZE)" \
 		-l luacov -l luacov.hook \

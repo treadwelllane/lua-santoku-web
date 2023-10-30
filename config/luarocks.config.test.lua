@@ -1,3 +1,4 @@
+lua_version = "5.4"
 rocks_trees = {
   {
     name = "system",
