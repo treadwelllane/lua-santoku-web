@@ -251,7 +251,7 @@ test("val", function ()
 
     local obj = val.global("Object"):call(nil)
 
-    obj:set("square", function (this, n, ...)
+    obj:set("square", function (_, n)
       -- TODO: When val comparisons work,
       -- this should work
       -- assert.equals(obj, this:val())
@@ -301,7 +301,7 @@ test("val", function ()
   test("array iterator", function ()
     local a = val({ 1, 2, 3, 4, 5 })
     local Iterator = val.global("Symbol"):get("iterator")
-    local it = a:get(Iterator):lua()
+    local _ = a:get(Iterator):lua()
     -- TODO: what to check?
   end)
 
@@ -346,12 +346,9 @@ val.global("gc"):call(nil)
 val.global("setTimeout", function ()
 
   local cntt = 0
-  for k, v in pairs(val.IDX_REF_TBL) do
-    -- print(k, v)
+  for _ in pairs(val.IDX_REF_TBL) do
     cntt = cntt + 1
   end
-
-  -- print("IDX_REF_TBL:", cntt)
 
   assert.equals(0, cntt, "IDX_REF_TBL not clean")
 

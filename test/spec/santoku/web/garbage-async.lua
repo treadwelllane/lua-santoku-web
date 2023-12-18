@@ -1,10 +1,10 @@
 local assert = require("luassert")
 local test = require("santoku.test")
+local str = require("santoku.string")
 local val = require("santoku.web.val")
 
-if os.getenv("EMSCRIPTEN") == "1" or os.getenv("SANITIZE") ~= "0" then
-  print("Skipping garbage-async tests when EMSCRIPTEN = 1 or SANITIZE ~= 0")
-  print("Re-run with EMSCRIPTEN=0 SANITIZE=0 to run garbage-async tests")
+if not str.isempty(os.getenv("TK_WEB_SANITIZE")) then
+  print("Skipping garbage-async tests when TK_WEB_SANITIZE is set")
   return
 end
 
@@ -19,7 +19,8 @@ gc:call(nil)
 test("val", function ()
   test("callback after garbage", function ()
     local ok, err = pcall(function ()
-      setTimeout:call(nil, function () end, 1000)
+      setTimeout:call(nil, function ()
+      end, 2000)
     end)
     assert(ok, err and err.message)
   end)
@@ -31,12 +32,9 @@ val.global("gc"):call(nil)
 val.global("setTimeout", function ()
 
   local cntt = 0
-  for k, v in pairs(val.IDX_REF_TBL) do
-    -- print(k, v)
+  for _ in pairs(val.IDX_REF_TBL) do
     cntt = cntt + 1
   end
-
-  -- print("IDX_REF_TBL:", cntt)
 
   assert.equals(0, cntt, "IDX_REF_TBL not clean")
 
