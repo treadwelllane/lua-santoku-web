@@ -56,7 +56,7 @@ using namespace emscripten;
 // Same as MTO, with :await(<fn>)
 #define MTP "santoku_web_promise"
 
-#define debug(...) \
+#define tk_web_debug(...) \
   printf("%s:%d\t", __FILE__, __LINE__); \
   printf(__VA_ARGS__); \
   printf("\n");
@@ -67,6 +67,10 @@ int MTO_FNS;
 int MTP_FNS;
 int MTA_FNS;
 int MTF_FNS;
+
+int TK_WEB_EPHEMERON_IDX;
+void tk_web_set_ephemeron (lua_State *, int, int);
+int tk_web_get_ephemeron (lua_State *, int, int);
 
 bool mtx_to_mtv (lua_State *, int);
 void map_js (lua_State *, int, int);
@@ -81,6 +85,71 @@ int mtv_lua (lua_State *);
 int mtv_new (lua_State *);
 int mtv_set (lua_State *);
 int mtv_typeof (lua_State *);
+
+void tk_web_set_ephemeron (lua_State *L, int iu, int ie)
+{
+  // eph
+  luaL_checktype(L, iu, LUA_TUSERDATA);
+  lua_pushvalue(L, iu); // eph val
+  lua_insert(L, -2); // val eph
+  lua_rawgeti(L, LUA_REGISTRYINDEX, TK_WEB_EPHEMERON_IDX); // val eph idx
+  lua_pushvalue(L, -3); // val eph idx val
+  lua_gettable(L, -2); // val eph idx epht
+  if (lua_type(L, -1) == LUA_TNIL) {
+    lua_pop(L, 1); // val eph idx
+    lua_pushvalue(L, -3); // val eph idx val
+    lua_newtable(L); // val eph idx val epht
+    lua_settable(L, -3); // val eph idx
+    lua_pushvalue(L, -3); // val eph idx val
+    lua_gettable(L, -2); // val eph idx epht
+  }
+  lua_pushinteger(L, ie); // val eph idx epht ie
+  lua_pushvalue(L, -4); // val eph idx epht ie eph
+  lua_settable(L, -3); // val eph idx epht
+  lua_pop(L, 4); //
+}
+
+int tk_web_get_ephemeron (lua_State *L, int iu, int ie)
+{
+  lua_pushvalue(L, iu); // val
+  lua_rawgeti(L, LUA_REGISTRYINDEX, TK_WEB_EPHEMERON_IDX); // val idx
+  lua_insert(L, -2); // idx val
+  lua_gettable(L, -2); // idx epht
+  if (lua_type(L, -1) == LUA_TNIL) {
+    lua_remove(L, -2); // eph
+    return LUA_TNIL;
+  } else {
+    lua_pushinteger(L, ie); // idx epht ie
+    lua_gettable(L, -2); // idx epht eph
+    lua_remove(L, -2); // idx eph
+    lua_remove(L, -2); // eph
+    return lua_type(L, -1);
+  }
+}
+
+// Source: https://github.com/lunarmodules/lua-compat-5.3
+void *tk_web_testudata (lua_State *L, int i, const char *tname) {
+  void *p = lua_touserdata(L, i);
+  luaL_checkstack(L, 2, "not enough stack slots");
+  if (p == NULL || !lua_getmetatable(L, i))
+    return NULL;
+  else {
+    int res = 0;
+    luaL_getmetatable(L, tname);
+    res = lua_rawequal(L, -1, -2);
+    lua_pop(L, 2);
+    if (!res)
+      p = NULL;
+  }
+  return p;
+}
+
+// Source: https://github.com/lunarmodules/lua-compat-5.3
+int tk_web_absindex (lua_State *L, int i) {
+  if (i < 0 && i > LUA_REGISTRYINDEX)
+    i += lua_gettop(L) + 1;
+  return i;
+}
 
 // TODO: Duplicated across santoku-python and
 // santoku-web, should be split into separate
@@ -108,7 +177,7 @@ void args_to_vals (lua_State *L, int n) {
 val *peek_valp (lua_State *L, int i) {
   if (!mtx_to_mtv(L, i))
     return NULL;
-  assert(lua_getiuservalue(L, -1, 1) == LUA_TLIGHTUSERDATA);
+  assert(tk_web_get_ephemeron(L, -1, 1) == LUA_TLIGHTUSERDATA);
   val *vp = (val *) lua_touserdata(L, -1);
   lua_pop(L, 2);
   return vp;
@@ -298,15 +367,15 @@ void push_val (lua_State *L, val v, int uv) {
   else
     lua_pushvalue(L, uv); // uv
 
-
-  lua_newuserdatauv(L, 0, 2); // uv udv
+  lua_newuserdata(L, 0); // uv udv
   lua_insert(L, -2); // udv uv
-  lua_setiuservalue(L, -2, 2); // udv
+  tk_web_set_ephemeron(L, -2, 2); // udv
 
   lua_pushlightuserdata(L, new val(v)); // udv v
-  lua_setiuservalue(L, -2, 1); // udv
+  tk_web_set_ephemeron(L, -2, 1); // udv
 
-  luaL_setmetatable(L, MTV); // udv
+  luaL_getmetatable(L, MTV); // udv mt
+  lua_setmetatable(L, -2); // udv
 
   assert(lua_gettop(L) == n + 1);
 
@@ -316,19 +385,19 @@ bool mtx_to_mtv (lua_State *L, int iv) {
 
 
   int n = lua_gettop(L);
-  int i_val = lua_absindex(L, iv);
+  int i_val = tk_web_absindex(L, iv);
 
 
-  if (luaL_testudata(L, i_val, MTV) != NULL) {
+  if (tk_web_testudata(L, i_val, MTV) != NULL) {
     lua_pushvalue(L, i_val);
     return true;
   }
 
-  if ((luaL_testudata(L, i_val, MTO) != NULL) ||
-      (luaL_testudata(L, i_val, MTF) != NULL) ||
-      (luaL_testudata(L, i_val, MTP) != NULL) ||
-      (luaL_testudata(L, i_val, MTA) != NULL)) {
-    assert(lua_getiuservalue(L, i_val, 1) == LUA_TUSERDATA);
+  if ((tk_web_testudata(L, i_val, MTO) != NULL) ||
+      (tk_web_testudata(L, i_val, MTF) != NULL) ||
+      (tk_web_testudata(L, i_val, MTP) != NULL) ||
+      (tk_web_testudata(L, i_val, MTA) != NULL)) {
+    assert(tk_web_get_ephemeron(L, i_val, 1) == LUA_TUSERDATA);
     assert(mtx_to_mtv(L, -1));
     lua_remove(L, -2);
     assert(lua_gettop(L) == n + 1);
@@ -348,7 +417,7 @@ bool mtx_to_lua (lua_State *L, int iv) {
   }
 
 
-  if (lua_getiuservalue(L, -1, 2) <= LUA_TNIL) {
+  if (tk_web_get_ephemeron(L, -1, 2) <= LUA_TNIL) {
     lua_pop(L, 2);
     return false;
   } else {
@@ -359,7 +428,7 @@ bool mtx_to_lua (lua_State *L, int iv) {
 }
 
 int val_ref (lua_State *L, int it) {
-  it = lua_absindex(L, it);
+  it = tk_web_absindex(L, it);
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL);
   lua_pushvalue(L, it);
   int ref = luaL_ref(L, -2);
@@ -370,22 +439,24 @@ int val_ref (lua_State *L, int it) {
 bool val_unref (lua_State *L, int ref) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL); // idx
   lua_pushinteger(L, ref); // idx ref
-  int t = lua_gettable(L, -2); // idx val
+  lua_gettable(L, -2); // idx val
+  int t = lua_type(L, -1);
   lua_remove(L, -2); // val
   return t != LUA_TNIL;
 }
 
 void push_mtx (lua_State *L, int iv, const char *mtx) {
   lua_pushvalue(L, iv); // mtv
-  lua_newuserdatauv(L, 0, 1); // mtx
+  lua_newuserdata(L, 0); // mtv mtx
   lua_insert(L, -2); // mtx mtv
-  lua_setiuservalue(L, -2, 1); // mtx
-  luaL_setmetatable(L, mtx);
+  tk_web_set_ephemeron(L, -2, 1); // mtx
+  luaL_getmetatable(L, mtx); // mtx mt
+  lua_setmetatable(L, -2); // mtx
 }
 
 void object_to_lua (lua_State *L, val v, int iv, bool recurse) {
 
-  iv = lua_absindex(L, iv);
+  iv = tk_web_absindex(L, iv);
 
   bool isNull = EM_ASM_INT(({
     return Emval.toValue($0) == null
@@ -459,13 +530,12 @@ void bigint_to_lua (lua_State *L, val v) {
 
 void function_to_lua (lua_State *L, val v, int iv) {
 
-  iv = lua_absindex(L, iv);
+  iv = tk_web_absindex(L, iv);
   push_mtx(L, iv, MTF);
 
 }
 
 void val_to_lua (lua_State *L, int iv, bool recurse, bool force_wrap) {
-
 
   if (!force_wrap and mtx_to_lua(L, iv)) {
     return;
@@ -510,7 +580,7 @@ void val_to_lua (lua_State *L, int iv, bool recurse) {
 
 void table_to_val (lua_State *L, int i, bool recurse) {
 
-  int i_tbl = lua_absindex(L, i);
+  int i_tbl = tk_web_absindex(L, i);
 
   lua_pushvalue(L, i_tbl); // tbl
   tk_lua_callmod(L, 1, 1, "santoku.compat", "isarray");
@@ -633,7 +703,7 @@ void table_to_val (lua_State *L, int i, bool recurse) {
 
 void function_to_val (lua_State *L, int i) {
 
-  int i_fn = lua_absindex(L, i);
+  int i_fn = tk_web_absindex(L, i);
 
   int fnref = val_ref(L, i_fn);
 
@@ -699,7 +769,7 @@ int j_arg (int Lp, int i) {
 }
 
 int j_args (int Lp, int arg0, int argc) {
-  lua_State *L = (lua_State *) Lp;
+  // lua_State *L = (lua_State *) Lp;
   return (int) EM_ASM_PTR(({
     return Emval.toHandle({
       [Symbol.iterator]() {
@@ -810,7 +880,7 @@ int j_call (int Lp, int i, int argsp) {
   int t = lua_gettop(L) - argc - 1;
   int rc = lua_pcall(L, argc, LUA_MULTRET, 0);
 
-  if (rc != LUA_OK) {
+  if (rc != 0) {
 
     lua_to_val(L, -1, false);
     val v = peek_val(L, -1);
@@ -919,7 +989,8 @@ int mto_index (lua_State *L) { // lo lk
   lua_pushvalue(L, -1); // lo lk lk
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTO_FNS); // lo lk lk fns
   lua_insert(L, -2); // lo lk fns lk
-  if (lua_gettable(L, -2) != LUA_TNIL) // lo lk fns lv
+  lua_gettable(L, -2);
+  if (lua_type(L, -1) != LUA_TNIL) // lo lk fns lv
     return 1;
   lua_pop(L, 2); // lo lk
   lua_to_val(L, -1, false); // lo lk vk
@@ -958,7 +1029,8 @@ int mto_typeof (lua_State *L) {
 int mtp_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTP_FNS);
   lua_pushvalue(L, -2);
-  if (lua_gettable(L, -2) != LUA_TNIL)
+  lua_gettable(L, -2);
+  if (lua_type(L, -1) != LUA_TNIL)
     return 1;
   lua_pop(L, 2);
   return mto_index(L);
@@ -993,7 +1065,8 @@ int mtp_await (lua_State *L) {
 int mta_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTA_FNS);
   lua_pushvalue(L, -2);
-  if (lua_gettable(L, -2) != LUA_TNIL)
+  lua_gettable(L, -2);
+  if (lua_type(L, -1) != LUA_TNIL)
     return 1;
   lua_pop(L, 2);
   return mto_index(L);
@@ -1010,7 +1083,8 @@ int mta_str (lua_State *L) {
 int mtf_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTF_FNS);
   lua_pushvalue(L, -2);
-  if (lua_gettable(L, -2) != LUA_TNIL)
+  lua_gettable(L, -2);
+  if (lua_type(L, -1) != LUA_TNIL)
     return 1;
   lua_pop(L, 2);
   return mto_index(L);
@@ -1262,11 +1336,11 @@ int luaopen_santoku_web_val (lua_State *L) {
   lua_setfield(L, -2, "__call");
   lua_setmetatable(L, -2);
 
-  luaL_setfuncs(L, mt_fns, 0);
+  luaL_register(L, NULL, mt_fns);
 
   luaL_newmetatable(L, MTV);
   lua_newtable(L);
-  luaL_setfuncs(L, mtv_fns, 0);
+  luaL_register(L, NULL, mtv_fns);
   lua_setfield(L, -2, "__index");
   lua_pushcfunction(L, mtv_gc);
   lua_setfield(L, -2, "__gc");
@@ -1306,20 +1380,29 @@ int luaopen_santoku_web_val (lua_State *L) {
   }), L);
 
   lua_newtable(L);
-  luaL_setfuncs(L, mto_fns, 0);
+  luaL_register(L, NULL, mto_fns);
   MTO_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
 
   lua_newtable(L);
-  luaL_setfuncs(L, mtp_fns, 0);
+  luaL_register(L, NULL, mtp_fns);
   MTP_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
 
   lua_newtable(L);
-  luaL_setfuncs(L, mta_fns, 0);
+  luaL_register(L, NULL, mta_fns);
   MTA_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
 
   lua_newtable(L);
-  luaL_setfuncs(L, mtf_fns, 0);
+  luaL_register(L, NULL, mtf_fns);
   MTF_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
+
+  lua_newtable(L); // t
+  lua_newtable(L); // t mt
+  lua_pushstring(L, "k"); // t mt v
+  lua_setfield(L, -2, "__mode"); // t mt
+  lua_setmetatable(L, -2); // t
+  TK_WEB_EPHEMERON_IDX = luaL_ref(L, LUA_REGISTRYINDEX); //
+  lua_rawgeti(L, LUA_REGISTRYINDEX, TK_WEB_EPHEMERON_IDX); // t
+  lua_setfield(L, -2, "EPHEMERON_IDX"); //
 
   return 1;
 }

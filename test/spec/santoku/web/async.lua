@@ -1,14 +1,14 @@
 local assert = require("luassert")
 local test = require("santoku.test")
+local str = require("santoku.string")
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 
 local global = js.global
 local Promise = js.Promise
 
-if os.getenv("SANITIZE") ~= "0" then
-  print("Skipping async tests when sanitizer is active.")
-  print("Re-run with SANITIZE=0 to run async tests")
+if not str.isempty(os.getenv("TK_WEB_SANITIZE")) then
+  print("Skipping async tests when TK_WEB_SANITIZE is set.")
   return
 end
 
@@ -18,7 +18,7 @@ test("async code", function ()
 
   test("setTimeout", function ()
     local setTimeout = val.global("setTimeout")
-    setTimeout:call(nil, function (this, a, b)
+    setTimeout:call(nil, function (_, a, b)
       assert.equals("hello", a)
       assert.equals("world", b)
     end, 0, "hello", "world")
@@ -26,7 +26,7 @@ test("async code", function ()
 
   test("win:setTimeout", function ()
     local win = val.global("global"):lua()
-    win:setTimeout(function (this, a, b, ...)
+    win:setTimeout(function (_, a, b)
       assert.equals("hello", a)
       assert.equals("world", b)
     end, 0, "hello", "world")
@@ -38,7 +38,7 @@ test("async code", function ()
       resolve(this, "hello")
     end)
     local thn = p:get("then")
-    thn:call(p, function (this, msg)
+    thn:call(p, function (_, msg)
       assert.equals("hello", msg)
     end)
   end)
@@ -48,7 +48,7 @@ test("async code", function ()
     local p = Promise:new(function (this, resolve)
       resolve(this, "hello")
     end):lua()
-    p["then"](p, function (this, msg)
+    p["then"](p, function (_, msg)
       assert.equals("hello", msg)
     end)
   end)
@@ -64,7 +64,7 @@ test("async code", function ()
 
   test("promise lua exception", function ()
     Promise:new(function ()
-      error("test")
+      error("test", 0)
     end):await(function (_, ok, err)
       assert.equals(false, ok)
       assert.equals("test", err)
@@ -140,12 +140,9 @@ val.global("gc"):call(nil)
 val.global("setTimeout", function ()
 
   local cntt = 0
-  for k, v in pairs(val.IDX_REF_TBL) do
-    -- print(k, v)
+  for _ in pairs(val.IDX_REF_TBL) do
     cntt = cntt + 1
   end
-
-  -- print("IDX_REF_TBL:", cntt)
 
   assert.equals(0, cntt, "IDX_REF_TBL not clean")
 
