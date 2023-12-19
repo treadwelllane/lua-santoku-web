@@ -62,6 +62,7 @@ using namespace emscripten;
   printf("\n");
 
 int IDX_REF_TBL;
+int IDX_MT;
 
 int MTO_FNS;
 int MTP_FNS;
@@ -427,12 +428,35 @@ bool mtx_to_lua (lua_State *L, int iv) {
 
 }
 
+void tk_web_increment_refn (lua_State *L)
+{
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_MT); // idx
+  lua_getfield(L, -1, "IDX_REF_TBL_N"); // idx n
+  int n = lua_type(L, -1) == LUA_TNIL ? 0 : lua_tointeger(L, -1);
+  lua_pop(L, 1); // idx
+  lua_pushinteger(L, n + 1); // idx n
+  lua_setfield(L, -2, "IDX_REF_TBL_N"); // idx
+  lua_pop(L, 1); //
+}
+
+void tk_web_decrement_refn (lua_State *L)
+{
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_MT); // idx
+  lua_getfield(L, -1, "IDX_REF_TBL_N"); // idx n
+  int n = lua_type(L, -1) == LUA_TNIL ? 0 : lua_tointeger(L, -1);
+  lua_pop(L, 1); // idx
+  lua_pushinteger(L, n - 1); // idx n
+  lua_setfield(L, -2, "IDX_REF_TBL_N"); // idx
+  lua_pop(L, 1); //
+}
+
 int val_ref (lua_State *L, int it) {
   it = tk_web_absindex(L, it);
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL);
   lua_pushvalue(L, it);
   int ref = luaL_ref(L, -2);
   lua_pop(L, 1);
+  tk_web_increment_refn(L);
   return ref;
 }
 
@@ -928,6 +952,7 @@ void j_val_ref_delete (int Lp, int ref) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL);
   luaL_unref(L, -1, ref);
   lua_pop(L, 1);
+  tk_web_decrement_refn(L);
 }
 
 EMSCRIPTEN_BINDINGS(santoku_web_val) {
@@ -1327,9 +1352,11 @@ void set_common_obj_mtfns (lua_State *L) {
   lua_pop(L, 1);
 }
 
-int luaopen_santoku_web_val (lua_State *L) {
-
+int luaopen_santoku_web_val (lua_State *L)
+{
   lua_newtable(L);
+  IDX_MT = luaL_ref(L, LUA_REGISTRYINDEX);
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_MT);
 
   lua_newtable(L);
   lua_pushcfunction(L, mt_call);

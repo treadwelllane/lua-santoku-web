@@ -1,5 +1,3 @@
--- Base cases that could trigger memory leaks
-
 local assert = require("luassert")
 local test = require("santoku.test")
 local val = require("santoku.web.val")
@@ -9,8 +7,8 @@ collectgarbage("stop")
 test("memory", function ()
 
   test("object get str", function ()
-    local o = val({ a = 1 })
-    assert.equals(1, o:get("a"):lua())
+    local o = val({ a = 10 })
+    assert.equals(10, o:get("a"):lua())
   end)
 
   test("object get num", function ()
@@ -36,18 +34,30 @@ test("memory", function ()
     assert.equals("string error", err)
   end)
 
+  test("exposing a function to javascript", function ()
+    local o = val.global("Object"):call(nil)
+    o:set("fn", function () end)
+  end)
+
 end)
 
-collectgarbage("collect")
-val.global("gc"):call(nil)
+val.global("setTimeout"):call(nil, function ()
 
-val.global("setTimeout", function ()
+  collectgarbage("collect")
+  val.global("gc"):call(nil)
+  collectgarbage("collect")
+  val.global("gc"):call(nil)
+  collectgarbage("collect")
 
-  local cntt = 0
-  for _ in pairs(val.IDX_REF_TBL) do
-    cntt = cntt + 1
-  end
+  val.global("setTimeout"):call(nil, function ()
 
-  assert.equals(0, cntt, "IDX_REF_TBL not clean")
+    -- Note: 2 because of the two nested set timeouts
+    assert.equals(2, val.IDX_REF_TBL_N)
 
-end, 5000)
+    if os.getenv("TK_WEB_PROFILE") == "1" then
+      require("santoku.profile")()
+    end
+
+  end)
+
+end, 500)

@@ -10,32 +10,33 @@ end
 
 collectgarbage("stop")
 
-local setTimeout = val.global("setTimeout")
-local gc = val.global("gc")
-
-collectgarbage("collect")
-gc:call(nil)
-
 test("val", function ()
   test("callback after garbage", function ()
     local ok, err = pcall(function ()
-      setTimeout:call(nil, function ()
-      end, 2000)
+      val.global("setTimeout"):call(nil, function ()
+      end, 250)
     end)
     assert(ok, err and err.message)
   end)
 end)
 
-collectgarbage("collect")
-val.global("gc"):call(nil)
+val.global("setTimeout"):call(nil, function ()
 
-val.global("setTimeout", function ()
+  collectgarbage("collect")
+  val.global("gc"):call(nil)
+  collectgarbage("collect")
+  val.global("gc"):call(nil)
+  collectgarbage("collect")
 
-  local cntt = 0
-  for _ in pairs(val.IDX_REF_TBL) do
-    cntt = cntt + 1
-  end
+  val.global("setTimeout"):call(nil, function ()
 
-  assert.equals(0, cntt, "IDX_REF_TBL not clean")
+    -- Note: 2 because of the two nested set timeouts
+    assert.equals(2, val.IDX_REF_TBL_N)
 
-end, 5000)
+    if os.getenv("TK_WEB_PROFILE") == "1" then
+      require("santoku.profile")()
+    end
+
+  end)
+
+end, 500)
