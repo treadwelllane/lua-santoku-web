@@ -62,7 +62,6 @@ using namespace emscripten;
   printf("\n");
 
 int IDX_REF_TBL;
-int IDX_MT;
 
 int MTO_FNS;
 int MTP_FNS;
@@ -412,11 +411,9 @@ bool mtx_to_mtv (lua_State *L, int iv) {
 
 bool mtx_to_lua (lua_State *L, int iv) {
 
-
   if (!mtx_to_mtv(L, iv)) {
     return false;
   }
-
 
   if (tk_web_get_ephemeron(L, -1, 2) <= LUA_TNIL) {
     lua_pop(L, 2);
@@ -428,25 +425,23 @@ bool mtx_to_lua (lua_State *L, int iv) {
 
 }
 
-void tk_web_increment_refn (lua_State *L)
-{
-  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_MT); // idx
-  lua_getfield(L, -1, "IDX_REF_TBL_N"); // idx n
-  int n = lua_type(L, -1) == LUA_TNIL ? 0 : lua_tointeger(L, -1);
+void tk_web_increment_refn (lua_State *L) {
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL); // idx
+  lua_getfield(L, -1, "n"); // idx n
+  int n = lua_type(L, -1) == LUA_TNIL ? 1 : lua_tointeger(L, -1) + 1;
   lua_pop(L, 1); // idx
-  lua_pushinteger(L, n + 1); // idx n
-  lua_setfield(L, -2, "IDX_REF_TBL_N"); // idx
+  lua_pushinteger(L, n); // idx n
+  lua_setfield(L, -2, "n"); // idx
   lua_pop(L, 1); //
 }
 
-void tk_web_decrement_refn (lua_State *L)
-{
-  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_MT); // idx
-  lua_getfield(L, -1, "IDX_REF_TBL_N"); // idx n
-  int n = lua_type(L, -1) == LUA_TNIL ? 0 : lua_tointeger(L, -1);
+void tk_web_decrement_refn (lua_State *L) {
+  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL); // idx
+  lua_getfield(L, -1, "n"); // idx n
+  int n = lua_type(L, -1) == LUA_TNIL ? 1 : lua_tointeger(L, -1) - 1;
   lua_pop(L, 1); // idx
-  lua_pushinteger(L, n - 1); // idx n
-  lua_setfield(L, -2, "IDX_REF_TBL_N"); // idx
+  lua_pushinteger(L, n); // idx n
+  lua_setfield(L, -2, "n"); // idx
   lua_pop(L, 1); //
 }
 
@@ -1355,8 +1350,6 @@ void set_common_obj_mtfns (lua_State *L) {
 int luaopen_santoku_web_val (lua_State *L)
 {
   lua_newtable(L);
-  IDX_MT = luaL_ref(L, LUA_REGISTRYINDEX);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_MT);
 
   lua_newtable(L);
   lua_pushcfunction(L, mt_call);
@@ -1396,6 +1389,8 @@ int luaopen_santoku_web_val (lua_State *L)
   set_common_obj_mtfns(L);
 
   lua_newtable(L);
+  lua_pushinteger(L, 0);
+  lua_setfield(L, -2, "n");
   IDX_REF_TBL = luaL_ref(L, LUA_REGISTRYINDEX);
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL);
   lua_setfield(L, -2, "IDX_REF_TBL");

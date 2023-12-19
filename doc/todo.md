@@ -1,6 +1,8 @@
 # Now
 
-- Use either static or prefixes to hide methods
+- Figure out how to test that EPHEMERON_IDX is empty (or as empty as it should
+  be) after running garbage collection.
+- Use prefixes for method names
 - Basic README
 - Documentation
 

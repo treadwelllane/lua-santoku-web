@@ -3,7 +3,7 @@ local compat = require("santoku.compat")
 local env = {
 
   name = "santoku-web",
-  version = "0.0.83-1",
+  version = "0.0.84-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,

@@ -350,8 +350,14 @@ val.global("setTimeout"):call(nil, function ()
 
   val.global("setTimeout"):call(nil, function ()
 
-    -- Note: 2 because of the two nested set timeouts
-    assert.equals(2, val.IDX_REF_TBL_N)
+    -- Note: 2 because of the two nested setTimeouts
+    assert(val.IDX_REF_TBL.n == 2, "IDX_REF_TBL.n ~= 2")
+
+    -- TODO: Inside callbacks this won't ever be empty. How can we adjust this
+    -- test to make sense for callbacks?
+    -- for _ in pairs(val.EPHEMERON_IDX) do
+    --   assert(false, "ephemeron table not empty")
+    -- end
 
     if os.getenv("TK_WEB_PROFILE") == "1" then
       require("santoku.profile")()
