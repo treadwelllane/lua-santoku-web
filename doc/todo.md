@@ -1,5 +1,6 @@
 # Now
 
+- Use either static or prefixes to hide methods
 - Basic README
 - Documentation
 
