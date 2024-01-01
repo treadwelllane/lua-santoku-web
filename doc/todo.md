@@ -8,6 +8,9 @@
 
 # Next
 
+- Consider hiding "this" argument with setfenv: a Lua function called from JS
+  will have "this" in it's environment
+
 - Better error messages
 - Lua coverage
 
