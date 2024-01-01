@@ -10,16 +10,18 @@ local env = {
 
   dependencies = {
     "lua >= 5.1",
-    "santoku >= 0.0.151-1",
+    "santoku >= 0.0.158-1",
     "lsqlite3 >= 0.9.5-1"
   },
 
-  build = {
-    wasm = { cxxflags = "--std=c++17", ldflags = "--bind" },
-  },
+  -- NOTE: Not using build.wasm and test.wasm for emscripten flags so that the
+  -- released taball contains them. In the future santoku make should allow toku
+  -- make release --wasm with an optional different name (like santoku-web-wasm)
+  cxxflags = "--std=c++17",
+  ldflags = "--bind",
 
   test = {
-    wasm = { cxxflags = "--std=c++17", ldflags = "--bind" },
+    ldflags = "--bind",
     dependencies = {
       "santoku-test >= 0.0.4-1",
       "luassert >= 1.9.0-1",
