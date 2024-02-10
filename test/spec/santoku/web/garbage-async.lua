@@ -1,7 +1,9 @@
-local assert = require("luassert")
 local test = require("santoku.test")
 local str = require("santoku.string")
 local val = require("santoku.web.val")
+local err = require("santoku.error")
+
+local assert = err.assert
 
 if not str.isempty(os.getenv("TK_WEB_SANITIZE")) then
   print("Skipping garbage-async tests when TK_WEB_SANITIZE is set")
@@ -10,14 +12,12 @@ end
 
 collectgarbage("stop")
 
-test("val", function ()
-  test("callback after garbage", function ()
-    local ok, err = pcall(function ()
-      val.global("setTimeout"):call(nil, function ()
-      end, 250)
-    end)
-    assert(ok, err and err.message)
+test("callback after garbage", function ()
+  local ok, err = pcall(function ()
+    val.global("setTimeout"):call(nil, function ()
+    end, 250)
   end)
+  assert(ok, err and err.message)
 end)
 
 val.global("setTimeout"):call(nil, function ()
