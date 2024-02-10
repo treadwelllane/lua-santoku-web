@@ -48,7 +48,7 @@ using namespace emscripten;
 #define MTO "santoku_web_object"
 
 // Proxy to JS, with :val(), :typeof(), instanceof(), string()
-#define MTA "santoku_web_object"
+#define MTA "santoku_web_array"
 
 // Same as MTO, with __call and :new(...)
 #define MTF "santoku_web_function"
@@ -561,7 +561,7 @@ void val_to_lua (lua_State *L, int iv, bool recurse, bool force_wrap) {
   }
 
   val v = peek_val(L, iv);
-  string type = v.typeof().as<string>();
+  string type = v.typeOf().as<string>();
 
   if (type == "string") {
     string x = v.as<string>();
@@ -597,14 +597,28 @@ void val_to_lua (lua_State *L, int iv, bool recurse) {
   val_to_lua(L, iv, recurse, false);
 }
 
+bool tk_web_isarray (lua_State *L, int i) {
+  size_t tlen = lua_objlen(L, i);
+  if (tlen > 0) {
+    return true;
+  } else {
+    lua_pushvalue(L, i); // t
+    lua_pushnil(L); // t k
+    if (lua_next(L, -2) == 0) { // t
+      lua_pop(L, 1); //
+      return true; //
+    } else { // t k v
+      lua_pop(L, 3); //
+      return false; //
+    }
+  }
+}
+
 void table_to_val (lua_State *L, int i, bool recurse) {
 
   int i_tbl = tk_web_absindex(L, i);
 
-  lua_pushvalue(L, i_tbl); // tbl
-  tk_lua_callmod(L, 1, 1, "santoku.compat", "isarray");
-  bool isarray = lua_toboolean(L, -1); // tbl isa
-  lua_pop(L, 1); //
+  bool isarray = tk_web_isarray(L, i);
 
   if (!recurse) {
 
@@ -678,10 +692,7 @@ void table_to_val (lua_State *L, int i, bool recurse) {
 
   } else if (isarray) {
 
-    lua_pushvalue(L, i_tbl); // tbl
-    tk_lua_callmod(L, 1, 1, "santoku.table", "len"); // len
-    int len = lua_tointeger(L, -1);
-    lua_pop(L, 1);
+    int len = lua_objlen(L, i_tbl);
 
     val arr = val::array();
     lua_pushvalue(L, i_tbl); // tbl
@@ -815,9 +826,8 @@ void j_own_keys (int Lp, int it, int keysp) {
   lua_State *L = (lua_State *) Lp;
 
   assert(val_unref(L, it)); // tbl
-  tk_lua_callmod(L, 1, 1, "santoku.compat", "isarray"); // b
-  int isarray = lua_toboolean(L, -1);
-  lua_pop(L, 1); //
+  bool isarray = tk_web_isarray(L, -1); // tbl
+  lua_pop(L, 1); // tbl
 
   if (isarray)
     EM_ASM(({
@@ -935,10 +945,9 @@ void j_error (int Lp, int ep) {
 
 int j_len (int Lp, int i) {
   lua_State *L = (lua_State *) Lp;
-  assert(val_unref(L, i));
-  tk_lua_callmod(L, 1, 1, "santoku.table", "len"); // val len
-  int len = lua_tointeger(L, -1);
-  lua_pop(L, 2); //
+  assert(val_unref(L, i)); // val
+  lua_Integer len = lua_objlen(L, -1);
+  lua_pop(L, 1); //
   return len;
 }
 
@@ -1212,7 +1221,7 @@ int mto_len (lua_State *L) {
 int mtv_typeof (lua_State *L) {
   args_to_vals(L, -1);
   val v = peek_val(L, -1);
-  val t = v.typeof();
+  val t = v.typeOf();
   push_val(L, t, INT_MIN);
   return 1;
 }
