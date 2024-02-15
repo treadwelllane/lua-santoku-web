@@ -75,6 +75,7 @@ int tk_web_get_ephemeron (lua_State *, int, int);
 bool mtx_to_mtv (lua_State *, int);
 void map_js (lua_State *, int, int);
 int lua_to_val (lua_State *, int, bool);
+void val_to_lua (lua_State *, int, bool, bool);
 void push_new_uv (lua_State *, int);
 int val_ref (lua_State *, int);
 bool val_unref (lua_State *, int);
@@ -411,6 +412,12 @@ bool mtx_to_mtv (lua_State *L, int iv) {
 
 bool mtx_to_lua (lua_State *L, int iv) {
 
+  int t = lua_type(L, iv);
+  if (t != LUA_TLIGHTUSERDATA && t != LUA_TUSERDATA) {
+    lua_pushvalue(L, iv);
+    return true;
+  }
+
   if (!mtx_to_mtv(L, iv)) {
     return false;
   }
@@ -502,7 +509,40 @@ void object_to_lua (lua_State *L, val v, int iv, bool recurse) {
       ? 1 : 0;
   }), v.as_handle());
 
-  push_mtx(L, iv, isPromise ? MTP : MTO);
+  if (isPromise)  {
+    push_mtx(L, iv, MTP);
+  } else if (!recurse) {
+    push_mtx(L, iv, MTO);
+  } else {
+    bool isArray = EM_ASM_INT(({
+      return Emval.toValue($0) instanceof Array
+        ? 1 : 0;
+    }), v.as_handle());
+    lua_newtable(L); // t
+    if (isArray) {
+      long m = v["length"].as<long>();
+      for (long i = 0; i < m; i ++) {
+        lua_pushinteger(L, i + 1); // t i
+        push_val(L, v[i], INT_MIN); // t i v
+        val_to_lua(L, -1, true, false); // t i v l
+        lua_remove(L, -2); // t i v
+        lua_settable(L, -3); // t
+      }
+    } else {
+      val ks = val::global("Object").call<val>("keys", v);
+      long m = ks["length"].as<long>();
+      for (long i = 0; i < m; i ++) {
+        val k = ks[i];
+        push_val(L, k, INT_MIN); // t kv
+        val_to_lua(L, -1, true, false); // t kv kl
+        push_val(L, v[k], INT_MIN); // t kv kl vv
+        val_to_lua(L, -1, true, false); // t kv kl vv vl
+        lua_remove(L, -2); // t kv kl vl
+        lua_remove(L, -3); // t kl vl
+        lua_settable(L, -3); // t
+      }
+    }
+  }
 }
 
 void number_to_lua (lua_State *L, val v) {
@@ -554,11 +594,18 @@ void function_to_lua (lua_State *L, val v, int iv) {
 
 }
 
+int mt_lua (lua_State *L)
+{
+  lua_settop(L, 2);
+  bool recurse = lua_toboolean(L, 2);
+  val_to_lua(L, 1, recurse, false);
+  return 1;
+}
+
 void val_to_lua (lua_State *L, int iv, bool recurse, bool force_wrap) {
 
-  if (!force_wrap and mtx_to_lua(L, iv)) {
+  if (!force_wrap and mtx_to_lua(L, iv))
     return;
-  }
 
   val v = peek_val(L, iv);
   string type = v.typeOf().as<string>();
@@ -1312,10 +1359,13 @@ luaL_Reg mtv_fns[] = {
 
 luaL_Reg mt_fns[] = {
   { "global", mt_global },
+  { "lua", mt_lua },
   { "bytes", mt_bytes },
   { NULL, NULL }
 };
 
+// TODO: Review which are available in Lua 5.1. __pairs at least should be
+// removed.
 void set_common_obj_mtfns (lua_State *L) {
   lua_pushcfunction(L, mto_newindex);
   lua_setfield(L, -2, "__newindex");

@@ -1,5 +1,5 @@
-local vec = require("santoku.vector")
-local tup = require("santoku.tuple")
+local arr = require("santoku.array")
+local varg = require("santoku.varg")
 
 return function (callback, global, opts, run)
 
@@ -8,7 +8,7 @@ return function (callback, global, opts, run)
   local JSON = global.JSON
   local console = global.console
 
-  local logtypes = vec("log", "error")
+  local logtypes = { "log", "error" }
   local oldlogs = {}
   local oldprint = nil
 
@@ -31,17 +31,21 @@ return function (callback, global, opts, run)
     oldlogs[typ] = console[typ]
     console[typ] = function (_, ...)
       oldlogs.log(console, ...)
-      callback(format("console." .. typ, { ... }))
+      callback(format("console." .. typ, { varg.map(function (e)
+        -- TODO: check if instanceof error object instead of duck type
+        return e and e.message or e
+      end, ...) }))
     end
   end
 
   local function wrapLogs ()
-    logtypes:each(function(lt)
+    arr.each(logtypes, function(lt)
       wrapLog(lt)
     end)
   end
 
   local function wrapError ()
+    -- TODO: check if instanceof error object instead of duck type
     if global.addEventListener then
       global:addEventListener("error", function (_, ev)
         callback(format("error", ev and ev.message or ev))
@@ -76,10 +80,11 @@ return function (callback, global, opts, run)
   end
 
   if run then
-    local res = tup(pcall(run))
-    if not res() then
-      callback(format("error", select(2, res())))
-    end
+    varg.tup(function (ok, ...)
+      if not ok then
+        callback(format("error", ...))
+      end
+    end, pcall(run))
   end
 
   return {

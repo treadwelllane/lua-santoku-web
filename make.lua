@@ -1,15 +1,15 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.87-1",
+  version = "0.0.88-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,
 
   dependencies = {
     "lua >= 5.1",
-    "santoku >= 0.0.193-1",
-    "lsqlite3 >= 0.9.5-1"
+    "santoku >= 0.0.194-1",
+    "santoku-sqlite >= 0.0.13-1",
   },
 
   -- NOTE: Not using build.wasm and test.wasm for emscripten flags so that the
