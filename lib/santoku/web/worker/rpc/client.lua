@@ -1,35 +1,32 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
-local err = require("santoku.err")
-local gen = require("santoku.gen")
-local tup = require("santoku.tuple")
-local compat = require("santoku.compat")
+local arr = require("santoku.array")
+local varg = require("santoku.varg")
+local it = require("santoku.iter")
 
 local Worker = js.Worker
 local MessageChannel = js.MessageChannel
 
 local M = {}
 
-local transferables = gen.pack(
-  "ArrayBuffer",
-  "MessagePort",
-  "ReadableStream",
-  "WritableStream",
-  "TransformStream",
-  "WebTransportReceiveStream",
-  "AudioData",
-  "ImageBitmap",
-  "VideoFrame",
-  "OffscreenCanvas",
-  "RTCDataChannel"
-):set()
+local transferables = {
+  ArrayBuffer = true,
+  MessagePort = true,
+  ReadableStream = true,
+  WritableStream = true,
+  TransformStream = true,
+  WebTransportReceiveStream = true,
+  AudioData = true,
+  ImageBitmap = true,
+  VideoFrame = true,
+  OffscreenCanvas = true,
+  RTCDataChannel = true
+}
 
 M.init = function (fp)
-  return err.pwrap(function (check)
-    local worker = check(pcall(Worker.new, Worker, fp))
-    local port = M.create_port(worker)
-    return M.init_port(port), worker
-  end)
+  local worker = Worker:new(fp)
+  local port = M.create_port(worker)
+  return M.init_port(port), worker
 end
 
 M.create_port = function (worker)
@@ -48,17 +45,17 @@ M.init_port = function (port)
       return function (...)
 
         local ch = MessageChannel:new()
-        local n = tup.len(...)
-        local callback = tup.get(n, ...)
+        local n = varg.len(...)
+        local callback = varg.get(n, ...)
 
-        local args = tup(tup.take(n - 1, ...))
+        local args = { varg.take(n - 1, ...) }
 
-        local tfrs = tup(tup.filter(function (t)
+        local tfrs = it.collect(it.filter(function (t)
           local ok, n = pcall(function ()
             return t.constructor.name
           end)
           return ok and transferables[n]
-        end, args()))
+        end, it.ivals(args)))
 
         -- TODO: currently this only supports
         -- transferables that occur at the top-level of
@@ -67,11 +64,15 @@ M.init_port = function (port)
         -- traversal could optionally return a table of
         -- all transferables encountered.
         port:postMessage(
-          val({ k, ch.port2, args() }, true),
-          { ch.port2, tfrs() })
+          val({ k, ch.port2, arr.spread(args) }, true),
+          { ch.port2, arr.spread(tfrs) })
 
         ch.port1.onmessage = function (_, ev)
-          callback(compat.unpack(ev.data))
+          local args = {}
+          for i = 1, ev.data.length do
+            args[#args + 1] = ev.data[i]
+          end
+          callback(arr.spread(args))
         end
 
       end

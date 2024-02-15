@@ -1,5 +1,5 @@
 local common = require("santoku.web.trace.common")
-local vec = require("santoku.vector")
+local arr = require("santoku.array")
 local js = require("santoku.web.js")
 
 local window = js.window
@@ -14,7 +14,7 @@ return function (url, opts, run)
 
   local maxbuflen = opts.maxbuflen or 50
 
-  local buffer = vec()
+  local buffer = {}
   local connected = false
   local sock = nil
 
@@ -22,9 +22,9 @@ return function (url, opts, run)
     if (connected) then
       sock:send(str)
     else
-      buffer:append(str)
-      if buffer:len() > maxbuflen then
-        buffer:remove(1, 1)
+      arr.push(buffer, str)
+      if #buffer > maxbuflen then
+        arr.remove(buffer, 1, 1)
       end
     end
   end
@@ -37,8 +37,8 @@ return function (url, opts, run)
 
     sock.onopen = function ()
       connected = true
-      buffer:each(emit)
-      buffer:trunc()
+      arr.each(buffer, emit)
+      arr.clear(buffer)
     end
 
     sock.onmessage = function (_, ev)

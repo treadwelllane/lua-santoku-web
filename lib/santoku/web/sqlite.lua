@@ -6,11 +6,13 @@
 -- and sqlite3-opfs-async-proxy.js must be
 -- hosted next to the compiled script.
 
-local err = require("santoku.err")
 local js = require("santoku.web.js")
 local sqlite = require("santoku.sqlite")
+local err = require("santoku.error")
 
 local M = {}
+
+local OK, ERROR, ROW, DONE = 0, 1, 100, 101
 
 local function cast_param (p)
   if type(p) == "table" and p.instanceof and p:instanceof(js.Date) then
@@ -29,25 +31,25 @@ M.open_opfs = function (dbfile, callback)
       return
     end
 
-    callback(err.pwrap(function ()
+    callback(err.pcall(function ()
 
-      return sqlite.wrap({
+      return sqlite({
 
         db = wsqlite.oo1.OpfsDb:new(dbfile),
 
         exec = function (db, sql)
-          local ok, err = pcall(db.db.exec, db.db, sql)
+          local ok, e = err.pcall(db.db.exec, db.db, sql)
           if not ok then
-            db.err = err
-            return sqlite.ERROR
+            db.err = e
+            return ERROR
           else
             db.err = nil
-            return sqlite.OK
+            return OK
           end
         end,
 
         prepare = function (db, sql)
-          local ok, stmt = pcall(db.db.prepare, db.db, sql)
+          local ok, stmt = err.pcall(db.db.prepare, db.db, sql)
           if not ok then
             db.err = stmt
             return nil
@@ -56,7 +58,7 @@ M.open_opfs = function (dbfile, callback)
             return setmetatable({
 
               bind_names = function (_, t)
-                local ok, err = pcall(function ()
+                local ok, e = err.pcall(function ()
                   for k, v in pairs(t) do
                     -- TODO: sqlite supports
                     -- both ":" and "$", but
@@ -72,40 +74,40 @@ M.open_opfs = function (dbfile, callback)
                   end
                 end)
                 if ok then
-                  return sqlite.OK
+                  return OK
                 else
                   -- TODO: not getting caught
-                  error(err)
-                  return sqlite.ERROR
+                  err.error(e)
+                  return ERROR
                 end
               end,
 
               bind_values = function (_, ...)
-                local ok, err = pcall(function (...)
+                local ok, e = err.pcall(function (...)
                   for i = 1, select("#", ...) do
                     stmt:bind(i, cast_param(select(i, ...)))
                   end
                 end, ...)
                 if ok then
-                  return sqlite.OK
+                  return OK
                 else
                   -- TODO: not getting caught
-                  error(err)
-                  return sqlite.ERROR
+                  err.error(e)
+                  return ERROR
                 end
               end,
 
               step = function ()
-                local ok, res = pcall(stmt.step, stmt)
+                local ok, res = err.pcall(stmt.step, stmt)
                 if not ok then
                   db.err = res
-                  return sqlite.ERROR
+                  return ERROR
                 elseif res then
                   db.err = nil
-                  return sqlite.ROW
+                  return ROW
                 else
                   db.err = nil
-                  return sqlite.DONE
+                  return DONE
                 end
               end,
 
@@ -121,7 +123,7 @@ M.open_opfs = function (dbfile, callback)
 
               reset = function ()
                 stmt:reset(true)
-                return sqlite.OK
+                return OK
               end,
 
             }, {
