@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+    <% -- Do we really want this as the base href? Should it just be for
+       -- specific thing? %>
+    <base target="_blank" rel="noopener noreferrer">
+
+    <title><% return opts.title %></title>
+
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="<% return opts.light_bg %>">
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=<% return scalable and "yes" or "no" %>,uc-fitscreen=yes">
+    <meta name="description" content="<% return opts.description %>">
+    <meta name="keywords" content="<% return opts.keywords %>">
+
+    <meta name="apple-mobile-web-app-title" content="<% return opts.title %>">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="<% return opts.light_bg %>">
+
+    <meta name="msapplication-navbutton-color" content="<% return opts.light_bg %>">
+    <meta name="msapplication-TileColor" content="<% return opts.light_bg %>">
+
+    <% -- TODO
+       -- <meta name="msapplication-config" content="browserconfig.xml">
+       -- <meta name="screen-orientation" content="portrait"> %>
+
+    <meta name="application-name" content="<% return opts.title %>">
+    <meta name="msapplication-tooltip" content="<% return opts.description %>">
+    <meta name="msapplication-TileImage" content="/icon-180.png">
+    <meta name="msapplication-starturl" content="">
+    <meta name="msapplication-tap-highlight" content="no">
+
+    <meta name="full-screen" content="yes">
+    <meta name="browsermode" content="application">
+    <meta name="nightmode" content="enable">
+    <meta name="layoutmode" content="fitscreen">
+    <meta name="imagemode" content="force">
+
+    <link rel="icon" type="image/png" sizes="196x196" href="/favicon-196.png">
+    <link rel="apple-touch-icon" href="/icon-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <template class="ripple">
+      <div class="ripple-container">
+        <div class="ripple-wave"></div>
+      </div>
+    </template>
+
+    <style>
+
+      @font-face {
+        font-family: "<% return opts.font_name %>";
+        src: url("<% return opts.font_url %>")
+             format("<% return opts.font_format %>");
+      }
+
+      * {
+        font-family: "<% return opts.font_name %>";
+      }
+
+      html, body {
+        padding: 0;
+        margin: 0;
+        min-height: 100%;
+        min-width: 100%;
+        max-width: 100vw;
+      }
+
+      body {
+        overscroll-behavior: contain;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      body > .warn-update-worker {
+        z-index: 100;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        height: <% return opts.banner_height %>px;
+        width: 100vw;
+        background: <% return opts.warning_bg %>;
+        color: <% return opts.warning_fg %>;
+        border: none;
+        outline: none;
+        top: -<% return opts.banner_height %>px;
+        position: fixed;
+        transition: transform <% return opts.transition_time %> ease;
+      }
+
+      .page {
+        display: flex;
+        flex-direction: column;
+        top: 0;
+        bottom: 0;
+        position: absolute;
+        overflow: visible;
+        min-width: 100vw;
+        max-width: 100vw;
+        transition: transform <% return opts.transition_time %> ease;
+      }
+
+      body.update-worker > .warn-update-worker {
+        transform: translateY(<% return opts.banner_height %>px);
+      }
+
+      .page > .header {
+        width: 100%;
+        height: <% return opts.header_height %>px;
+        position: fixed;
+        display: flex;
+        top: 0;
+        left: 0;
+        z-index: 98;
+        background: <% return opts.dark_bg %>;
+        color: <% return opts.dark_fg %>;
+        box-shadow: <% return opts.shadow2 %>;
+        transition: box-shadow <% return opts.transition_time %> ease;
+      }
+
+      .page > .header.animated {
+        transition: box-shadow <% return opts.transition_time %> ease,
+                    transform <% return opts.transition_time %> ease,
+                    opacity <% return opts.transition_time %> ease;
+      }
+
+      .page > .header > .title {
+        font-size: 1.375rem;
+        position: absolute;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      .page > .header > .button {
+        background: none;
+        border: none;
+        outline: none;
+        height: <% return opts.header_height %>px;
+        width: <% return opts.header_height %>px;
+        fill: <% return opts.dark_fg %>;
+        color: <% return opts.dark_fg %>;
+      }
+
+      .page > .header > *.right {
+        margin-left: auto;
+      }
+
+      .page > .main {
+        flex-grow: 1;
+        position: relative;
+        background: <% return opts.light_bg %>;
+        margin-top: <% return opts.header_height %>px;
+        display: flex;
+        flex-direction: column;
+        transition: transform <% return opts.transition_time %> ease,
+                    opacity <% return opts.transition_time %> ease;
+        overflow: visible;
+      }
+
+      .page > .fab {
+        position: fixed;
+        top: calc(100% - <% return opts.fab_width_large %>px - 16px);
+        left: calc(100% - <% return opts.fab_width_large %>px - 16px);
+        flex-shrink: 0;
+        border: none;
+        outline: none;
+        height: <% return opts.fab_width_large %>px;
+        width: <% return opts.fab_width_large %>px;
+        border-radius: <% return opts.fab_radius_large %>px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: <% return opts.shadow3 %>;
+        cursor: pointer;
+        pointer-events: all;
+      }
+
+      .page > .fab.top {
+        top: calc(<% return opts.header_height %>px + 16px);
+      }
+
+      .page > .fab.small {
+        height: <% return opts.fab_width_small %>px;
+        width: <% return opts.fab_width_small %>px;
+        border-radius: <% return opts.fab_radius_small %>px;
+        left: calc(100% - <% return opts.fab_width_small %>px - 24px);
+      }
+
+      .page > .fab.shared {
+        z-index: 99;
+      }
+
+      .page > .fab.minmax > svg {
+        transition: transform <% return opts.transition_time %> ease;
+      }
+
+      .page.maximized > .fab.minmax > svg {
+        transform: rotate(180deg);
+      }
+
+      .page > .fab.animated {
+        transition: box-shadow <% return opts.transition_time %> ease,
+                    transform <% return opts.transition_time %> ease,
+                    opacity <% return opts.transition_time %> ease;
+      }
+
+      .page > .fab.animated > svg {
+        transition: transform <% return opts.transition_time %> ease;
+      }
+
+      .success {
+        color: <% return opts.success_fg %>;
+        fill: <% return opts.success_fg %>;
+        background: <% return opts.success_bg %>;
+      }
+
+      .warning {
+        color: <% return opts.warning_fg %>;
+        fill: <% return opts.warning_fg %>;
+        background: <% return opts.warning_bg %>;
+      }
+
+      .primary {
+        color: <% return opts.primary_fg %>;
+        fill: <% return opts.primary_fg %>;
+        background: <% return opts.primary_bg %>;
+      }
+
+      .dark {
+        color: <% return opts.dark_fg %>;
+        fill: <% return opts.dark_fg %>;
+        background: <% return opts.dark_bg %>;
+      }
+
+      .light {
+        color: <% return opts.light_fg %>;
+        fill: <% return opts.light_fg %>;
+        background: <% return opts.light_bg %>;
+      }
+
+      .input {
+        font-size: 1rem;
+      }
+
+      .page > .header > .title > .input {
+        background: none;
+        border: none;
+        outline: none;
+        padding: none;
+        margin: none;
+        color: <% return opts.header_input_fg %>;
+        flex-grow: 1;
+        flex-shrink: 1;
+        min-width: 0;
+        font-size: 1.375rem;
+        text-align: center;
+        text-overflow: ellipsis;
+      }
+
+      .page > .header > .title > .input::placeholder {
+        color: <% return opts.header_input_placeholder_fg %>;
+      }
+
+      .button:focus,
+      .button:active,
+      .button:focus:active {
+        outline: none;
+      }
+
+      .image {
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -webkit-user-drag: none;
+        -webkit-user-select: none;
+        user-drag: none;
+        user-select: none;
+      }
+
+      .button {
+        position: relative;
+        overflow: hidden;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      .cards > .card,
+      .page > .main > .card {
+        border-radius: <% return opts.card_radius %>;
+        box-shadow: <% return opts.shadow1 %>;
+        background: <% return opts.card_bg %>;
+        border: <% return opts.card_main_border %>;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+        flex: 1 1 8rem;
+        max-height: 18rem;
+      }
+
+      .cards > .card > .header,
+      .page > .main > .card > .header {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+      }
+
+      .cards > .card > .header > .title,
+      .page > .main > .card > .header > .title {
+        display: flex;
+        padding: 0;
+        margin: 0;
+        flex-shrink: 0;
+        font-size: 1.25rem;
+        font-weight: bolder;
+      }
+
+      .cards > .card > .main,
+      .page > .main > .card > .main {
+        position: relative;
+        border: <% return opts.card_main_border %>;
+        border-radius: <% return opts.card_radius %>;
+        margin-left: -1px;
+        margin-right: -1px;
+        margin-bottom: -1px;
+        overflow: hidden;
+        display: flex;
+        flex: 1;
+      }
+
+      .cards > .card > .main > .image,
+      .page > .main > .card > .main > .image {
+        object-fit: cover;
+        width: 100%;
+        height: 100%;
+        transform: scale(1.15);
+      }
+
+      .page > .snack {
+        position: fixed;
+        min-height: <% return opts.snack_height %>px;
+        max-height: <% return opts.snack_height %>px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        max-width: calc(100% - 16px - <% return opts.fab_width_large %>px - 56px);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+        left: 16px;
+        top: calc(100% - <% return opts.snack_height %>px - 16px);
+        border-radius: <% return opts.snack_radius %>px;
+        box-shadow: <% return opts.shadow3 %>;
+        pointer-events: all;
+      }
+
+      .page > .snack.animated {
+        transition: box-shadow <% return opts.transition_time %> ease,
+                    transform <% return opts.transition_time %> ease,
+                    opacity <% return opts.transition_time %> ease;
+      }
+
+      .page > .snack * {
+        font-size: 1rem;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .page > .snack > .button {
+        border: none;
+        outline: none;
+        background: none;
+        flex-shrink: 0;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+        margin: -0.75rem;
+        color: rgba(255, 255, 255, 1);
+        fill: rgba(255, 255, 255, 1);
+      }
+
+      .page > .snack > .button:first-child {
+        margin-right: 0.75rem;
+      }
+
+      .page > .snack > .button:last-child {
+        margin-left: 0.75rem;
+      }
+
+      .page > .snack > .button:first-child:last-child {
+        margin: -0.75rem;
+      }
+
+      .page > .snack > .input {
+        flex: 1;
+        width: 100%;
+        border: none;
+        outline: none;
+        margin: 0;
+        background: none;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: <% return opts.snack_fg %>;
+      }
+
+      .page > .snack > .input::placeholder {
+        color: <% return opts.snack_placeholder_fg %>;
+      }
+
+      .page > .snack.success {
+        color: <% return opts.success_fg %>;
+        fill: <% return opts.success_fg %>;
+        background: <% return opts.snack_success_bg %>;
+      }
+
+      .page > .snack.warning {
+        color: <% return opts.warning_fg %>;
+        fill: <% return opts.warning_fg %>;
+        background: <% return opts.snack_warning_bg %>;
+      }
+
+      .page > .snack.primary {
+        color: <% return opts.primary_fg %>;
+        fill: <% return opts.primary_fg %>;
+        background: <% return opts.snack_primary_bg %>;
+      }
+
+      .page > .snack.dark {
+        color: <% return opts.dark_fg %>;
+        fill: <% return opts.dark_fg %>;
+        background: <% return opts.snack_dark_bg %>;
+      }
+
+      .page > .snack.light {
+        color: <% return opts.light_fg %>;
+        fill: <% return opts.light_fg %>;
+        background: <% return opts.snack_light_bg %>;
+      }
+
+      body.transition,
+      body.transition > .page,
+      body.transition > .page > .main {
+        max-height: 100%;
+        max-width: 100%;
+      }
+
+      body.transition,
+      body.transition > .page > .main {
+        overflow: hidden;
+      }
+
+      .transition *,
+      .animated * {
+        pointer-events: none;
+      }
+
+      .ripple-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        overflow: hidden;
+        transform: translateZ(0);
+        border-radius: inherit;
+        pointer-events: none;
+        animation: ripple-container calc(<% return opts.transition_time %> * 2) forwards;
+      }
+
+      .page > .header > .button > .ripple-container {
+        top: 0.25rem;
+        left: 0.25rem;
+        bottom: 0.25rem;
+        right: 0.25rem;
+        border-radius: 50%;
+      }
+
+      .ripple-wave {
+        backface-visibility: hidden;
+        position: absolute;
+        border-radius: 50%;
+        transform: scale(0.7);
+        background: <% return opts.light_bg %>;
+        opacity: 0.45;
+        animation: ripple-wave calc(<% return opts.transition_time %> * 3) forwards;
+      }
+
+      .ripple.dark > .ripple-container > .ripple-wave {
+        background: <% return opts.dark_bg %>;
+      }
+
+      @keyframes ripple-shadow {
+        0%   { box-shadow: 0 0 0 rgba(0,0,0,0.0); }
+        20%  { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+        100% { box-shadow: 0 0 0 rgba(0,0,0,0.0); }
+      }
+
+      @keyframes ripple-wave {
+        to { transform: scale(24); opacity:0; }
+      }
+
+      .page > .main > .loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        height: 2rem;
+        width: 2rem;
+        margin-top: 1rem;
+        transition: transform <% return opts.transition_time %> ease,
+                    opacity <% return opts.transition_time %> ease;
+      }
+
+      .page.loaded > .main  > .loading {
+        pointer-events: none;
+        transform: translate(-50%, calc(-50% + 2rem));
+        opacity: 0;
+      }
+
+      .page > .main > .loading > svg  {
+        width: 2rem;
+        height: 2rem;
+        animation: loading-rotator 1.4s linear infinite;
+      }
+
+      .page > .main > .loading > svg > circle {
+        stroke: <% return opts.primary_bg %>;
+        stroke-dasharray: 180;
+        stroke-dashoffset: 0;
+        transform-origin: center;
+        animation: loading-dash 1.4s ease-in-out infinite;
+      }
+
+      @keyframes loading-rotator {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(270deg);
+        }
+      }
+
+      @keyframes loading-dash {
+        0% {
+          stroke-dashoffset: 180;
+        }
+        50% {
+          stroke-dashoffset: 45;
+          transform:rotate(135deg);
+        }
+        100% {
+          stroke-dashoffset: 180;
+          transform:rotate(450deg);
+        }
+      }
+
+      .page > .main > .empty {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        text-align: center;
+        pointer-events: none;
+        opacity: 0;
+        transform: translate(-50%, calc(-50% - 2rem));
+        transition: transform <% return opts.transition_time %> ease,
+                    opacity <% return opts.transition_time %> ease;
+      }
+
+      .page.loaded.empty > .main > .empty {
+        pointer-events: all;
+        opacity: 1;
+        transform: translate(-50%, -50%);
+      }
+
+      .page.loaded > .main > *:not(.loading):not(.empty) {
+        animation: <% return opts.transition_time %> ease forwards page-main-contents-enter;
+      }
+
+      @keyframes page-main-contents-enter {
+        from {
+          transform: translateY(-2rem);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0rem);
+          opacity: 1;
+        }
+      }
+
+    </style>
+
+  </head>
+
+  <body>
+    <script src="/index.js"></script>
+    <% push(opts.service_worker) %>
+      <button class="button warn-update-worker">
+        A new version of <% return opts.title %>
+        is available. Click to Update!
+      </button>
+    <% pop() %>
+  </body>
+
+</html>
