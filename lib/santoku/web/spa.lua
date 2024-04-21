@@ -1062,8 +1062,8 @@ local function run (opts)
 
     last_view.el:remove()
 
-    if last_view.script.post_remove then
-      last_view.script.post_remove(last_view)
+    if last_view.page.post_remove then
+      last_view.page.post_remove(last_view)
     end
 
   end
@@ -1074,8 +1074,8 @@ local function run (opts)
 
     e_body.classList:remove("transition")
 
-    if next_view.script.post_append then
-      next_view.script.post_append(next_view)
+    if next_view.page.post_append then
+      next_view.page.post_append(next_view)
     end
 
     local e_back = next_view.el:querySelector(".page > .header > .back")
@@ -1114,8 +1114,8 @@ local function run (opts)
     M.style_snacks_transition(next_view, "enter", direction, last_view)
     M.setup_maximize(next_view)
 
-    if next_view.script.pre_append then
-      next_view.script.pre_append(next_view)
+    if next_view.page.pre_append then
+      next_view.page.pre_append(next_view)
     end
 
     local from_class = "from-" .. (last_view and last_view.name or "none")
@@ -1134,8 +1134,8 @@ local function run (opts)
 
   M.exit = function (last_view, direction, next_view)
 
-    if last_view.script.pre_remove then
-      last_view.script.pre_remove(last_view)
+    if last_view.page.pre_remove then
+      last_view.page.pre_remove(last_view)
     end
 
     M.style_header_transition(next_view, "exit", direction, last_view)
@@ -1250,9 +1250,11 @@ local function run (opts)
 
     local e_reload = document:querySelector("body > .warn-update-worker")
 
-    e_reload:addEventListener("click", function ()
-      window.location = window.location
-    end)
+    if e_reload then
+      e_reload:addEventListener("click", function ()
+        window.location = window.location
+      end)
+    end
 
     M.style_update_worker = function ()
 

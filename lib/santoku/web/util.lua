@@ -149,6 +149,12 @@ M.clear = function (el)
   end)
 end
 
+M.template = function (str)
+  local el = document:createElement("template")
+  el.innerHTML = str
+  return el
+end
+
 -- TODO
 M.throttle = function (--[[  fn, time  ]])
   error("throttle: unimplemented")
