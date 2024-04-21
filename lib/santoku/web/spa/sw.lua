@@ -1,5 +1,7 @@
 local js = require("santoku.web.js")
-local fun = require("santoku.functional")
+local str = require("santoku.string")
+local fs = require("santoku.fs")
+local arr = require("santoku.array")
 local util = require("santoku.web.util")
 local async = require("santoku.async")
 local it = require("santoku.iter")
@@ -9,6 +11,8 @@ local Module = global.Module
 local caches = js.caches
 local clients = js.clients
 local Promise = js.Promise
+
+local version = "<% return tostring(os.time()) %>"
 
 local function run (opts)
 
@@ -32,9 +36,9 @@ local function run (opts)
           return async.pipe(function (done)
             return util.fetch(file, {
               -- TODO: This is not currently implemented
-              retry_times = opts.cache_fetch_retry_times
-              backoff_ms = opts.cache_fetch_retry_backoff_ms
-              backoff_multiply = opts.cache_fetch_retry_backoff_multiply
+              retry_times = opts.cache_fetch_retry_times,
+              backoff_ms = opts.cache_fetch_retry_backoff_ms,
+              backoff_multiply = opts.cache_fetch_retry_backoff_multiply,
             }):await(fun.sel(done, 2))
           end, function (done, res)
             return cache:put(file, res):await(fun.sel(done, 2))

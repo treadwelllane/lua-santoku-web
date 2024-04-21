@@ -1,7 +1,7 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.89-1",
+  version = "0.0.90-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,
@@ -15,16 +15,19 @@ local env = {
   -- NOTE: Not using build.wasm and test.wasm for emscripten flags so that the
   -- released taball contains them. In the future santoku make should allow toku
   -- make release --wasm with an optional different name (like santoku-web-wasm)
-  cxxflags = "--std=c++17",
-  ldflags = "--bind",
+  cxxflags = { "--std=c++17" },
+  ldflags = { "--bind"  },
 
   test = {
-    ldflags = "--bind",
+    cflags = { "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$stringToNewUTF8'" },
+    ldflags = { "--bind" },
     dependencies = {
       -- "luacov >= scm-1",
       "luacov >= 0.15.0-1",
-    }
+    },
+
   },
+
 
 }
 
