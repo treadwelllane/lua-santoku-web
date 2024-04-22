@@ -1248,12 +1248,9 @@ return function (opts)
     local serviceWorker = navigator.serviceWorker
 
     local e_reload = document:querySelector("body > .warn-update-worker")
-
-    if e_reload then
-      e_reload:addEventListener("click", function ()
-        window.location = window.location
-      end)
-    end
+    e_reload:addEventListener("click", function ()
+      window.location = window.location
+    end)
 
     M.style_update_worker = function ()
 

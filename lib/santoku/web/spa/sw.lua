@@ -16,6 +16,9 @@ return function (opts)
 
   opts = opts or {}
 
+  opts.service_worker_version = opts.service_worker_version
+    and tostring(opts.service_worker_version) or "0"
+
   opts.cached_files = opts.cached_files ~= false and
     opts.cached_files or
       arr.push(it.collect(it.flatten(it.map(function (fp)
