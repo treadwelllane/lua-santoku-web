@@ -10,7 +10,7 @@ local num = require("santoku.num")
 local util = require("santoku.web.util")
 local defaults = require("santoku.web.spa.defaults")
 
-local function run (opts)
+return function (opts)
 
   opts = tbl.merge({}, opts, defaults)
 
@@ -1340,15 +1340,4 @@ local function run (opts)
 
   M.forward("home")
 
-end
-
-return function (opts)
-  if opts.trace_url then
-    local trace = require("santoku.web.trace.index")
-    return trace(opts.trace_url, { name = opts.trace_name }, function ()
-      return run(opts)
-    end)
-  else
-    return run(opts)
-  end
 end

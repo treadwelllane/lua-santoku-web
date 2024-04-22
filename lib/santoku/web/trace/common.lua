@@ -1,7 +1,7 @@
 local arr = require("santoku.array")
 local varg = require("santoku.varg")
 
-return function (callback, global, opts, run)
+return function (callback, global, opts, run, ...)
 
   opts = opts or {}
 
@@ -84,7 +84,7 @@ return function (callback, global, opts, run)
       if not ok then
         callback(format("error", ...))
       end
-    end, pcall(run))
+    end, pcall(run, ...))
   end
 
   return {

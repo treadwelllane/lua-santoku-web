@@ -14,7 +14,7 @@ local Promise = js.Promise
 
 local version = "<% return tostring(os.time()) %>"
 
-local function run (opts)
+return function (opts)
 
   opts = opts or {}
 
@@ -109,12 +109,4 @@ local function run (opts)
 
   Module:start()
 
-end
-
-return function (opts)
-  if opts.trace then
-    return require("santoku.web.trace.sw")({ name = "sw" }, run)
-  else
-    return run(opts)
-  end
 end

@@ -8,7 +8,7 @@ local WebSocket = window.WebSocket
 
 local channel = BroadcastChannel:new("santoku.web.trace")
 
-return function (url, opts, run)
+return function (url, opts, run, ...)
 
   opts = opts or {}
 
@@ -52,7 +52,7 @@ return function (url, opts, run)
 
   end
 
-  common(emit, window, opts, run)
+  common(emit, window, opts, run, ...)
 
   channel:addEventListener("message", function (_, ev)
     emit(ev.data)
