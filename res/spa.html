@@ -52,15 +52,19 @@
 
     <style>
 
+      <% push(opts.font_url) %>
       @font-face {
         font-family: "<% return opts.font_name %>";
         src: url("<% return opts.font_url %>")
              format("<% return opts.font_format %>");
       }
+      <% pop() %>
 
+      <% push(opts.font_name) %>
       * {
         font-family: "<% return opts.font_name %>";
       }
+      <% pop() %>
 
       html, body {
         padding: 0;
