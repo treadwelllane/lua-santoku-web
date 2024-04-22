@@ -19,9 +19,7 @@ return function (opts)
   opts.cached_files = opts.cached_files ~= false and
     opts.cached_files or
       arr.push(it.collect(it.flatten(it.map(function (fp)
-        if not str.match(fp, "sw.js$") then
-          return it.ivals({ fp, fs.stripextensions(fp) })
-        end
+        return it.ivals({ fp, fs.stripextensions(fp) })
       end, it.ivals(opts.public_files or {})))), "/")
 
   Module.on_install = function ()
@@ -44,6 +42,7 @@ return function (opts)
             if not ok then
               print("Failed caching", file, err and err.message)
             end
+            print("Cached", file)
             return each_done(ok, ...)
           end)
         end, done)
