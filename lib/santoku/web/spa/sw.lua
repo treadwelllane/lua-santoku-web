@@ -12,8 +12,6 @@ local caches = js.caches
 local clients = js.clients
 local Promise = js.Promise
 
-local version = "<% return tostring(os.time()) %>"
-
 return function (opts)
 
   opts = opts or {}
@@ -30,7 +28,7 @@ return function (opts)
     print("Installing service worker")
     return util.promise(function (complete)
       return async.pipe(function (done)
-        return caches:open(version):await(fun.sel(done, 2))
+        return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
       end, function (done, cache)
         return async.each(it.ivals(opts.cached_files), function (each_done, file)
           return async.pipe(function (done)
@@ -69,7 +67,7 @@ return function (opts)
         return caches:keys():await(fun.sel(done, 2))
       end, function (done, keys)
         return Promise:all(keys:filter(function (_, k)
-          return k ~= version
+          return k ~= opts.service_worker_version
         end):map(function (_, k)
           return caches:delete(k)
         end)):await(fun.sel(done, 2))
@@ -89,7 +87,7 @@ return function (opts)
   Module.on_fetch = function (_, request)
     return util.promise(function (complete)
       return async.pipe(function (done)
-        return caches:open(version):await(fun.sel(done, 2))
+        return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
       end, function (done, cache)
         return cache:match(request, {
           ignoreSearch = true,
