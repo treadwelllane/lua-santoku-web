@@ -6,7 +6,7 @@ local BroadcastChannel = global.BroadcastChannel
 
 local channel = BroadcastChannel:new("santoku.web.trace")
 
-return function (opts, run)
+return function (opts, run, ...)
 
   opts = opts or {}
 
@@ -14,6 +14,6 @@ return function (opts, run)
     channel:postMessage(str)
   end
 
-  common(emit, global, opts, run)
+  common(emit, global, opts, run, ...)
 
 end
