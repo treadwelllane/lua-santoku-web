@@ -1062,7 +1062,7 @@ return function (opts)
     last_view.el:remove()
 
     if last_view.page.post_remove then
-      last_view.page.post_remove(last_view)
+      last_view.page.post_remove(last_view, opts)
     end
 
   end
@@ -1074,7 +1074,7 @@ return function (opts)
     e_body.classList:remove("transition")
 
     if next_view.page.post_append then
-      next_view.page.post_append(next_view)
+      next_view.page.post_append(next_view, opts)
     end
 
     local e_back = next_view.el:querySelector(".page > .header > .back")
@@ -1114,7 +1114,7 @@ return function (opts)
     M.setup_maximize(next_view)
 
     if next_view.page.pre_append then
-      next_view.page.pre_append(next_view)
+      next_view.page.pre_append(next_view, opts)
     end
 
     local from_class = "from-" .. (last_view and last_view.name or "none")
@@ -1134,7 +1134,7 @@ return function (opts)
   M.exit = function (last_view, direction, next_view)
 
     if last_view.page.pre_remove then
-      last_view.page.pre_remove(last_view)
+      last_view.page.pre_remove(last_view, opts)
     end
 
     M.style_header_transition(next_view, "exit", direction, last_view)
