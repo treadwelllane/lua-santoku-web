@@ -56,12 +56,6 @@ return {
   shadow3 = "0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23)",
   shadow3_transparent = "0 10px 20px rgba(0,0,0,0), 0 6px 6px rgba(0,0,0,0)",
 
-  font_format = "truetype",
-  font_name = "Roboto",
-  font_url = "Roboto-Regular.ttf",
-
-  -- TODO: Not currently implemented
-  -- TODO: Move to sw lib
   cache_fetch_retry_backoff_ms = "1000",
   cache_fetch_retry_backoff_multiply = "2",
   cache_fetch_retry_times = "3",
