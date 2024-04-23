@@ -86,9 +86,11 @@ return function (opts)
   end
 
   Module.on_fetch = function (_, request, client_id)
-    local intercept = opts.on_fetch and opts.on_fetch(request, client_id)
-    if intercept ~= false then
-      return intercept
+    if opts.on_fetch then
+      local int = opts.on_fetch(request, client_id)
+      if int ~= false then
+        return int
+      end
     end
     return util.promise(function (complete)
       return async.pipe(function (done)
