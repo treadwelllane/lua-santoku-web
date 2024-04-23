@@ -1,0 +1,44 @@
+{
+  "name": "<% return opts.title %>",
+  "description": "<% return opts.description %>",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+
+  <% -- TODO: This is not fully standardized and
+     -- will need to be revisited %>
+  "handle_links": "not-preferred",
+  "launch_handler": { "route_to": "existing-client-retain" },
+
+  "theme_color": "<% return opts.theme_color %>",
+  "background_color": "<% return opts.background_color %>",
+  "screenshots": [],
+  "categories": [],
+  "shortcuts": [],
+  "icons": [
+    {
+      "src": "/icon-192.maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
