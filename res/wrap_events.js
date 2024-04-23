@@ -12,7 +12,7 @@ Module.start = function () {
 
   if (Module.on_fetch) {
     buffers.fetch.forEach(([ ev, resolve, reject ]) => {
-      Module.on_fetch(ev.request)
+      Module.on_fetch(ev.request, ev.clientId)
         .then(resolve)
         .catch(reject)
     })
@@ -49,7 +49,7 @@ Module.start = function () {
 self.addEventListener("fetch", ev => {
   ev.respondWith(new Promise((resolve, reject) => {
     if (Module.on_fetch) {
-      Module.on_fetch(ev.request)
+      Module.on_fetch(ev.request, ev.clientId)
         .then(resolve)
         .catch(reject)
     } else {
