@@ -9,20 +9,20 @@
     <title><% return opts.title %></title>
 
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="theme-color" content="<% return opts.light_bg %>">
+    <meta name="theme-color" content="<% return opts.theme_color %>">
 
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=<% return scalable and "yes" or "no" %>,uc-fitscreen=yes">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=<% return opts.scalable and "yes" or "no" %>,uc-fitscreen=yes">
     <meta name="description" content="<% return opts.description %>">
     <meta name="keywords" content="<% return opts.keywords %>">
 
     <meta name="apple-mobile-web-app-title" content="<% return opts.title %>">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="<% return opts.light_bg %>">
+    <meta name="apple-mobile-web-app-status-bar-style" content="<% return opts.theme_color %>">
 
-    <meta name="msapplication-navbutton-color" content="<% return opts.light_bg %>">
-    <meta name="msapplication-TileColor" content="<% return opts.light_bg %>">
+    <meta name="msapplication-navbutton-color" content="<% return opts.theme_color %>">
+    <meta name="msapplication-TileColor" content="<% return opts.theme_color %>">
 
     <% -- TODO
        -- <meta name="msapplication-config" content="browserconfig.xml">

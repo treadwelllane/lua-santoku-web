@@ -13,6 +13,8 @@ return {
   fab_radius_small = "12",
   fab_shared_svg_transition_height = "24",
 
+  theme_color = "#FFFFFF",
+
   card_bg = "#E8EAF6",
   card_fg = "#282828",
   card_main_border = "1px solid #C5CAE9",
