@@ -85,7 +85,11 @@ return function (opts)
     end)
   end
 
-  Module.on_fetch = function (_, request)
+  Module.on_fetch = function (_, request, client_id)
+    local intercept = opts.on_fetch and opts.on_fetch(request, client_id)
+    if intercept ~= false then
+      return intercept
+    end
     return util.promise(function (complete)
       return async.pipe(function (done)
         return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
