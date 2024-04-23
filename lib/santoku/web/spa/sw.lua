@@ -1,5 +1,4 @@
 local js = require("santoku.web.js")
-local str = require("santoku.string")
 local fs = require("santoku.fs")
 local arr = require("santoku.array")
 local util = require("santoku.web.util")

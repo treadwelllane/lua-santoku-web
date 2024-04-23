@@ -10,7 +10,7 @@ M.init = function (obj, on_message)
     local key = ev.data[1]
     local args = {}
     for i = 3, ev.data.length do
-      args[#args + 1] = val.lua(ev.data[i], true)
+      args[#args + 1] = ev.data[i]
     end
     if obj.async and obj.async[key] then
       arr.push(args, function (...)
