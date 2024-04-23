@@ -5,4 +5,4 @@ local html = <%
   return serialize(readfile("res/spa.html"))
 %> -- luacheck: ignore
 
-return template.compile(html, nil, nil, { opts = defaults })
+return template.compile(html)
