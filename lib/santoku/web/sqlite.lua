@@ -9,6 +9,7 @@
 local js = require("santoku.web.js")
 local sqlite = require("santoku.sqlite")
 local err = require("santoku.error")
+local Object = js.Object
 
 local M = {}
 
@@ -59,7 +60,8 @@ M.open_opfs = function (dbfile, callback)
 
               bind_names = function (_, t)
                 local ok, e = err.pcall(function ()
-                  for k, v in pairs(t) do
+                  Object:keys(t):forEach(function (_, k)
+                    local v = t[k]
                     -- TODO: sqlite supports
                     -- both ":" and "$", but
                     -- we're hardcoding the
@@ -71,7 +73,7 @@ M.open_opfs = function (dbfile, callback)
                     -- table, instead of the
                     -- other way around.
                     stmt:bind(":" .. k, cast_param(v))
-                  end
+                  end)
                 end)
                 if ok then
                   return OK
