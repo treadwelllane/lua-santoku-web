@@ -1,6 +1,7 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local str = require("santoku.string")
+local arr = require("santoku.array")
 
 local history = js.history
 local document = js.document
@@ -178,6 +179,23 @@ M.fit_image = function (e_img, e_main, image_ratio)
     e_img.width = e_main.clientWidth
     e_img.height = e_img.width / image_ratio
   end
+end
+
+M.component = function (tag, callback)
+  local class = val.class(function (proto)
+    proto.connectedCallback = callback
+  end, js.window.HTMLElement)
+  js.window.customElements:define(tag, class)
+  return class
+end
+
+M.querystring = function (t)
+  local o = { "?" }
+  for k, v in pairs(t) do
+    arr.push(o, js:encodeURIComponent(k), "=", js:encodeURIComponent(v), "&")
+  end
+  o[#o] = nil
+  return arr.concat(o)
 end
 
 return M
