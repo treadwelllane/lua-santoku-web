@@ -1069,6 +1069,25 @@ int mt_bytes (lua_State *L) {
   return 1;
 }
 
+int mt_class (lua_State *L) {
+  lua_settop(L, 2);
+  lua_to_val(L, 1, false);
+  lua_to_val(L, 2, false);
+  val config = peek_val(L, 3);
+  val parent = peek_val(L, 4);
+  val clss = val::take_ownership((EM_VAL) EM_ASM_PTR(({
+    var config = Emval.toValue($0) || (() => {});
+    var parent = Emval.toValue($1);
+    var clss = parent
+      ? class extends parent { }
+      : class { };
+    config.call(clss.prototype);
+    return Emval.toHandle(clss);
+  }), config.as_handle(), parent.as_handle()));
+  push_val(L, clss, INT_MIN);
+  return 1;
+}
+
 int mto_index (lua_State *L) { // lo lk
   lua_pushvalue(L, -1); // lo lk lk
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTO_FNS); // lo lk lk fns
@@ -1369,6 +1388,7 @@ luaL_Reg mt_fns[] = {
   { "global", mt_global },
   { "lua", mt_lua },
   { "bytes", mt_bytes },
+  { "class", mt_class },
   { NULL, NULL }
 };
 
