@@ -56,38 +56,31 @@ using namespace emscripten;
 // Same as MTO, with :await(<fn>)
 #define MTP "santoku_web_promise"
 
-#define tk_web_debug(...) \
-  printf("%s:%d\t", __FILE__, __LINE__); \
-  printf(__VA_ARGS__); \
-  printf("\n");
+static int IDX_REF_TBL;
 
-int IDX_REF_TBL;
+static int MTO_FNS;
+static int MTP_FNS;
+static int MTA_FNS;
+static int MTF_FNS;
 
-int MTO_FNS;
-int MTP_FNS;
-int MTA_FNS;
-int MTF_FNS;
+static int TK_WEB_EPHEMERON_IDX;
+static inline void tk_web_set_ephemeron (lua_State *, int, int);
+static inline int tk_web_get_ephemeron (lua_State *, int, int);
 
-int TK_WEB_EPHEMERON_IDX;
-void tk_web_set_ephemeron (lua_State *, int, int);
-int tk_web_get_ephemeron (lua_State *, int, int);
+static inline bool mtx_to_mtv (lua_State *, int);
+static inline int lua_to_val (lua_State *, int, bool);
+static inline void val_to_lua (lua_State *, int, bool, bool);
+static inline int val_ref (lua_State *, int);
+static inline bool val_unref (lua_State *, int);
 
-bool mtx_to_mtv (lua_State *, int);
-void map_js (lua_State *, int, int);
-int lua_to_val (lua_State *, int, bool);
-void val_to_lua (lua_State *, int, bool, bool);
-void push_new_uv (lua_State *, int);
-int val_ref (lua_State *, int);
-bool val_unref (lua_State *, int);
+static inline int mtv_call (lua_State *);
+static inline int mtv_instanceof (lua_State *);
+static inline int mtv_lua (lua_State *);
+static inline int mtv_new (lua_State *);
+static inline int mtv_set (lua_State *);
+static inline int mtv_typeof (lua_State *);
 
-int mtv_call (lua_State *);
-int mtv_instanceof (lua_State *);
-int mtv_lua (lua_State *);
-int mtv_new (lua_State *);
-int mtv_set (lua_State *);
-int mtv_typeof (lua_State *);
-
-void tk_web_set_ephemeron (lua_State *L, int iu, int ie)
+static inline void tk_web_set_ephemeron (lua_State *L, int iu, int ie)
 {
   // eph
   luaL_checktype(L, iu, LUA_TUSERDATA);
@@ -110,7 +103,7 @@ void tk_web_set_ephemeron (lua_State *L, int iu, int ie)
   lua_pop(L, 4); //
 }
 
-int tk_web_get_ephemeron (lua_State *L, int iu, int ie)
+static inline int tk_web_get_ephemeron (lua_State *L, int iu, int ie)
 {
   lua_pushvalue(L, iu); // val
   lua_rawgeti(L, LUA_REGISTRYINDEX, TK_WEB_EPHEMERON_IDX); // val idx
@@ -129,7 +122,7 @@ int tk_web_get_ephemeron (lua_State *L, int iu, int ie)
 }
 
 // Source: https://github.com/lunarmodules/lua-compat-5.3
-void *tk_web_testudata (lua_State *L, int i, const char *tname) {
+static inline void *tk_web_testudata (lua_State *L, int i, const char *tname) {
   void *p = lua_touserdata(L, i);
   luaL_checkstack(L, 2, "not enough stack slots");
   if (p == NULL || !lua_getmetatable(L, i))
@@ -145,29 +138,13 @@ void *tk_web_testudata (lua_State *L, int i, const char *tname) {
   return p;
 }
 
-// Source: https://github.com/lunarmodules/lua-compat-5.3
-int tk_web_absindex (lua_State *L, int i) {
+static inline int tk_lua_absindex (lua_State *L, int i) {
   if (i < 0 && i > LUA_REGISTRYINDEX)
     i += lua_gettop(L) + 1;
   return i;
 }
 
-// TODO: Duplicated across santoku-python and
-// santoku-web, should be split into separate
-// library
-void tk_lua_callmod (lua_State *L, int nargs, int nret, const char *smod, const char *sfn)
-{
-  lua_getglobal(L, "require"); // arg req
-  lua_pushstring(L, smod); // arg req smod
-  lua_call(L, 1, 1); // arg mod
-  lua_pushstring(L, sfn); // args mod sfn
-  lua_gettable(L, -2); // args mod fn
-  lua_remove(L, -2); // args fn
-  lua_insert(L, - nargs - 1); // fn args
-  lua_call(L, nargs, nret); // results
-}
-
-void args_to_vals (lua_State *L, int n) {
+static inline void args_to_vals (lua_State *L, int n) {
   int argc = n < 0 ? lua_gettop(L) : n;
   for (int i = -argc; i < 0; i ++) {
     lua_to_val(L, i, false);
@@ -175,7 +152,7 @@ void args_to_vals (lua_State *L, int n) {
   }
 }
 
-val *peek_valp (lua_State *L, int i) {
+static inline val *peek_valp (lua_State *L, int i) {
   if (!mtx_to_mtv(L, i))
     return NULL;
   assert(tk_web_get_ephemeron(L, -1, 1) == LUA_TLIGHTUSERDATA);
@@ -184,7 +161,7 @@ val *peek_valp (lua_State *L, int i) {
   return vp;
 }
 
-val peek_val (lua_State *L, int i) {
+static inline val peek_val (lua_State *L, int i) {
   val *vp = peek_valp(L, i);
   if (vp == NULL)
     return val::undefined();
@@ -192,13 +169,13 @@ val peek_val (lua_State *L, int i) {
     return *vp;
 }
 
-int mtv_gc (lua_State *L) {
+static inline int mtv_gc (lua_State *L) {
   val *v = peek_valp(L, -1);
   delete v;
   return 0;
 }
 
-int mtv_eq (lua_State *L) {
+static inline int mtv_eq (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
   lua_pushboolean(L, EM_ASM_INT({
@@ -209,7 +186,7 @@ int mtv_eq (lua_State *L) {
   return 1;
 }
 
-int mtv_lt (lua_State *L) {
+static inline int mtv_lt (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
   lua_pushboolean(L, EM_ASM_INT({
@@ -220,7 +197,7 @@ int mtv_lt (lua_State *L) {
   return 1;
 }
 
-int mtv_le (lua_State *L) {
+static inline int mtv_le (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
   lua_pushboolean(L, EM_ASM_INT({
@@ -231,7 +208,18 @@ int mtv_le (lua_State *L) {
   return 1;
 }
 
-int mtv_sub (lua_State *L) {
+static inline int mtv_add (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = peek_val(L, -2);
+  lua_pushboolean(L, EM_ASM_INT({
+    var v0 = Emval.toValue($0);
+    var v1 = Emval.toValue($1);
+    return v0 + v1;
+  }, v0.as_handle(), v1.as_handle()));
+  return 1;
+}
+
+static inline int mtv_sub (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
   lua_pushboolean(L, EM_ASM_INT({
@@ -242,7 +230,7 @@ int mtv_sub (lua_State *L) {
   return 1;
 }
 
-int mtv_mul (lua_State *L) {
+static inline int mtv_mul (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
   lua_pushboolean(L, EM_ASM_INT({
@@ -253,7 +241,7 @@ int mtv_mul (lua_State *L) {
   return 1;
 }
 
-int mtv_div (lua_State *L) {
+static inline int mtv_div (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
   lua_pushboolean(L, EM_ASM_INT({
@@ -264,7 +252,7 @@ int mtv_div (lua_State *L) {
   return 1;
 }
 
-int mtv_mod (lua_State *L) {
+static inline int mtv_mod (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
   lua_pushboolean(L, EM_ASM_INT({
@@ -275,7 +263,7 @@ int mtv_mod (lua_State *L) {
   return 1;
 }
 
-int mtv_pow (lua_State *L) {
+static inline int mtv_pow (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
   lua_pushboolean(L, EM_ASM_INT({
@@ -286,40 +274,7 @@ int mtv_pow (lua_State *L) {
   return 1;
 }
 
-int mtv_band (lua_State *L) {
-  val v0 = peek_val(L, -1);
-  val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
-    var v0 = Emval.toValue($0);
-    var v1 = Emval.toValue($1);
-    return v0 & v1;
-  }, v0.as_handle(), v1.as_handle()));
-  return 1;
-}
-
-int mtv_bor (lua_State *L) {
-  val v0 = peek_val(L, -1);
-  val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
-    var v0 = Emval.toValue($0);
-    var v1 = Emval.toValue($1);
-    return v0 | v1;
-  }, v0.as_handle(), v1.as_handle()));
-  return 1;
-}
-
-int mtv_bxor (lua_State *L) {
-  val v0 = peek_val(L, -1);
-  val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
-    var v0 = Emval.toValue($0);
-    var v1 = Emval.toValue($1);
-    return v0 ^ v1;
-  }, v0.as_handle(), v1.as_handle()));
-  return 1;
-}
-
-int mtv_unm (lua_State *L) {
+static inline int mtv_unm (lua_State *L) {
   val v0 = peek_val(L, -1);
   lua_pushboolean(L, EM_ASM_INT({
     var v0 = Emval.toValue($0);
@@ -328,38 +283,7 @@ int mtv_unm (lua_State *L) {
   return 1;
 }
 
-int mtv_bnot (lua_State *L) {
-  val v0 = peek_val(L, -1);
-  lua_pushboolean(L, EM_ASM_INT({
-    var v0 = Emval.toValue($0);
-    return ~ v0;
-  }, v0.as_handle()));
-  return 1;
-}
-
-int mtv_shl (lua_State *L) {
-  val v0 = peek_val(L, -1);
-  val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
-    var v0 = Emval.toValue($0);
-    var v1 = Emval.toValue($1);
-    return v0 << v1;
-  }, v0.as_handle(), v1.as_handle()));
-  return 1;
-}
-
-int mtv_shr (lua_State *L) {
-  val v0 = peek_val(L, -1);
-  val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
-    var v0 = Emval.toValue($0);
-    var v1 = Emval.toValue($1);
-    return v0 >> v1;
-  }, v0.as_handle(), v1.as_handle()));
-  return 1;
-}
-
-void push_val (lua_State *L, val v, int uv) {
+static inline void push_val (lua_State *L, val v, int uv) {
 
   int n = lua_gettop(L);
 
@@ -382,12 +306,10 @@ void push_val (lua_State *L, val v, int uv) {
 
 }
 
-bool mtx_to_mtv (lua_State *L, int iv) {
-
+static inline bool mtx_to_mtv (lua_State *L, int iv) {
 
   int n = lua_gettop(L);
-  int i_val = tk_web_absindex(L, iv);
-
+  int i_val = tk_lua_absindex(L, iv);
 
   if (tk_web_testudata(L, i_val, MTV) != NULL) {
     lua_pushvalue(L, i_val);
@@ -407,10 +329,9 @@ bool mtx_to_mtv (lua_State *L, int iv) {
     assert(lua_gettop(L) == n);
     return false;
   }
-
 }
 
-bool mtx_to_lua (lua_State *L, int iv) {
+static inline bool mtx_to_lua (lua_State *L, int iv) {
 
   int t = lua_type(L, iv);
   if (t != LUA_TLIGHTUSERDATA && t != LUA_TUSERDATA) {
@@ -432,7 +353,7 @@ bool mtx_to_lua (lua_State *L, int iv) {
 
 }
 
-void tk_web_increment_refn (lua_State *L) {
+static inline void tk_web_increment_refn (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL); // idx
   lua_getfield(L, -1, "n"); // idx n
   int n = lua_type(L, -1) == LUA_TNIL ? 1 : lua_tointeger(L, -1) + 1;
@@ -442,7 +363,7 @@ void tk_web_increment_refn (lua_State *L) {
   lua_pop(L, 1); //
 }
 
-void tk_web_decrement_refn (lua_State *L) {
+static inline void tk_web_decrement_refn (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL); // idx
   lua_getfield(L, -1, "n"); // idx n
   int n = lua_type(L, -1) == LUA_TNIL ? 1 : lua_tointeger(L, -1) - 1;
@@ -452,8 +373,8 @@ void tk_web_decrement_refn (lua_State *L) {
   lua_pop(L, 1); //
 }
 
-int val_ref (lua_State *L, int it) {
-  it = tk_web_absindex(L, it);
+static inline int val_ref (lua_State *L, int it) {
+  it = tk_lua_absindex(L, it);
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL);
   lua_pushvalue(L, it);
   int ref = luaL_ref(L, -2);
@@ -462,7 +383,7 @@ int val_ref (lua_State *L, int it) {
   return ref;
 }
 
-bool val_unref (lua_State *L, int ref) {
+static inline bool val_unref (lua_State *L, int ref) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL); // idx
   lua_pushinteger(L, ref); // idx ref
   lua_gettable(L, -2); // idx val
@@ -471,7 +392,7 @@ bool val_unref (lua_State *L, int ref) {
   return t != LUA_TNIL;
 }
 
-void push_mtx (lua_State *L, int iv, const char *mtx) {
+static inline void push_mtx (lua_State *L, int iv, const char *mtx) {
   lua_pushvalue(L, iv); // mtv
   lua_newuserdata(L, 0); // mtv mtx
   lua_insert(L, -2); // mtx mtv
@@ -480,9 +401,9 @@ void push_mtx (lua_State *L, int iv, const char *mtx) {
   lua_setmetatable(L, -2); // mtx
 }
 
-void object_to_lua (lua_State *L, val v, int iv, bool recurse) {
+static inline void object_to_lua (lua_State *L, val v, int iv, bool recurse) {
 
-  iv = tk_web_absindex(L, iv);
+  iv = tk_lua_absindex(L, iv);
 
   bool isNull = EM_ASM_INT(({
     return Emval.toValue($0) == null
@@ -553,7 +474,7 @@ void object_to_lua (lua_State *L, val v, int iv, bool recurse) {
   }
 }
 
-void number_to_lua (lua_State *L, val v) {
+static inline void number_to_lua (lua_State *L, val v) {
 
   bool isInteger = EM_ASM_INT(({
     try {
@@ -579,7 +500,7 @@ void number_to_lua (lua_State *L, val v) {
 
 }
 
-void bigint_to_lua (lua_State *L, val v) {
+static inline void bigint_to_lua (lua_State *L, val v) {
 
   // TODO: Needs to be thoroughly tested to
   // support 64 bit integers.
@@ -587,7 +508,7 @@ void bigint_to_lua (lua_State *L, val v) {
     var bi = Emval.toValue($1);
     if (bi > Number.MAX_SAFE_INTEGER ||
         bi < Number.MIN_SAFE_INTEGER)
-      Module.error($0, Emval.toHandle("Conversion from bigint to number failed: too large or too small"));
+      Module["error"]($0, Emval.toHandle("Conversion from bigint to number failed: too large or too small"));
     return Number(bi);
   }), L, v.as_handle());
 
@@ -595,14 +516,14 @@ void bigint_to_lua (lua_State *L, val v) {
 
 }
 
-void function_to_lua (lua_State *L, val v, int iv) {
+static inline void function_to_lua (lua_State *L, val v, int iv) {
 
-  iv = tk_web_absindex(L, iv);
+  iv = tk_lua_absindex(L, iv);
   push_mtx(L, iv, MTF);
 
 }
 
-int mt_lua (lua_State *L)
+static inline int mt_lua (lua_State *L)
 {
   lua_settop(L, 2);
   bool recurse = lua_toboolean(L, 2);
@@ -610,7 +531,7 @@ int mt_lua (lua_State *L)
   return 1;
 }
 
-void val_to_lua (lua_State *L, int iv, bool recurse, bool force_wrap) {
+static inline void val_to_lua (lua_State *L, int iv, bool recurse, bool force_wrap) {
 
   if (!force_wrap and mtx_to_lua(L, iv))
     return;
@@ -642,17 +563,16 @@ void val_to_lua (lua_State *L, int iv, bool recurse, bool force_wrap) {
     lua_pushnil(L);
 
   } else {
-    printf("Unhandled JS type, pushing nil: %s\n", type.c_str());
     lua_pushnil(L);
   }
 
 }
 
-void val_to_lua (lua_State *L, int iv, bool recurse) {
+static inline void val_to_lua (lua_State *L, int iv, bool recurse) {
   val_to_lua(L, iv, recurse, false);
 }
 
-bool tk_web_isarray (lua_State *L, int i) {
+static inline bool tk_web_isarray (lua_State *L, int i) {
   size_t tlen = lua_objlen(L, i);
   if (tlen > 0) {
     return true;
@@ -669,9 +589,9 @@ bool tk_web_isarray (lua_State *L, int i) {
   }
 }
 
-void table_to_val (lua_State *L, int i, bool recurse) {
+static inline void table_to_val (lua_State *L, int i, bool recurse) {
 
-  int i_tbl = tk_web_absindex(L, i);
+  int i_tbl = tk_lua_absindex(L, i);
 
   bool isarray = tk_web_isarray(L, i);
 
@@ -688,15 +608,15 @@ void table_to_val (lua_State *L, int i, bool recurse) {
           try { isnumber = !isNaN(+k); }
           catch (_) { isnumber = false; }
           if (o instanceof Array && k == "length") {
-            var l = Module.len($0, $1);
+            var l = Module["len"]($0, $1);
             return l;
           }
           if (o instanceof Array && isnumber) {
-            var e = Module.get($0, $1, Emval.toHandle(+k + 1), 0);
+            var e = Module["get"]($0, $1, Emval.toHandle(+k + 1), 0);
             return Emval.toValue(e);
           }
           if (typeof k == "string") {
-            var e = Module.get($0, $1, stringToNewUTF8(k), 1);
+            var e = Module["get"]($0, $1, stringToNewUTF8(k), 1);
             return Emval.toValue(e);
           }
           if (k == Symbol.iterator) {
@@ -721,7 +641,7 @@ void table_to_val (lua_State *L, int i, bool recurse) {
 
         ownKeys(o) {
           var keys = [];
-          Module.own_keys($0, $1, Emval.toHandle(keys));
+          Module["own_keys"]($0, $1, Emval.toHandle(keys));
           return keys;
         },
 
@@ -730,9 +650,9 @@ void table_to_val (lua_State *L, int i, bool recurse) {
           try { isnumber = !isNaN(+k); }
           catch (_) { isnumber = false; }
           if (o instanceof Array && isnumber)
-            Module.set($0, $1, Emval.toHandle(+k + 1), Emval.toHandle(v));
+            Module["set"]($0, $1, Emval.toHandle(+k + 1), Emval.toHandle(v));
           else
-            Module.set($0, $1, Emval.toHandle(k), Emval.toHandle(v));
+            Module["set"]($0, $1, Emval.toHandle(k), Emval.toHandle(v));
         }
 
       }))
@@ -742,7 +662,7 @@ void table_to_val (lua_State *L, int i, bool recurse) {
 
     EM_ASM(({
       var v = Emval.toValue($0);
-      Module.FINALIZERS.register(v, $1);
+      Module["FINALIZERS"].register(v, $1);
     }), v.as_handle(), tblref);
 
   } else if (isarray) {
@@ -786,9 +706,9 @@ void table_to_val (lua_State *L, int i, bool recurse) {
 
 }
 
-void function_to_val (lua_State *L, int i) {
+static inline void function_to_val (lua_State *L, int i) {
 
-  int i_fn = tk_web_absindex(L, i);
+  int i_fn = tk_lua_absindex(L, i);
 
   int fnref = val_ref(L, i_fn);
 
@@ -796,7 +716,7 @@ void function_to_val (lua_State *L, int i) {
     return Emval.toHandle(new Proxy(function () {}, {
       apply(_, this_, args) {
         args.unshift(this_);
-        return Emval.toValue(Module.call($0, $1, Emval.toHandle(args)));
+        return Emval.toValue(Module["call"]($0, $1, Emval.toHandle(args)));
       }
     }));
   }), L, fnref)), i_fn);
@@ -805,12 +725,12 @@ void function_to_val (lua_State *L, int i) {
 
   EM_ASM(({
     var v = Emval.toValue($0);
-    Module.FINALIZERS.register(v, $1);
+    Module["FINALIZERS"]["register"](v, $1);
   }), v.as_handle(), fnref);
 
 }
 
-int lua_to_val (lua_State *L, int i, bool recurse) {
+static inline int lua_to_val (lua_State *L, int i, bool recurse) {
 
   int type = lua_type(L, i);
 
@@ -838,14 +758,13 @@ int lua_to_val (lua_State *L, int i, bool recurse) {
     function_to_val(L, i);
 
   } else {
-    printf("Unhandled Lua type, pushing undefined: %d\n", type);
     push_val(L, val::undefined(), INT_MIN);
   }
 
   return 1;
 }
 
-int j_arg (int Lp, int i) {
+static inline int j_arg (int Lp, int i) {
   lua_State *L = (lua_State *) Lp;
   lua_to_val(L, i, false);
   EM_VAL v = peek_val(L, -1).as_handle();
@@ -853,7 +772,7 @@ int j_arg (int Lp, int i) {
   return (int) v;
 }
 
-int j_args (int Lp, int arg0, int argc) {
+static inline int j_args (int Lp, int arg0, int argc) {
   // lua_State *L = (lua_State *) Lp;
   return (int) EM_ASM_PTR(({
     return Emval.toHandle({
@@ -865,7 +784,7 @@ int j_args (int Lp, int arg0, int argc) {
               return { done: true };
             } else {
               i = i + 1;
-              var arg = Module.arg($0, i + $1 - 1);
+              var arg = Module["arg"]($0, i + $1 - 1);
               var val = Emval.toValue(arg);
               return { done: false, value: val };
             }
@@ -876,7 +795,7 @@ int j_args (int Lp, int arg0, int argc) {
   }), Lp, arg0, argc);
 }
 
-void j_own_keys (int Lp, int it, int keysp) {
+static inline void j_own_keys (int Lp, int it, int keysp) {
 
   lua_State *L = (lua_State *) Lp;
 
@@ -908,7 +827,7 @@ void j_own_keys (int Lp, int it, int keysp) {
 
 }
 
-int j_get (int Lp, int i, int k, int is_str) {
+static inline int j_get (int Lp, int i, int k, int is_str) {
 
   lua_State *L = (lua_State *) Lp;
 
@@ -932,7 +851,7 @@ int j_get (int Lp, int i, int k, int is_str) {
   return (int) vv.as_handle();
 }
 
-void j_set (int Lp, int i, int k, int v) {
+static inline void j_set (int Lp, int i, int k, int v) {
   lua_State *L = (lua_State *) Lp;
   val kk = val::take_ownership((EM_VAL) k);
   val vv = val::take_ownership((EM_VAL) v);
@@ -946,7 +865,7 @@ void j_set (int Lp, int i, int k, int v) {
   lua_pop(L, 3); //
 }
 
-int j_call (int Lp, int i, int argsp) {
+static inline int j_call (int Lp, int i, int argsp) {
 
   lua_State *L = (lua_State *) Lp;
 
@@ -989,7 +908,7 @@ int j_call (int Lp, int i, int argsp) {
   }
 }
 
-void j_error (int Lp, int ep) {
+static inline void j_error (int Lp, int ep) {
   lua_State *L = (lua_State *) Lp;
   val e = val::take_ownership((EM_VAL) ep);
   push_val(L, e, INT_MIN);
@@ -998,7 +917,7 @@ void j_error (int Lp, int ep) {
   lua_error(L);
 }
 
-int j_len (int Lp, int i) {
+static inline int j_len (int Lp, int i) {
   lua_State *L = (lua_State *) Lp;
   assert(val_unref(L, i)); // val
   lua_Integer len = lua_objlen(L, -1);
@@ -1006,7 +925,7 @@ int j_len (int Lp, int i) {
   return len;
 }
 
-void j_val_ref_delete (int Lp, int ref) {
+static inline void j_val_ref_delete (int Lp, int ref) {
   lua_State *L = (lua_State *) Lp;
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL);
   luaL_unref(L, -1, ref);
@@ -1026,7 +945,7 @@ EMSCRIPTEN_BINDINGS(santoku_web_val) {
   emscripten::function("val_ref_delete", &j_val_ref_delete, allow_raw_pointers());
 }
 
-int mt_call (lua_State *L) {
+static inline int mt_call (lua_State *L) {
 
   int n = lua_gettop(L);
 
@@ -1047,7 +966,7 @@ int mt_call (lua_State *L) {
 
 }
 
-int mt_global (lua_State *L) {
+static inline int mt_global (lua_State *L) {
   const char *str = luaL_checkstring(L, -1);
   push_val(L, val::global(str), INT_MIN);
   lua_remove(L, -2);
@@ -1060,7 +979,7 @@ int mt_global (lua_State *L) {
 // invalidated, resulting in "detached array
 // buffer" errors. Is it somehow possible to
 // update the pointer when this happens? Maybe..
-int mt_bytes (lua_State *L) {
+static inline int mt_bytes (lua_State *L) {
   size_t size;
   const char *str = luaL_checklstring(L, -1, &size); // str
   val v = val(typed_memory_view(size, (uint8_t *) str));
@@ -1069,7 +988,7 @@ int mt_bytes (lua_State *L) {
   return 1;
 }
 
-int mt_class (lua_State *L) {
+static inline int mt_class (lua_State *L) {
   lua_settop(L, 2);
   lua_to_val(L, 1, false);
   lua_to_val(L, 2, false);
@@ -1088,7 +1007,7 @@ int mt_class (lua_State *L) {
   return 1;
 }
 
-int mto_index (lua_State *L) { // lo lk
+static inline int mto_index (lua_State *L) { // lo lk
   lua_pushvalue(L, -1); // lo lk lk
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTO_FNS); // lo lk lk fns
   lua_insert(L, -2); // lo lk fns lk
@@ -1113,23 +1032,23 @@ int mto_index (lua_State *L) { // lo lk
   return 1;
 }
 
-int mto_newindex (lua_State *L) {
+static inline int mto_newindex (lua_State *L) {
   return mtv_set(L);
 }
 
-int mto_instanceof (lua_State *L) {
+static inline int mto_instanceof (lua_State *L) {
   mtv_instanceof(L);
   val_to_lua(L, -1, false);
   return 1;
 }
 
-int mto_typeof (lua_State *L) {
+static inline int mto_typeof (lua_State *L) {
   mtv_typeof(L);
   val_to_lua(L, -1, false);
   return 1;
 }
 
-int mtp_index (lua_State *L) {
+static inline int mtp_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTP_FNS);
   lua_pushvalue(L, -2);
   lua_gettable(L, -2);
@@ -1139,7 +1058,7 @@ int mtp_index (lua_State *L) {
   return mto_index(L);
 }
 
-int mtp_await (lua_State *L) {
+static inline int mtp_await (lua_State *L) {
   args_to_vals(L, -1);
   val v = peek_val(L, -2);
   val f = peek_val(L, -1);
@@ -1165,7 +1084,7 @@ int mtp_await (lua_State *L) {
   return 0;
 }
 
-int mta_index (lua_State *L) {
+static inline int mta_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTA_FNS);
   lua_pushvalue(L, -2);
   lua_gettable(L, -2);
@@ -1175,7 +1094,7 @@ int mta_index (lua_State *L) {
   return mto_index(L);
 }
 
-int mta_str (lua_State *L) {
+static inline int mta_str (lua_State *L) {
   args_to_vals(L, -1);
   val v = peek_val(L, -1);
   vector<uint8_t> vec = convertJSArrayToNumberVector<uint8_t>(v);
@@ -1183,7 +1102,7 @@ int mta_str (lua_State *L) {
   return 1;
 }
 
-int mtf_index (lua_State *L) {
+static inline int mtf_index (lua_State *L) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTF_FNS);
   lua_pushvalue(L, -2);
   lua_gettable(L, -2);
@@ -1193,24 +1112,24 @@ int mtf_index (lua_State *L) {
   return mto_index(L);
 }
 
-int mtf_call (lua_State *L) {
+static inline int mtf_call (lua_State *L) {
   mtv_call(L);
   val_to_lua(L, -1, false);
   return 1;
 }
 
-int mtf_new (lua_State *L) {
+static inline int mtf_new (lua_State *L) {
   mtv_new(L);
   val_to_lua(L, -1, false);
   return 1;
 }
 
-int mto_val (lua_State *L) {
+static inline int mto_val (lua_State *L) {
   assert(mtx_to_mtv(L, -1));
   return 1;
 }
 
-int mtv_lua (lua_State *L) {
+static inline int mtv_lua (lua_State *L) {
   int n = lua_gettop(L);
   if (n == 2) {
     bool recurse = lua_toboolean(L, -1);
@@ -1226,7 +1145,7 @@ int mtv_lua (lua_State *L) {
   }
 }
 
-int mtv_get (lua_State *L) {
+static inline int mtv_get (lua_State *L) {
   args_to_vals(L, -1);
   val k = peek_val(L, -1);
   val o = peek_val(L, -2);
@@ -1234,7 +1153,7 @@ int mtv_get (lua_State *L) {
   return 1;
 }
 
-int mtv_set (lua_State *L) {
+static inline int mtv_set (lua_State *L) {
   args_to_vals(L, -1);
   val v = peek_val(L, -1);
   val k = peek_val(L, -2);
@@ -1243,44 +1162,7 @@ int mtv_set (lua_State *L) {
   return 0;
 }
 
-int mto_pairs_closure (lua_State *L) {
-  val ep = peek_val(L, lua_upvalueindex(1));
-  int i = lua_tointeger(L, lua_upvalueindex(2));
-  int m = lua_tointeger(L, lua_upvalueindex(3));
-  if (i >= m) {
-    lua_pushnil(L);
-    lua_pushnil(L);
-    return 2;
-  } else {
-    val kv = ep[i];
-    push_val(L, kv[0], INT_MIN);
-    push_val(L, kv[1], INT_MIN);
-    val_to_lua(L, -2, false);
-    val_to_lua(L, -2, false);
-    lua_pushinteger(L, i + 1);
-    lua_replace(L, lua_upvalueindex(2));
-    return 2;
-  }
-}
-
-int mto_pairs (lua_State *L) {
-  args_to_vals(L, -1);
-  val v = peek_val(L, -1);
-  val ep = val::take_ownership((EM_VAL) EM_ASM_PTR(({
-    var v = Emval.toValue($0);
-    var entries = Object.entries(v);
-    return Emval.toHandle(entries);
-  }), v.as_handle()));
-  push_val(L, ep, INT_MIN);
-  lua_pushinteger(L, 0);
-  lua_pushinteger(L, ep["length"].as<int>());
-  lua_pushcclosure(L, mto_pairs_closure, 3);
-  lua_pushnil(L);
-  lua_pushnil(L);
-  return 3;
-}
-
-int mto_len (lua_State *L) {
+static inline int mto_len (lua_State *L) {
   args_to_vals(L, -1);
   val v = peek_val(L, -1);
   lua_pushinteger(L, EM_ASM_INT(({
@@ -1292,7 +1174,7 @@ int mto_len (lua_State *L) {
   return 1;
 }
 
-int mtv_typeof (lua_State *L) {
+static inline int mtv_typeof (lua_State *L) {
   args_to_vals(L, -1);
   val v = peek_val(L, -1);
   val t = v.typeOf();
@@ -1300,7 +1182,7 @@ int mtv_typeof (lua_State *L) {
   return 1;
 }
 
-int mtv_instanceof (lua_State *L) {
+static inline int mtv_instanceof (lua_State *L) {
   args_to_vals(L, -1);
   val v = peek_val(L, -2);
   val c = peek_val(L, -1);
@@ -1313,7 +1195,7 @@ int mtv_instanceof (lua_State *L) {
   return 1;
 }
 
-int mtv_call (lua_State *L) {
+static inline int mtv_call (lua_State *L) {
   args_to_vals(L, -1);
   int n = lua_gettop(L);
   val v = peek_val(L, -n);
@@ -1326,54 +1208,54 @@ int mtv_call (lua_State *L) {
       var ths = Emval.toValue($2);
       if (ths != undefined)
         fn = fn.bind(ths);
-      var args = Emval.toValue(Module.args($0, $3, $4));
+      var args = Emval.toValue(Module["args"]($0, $3, $4));
       var args = [ ...args ];
       var r = fn(...args);
       return Emval.toHandle(r);
     } catch (e) {
-      return Module.error($0, Emval.toHandle(e));
+      return Module["error"]($0, Emval.toHandle(e));
     }
   }), L, v.as_handle(), t.as_handle(), -n + 2, n - 2));
   push_val(L, r, INT_MIN);
   return 1;
 }
 
-int mtv_new (lua_State *L) {
+static inline int mtv_new (lua_State *L) {
   args_to_vals(L, -1);
   int n = lua_gettop(L);
   val v = peek_val(L, -n);
   val r = val::take_ownership((EM_VAL) EM_ASM_PTR(({
     var obj = Emval.toValue($1);
-    var args = Emval.toValue(Module.args($0, $2, $3));
+    var args = Emval.toValue(Module["args"]($0, $2, $3));
     return Emval.toHandle(new obj(...args));
   }), L, v.as_handle(), -n + 1, n - 1));
   push_val(L, r, INT_MIN);
   return 1;
 }
 
-luaL_Reg mtp_fns[] = {
+static inline luaL_Reg mtp_fns[] = {
   { "await", mtp_await },
   { NULL, NULL }
 };
 
-luaL_Reg mta_fns[] = {
+static inline luaL_Reg mta_fns[] = {
   { "str", mta_str },
   { NULL, NULL }
 };
 
-luaL_Reg mtf_fns[] = {
+static inline luaL_Reg mtf_fns[] = {
   { "new", mtf_new },
   { NULL, NULL }
 };
 
-luaL_Reg mto_fns[] = {
+static inline luaL_Reg mto_fns[] = {
   { "typeof", mto_typeof },
   { "instanceof", mto_instanceof },
   { "val", mto_val },
   { NULL, NULL }
 };
 
-luaL_Reg mtv_fns[] = {
+static inline luaL_Reg mtv_fns[] = {
   { "lua", mtv_lua },
   { "get", mtv_get },
   { "set", mtv_set },
@@ -1384,7 +1266,7 @@ luaL_Reg mtv_fns[] = {
   { NULL, NULL }
 };
 
-luaL_Reg mt_fns[] = {
+static inline luaL_Reg mt_fns[] = {
   { "global", mt_global },
   { "lua", mt_lua },
   { "bytes", mt_bytes },
@@ -1394,19 +1276,26 @@ luaL_Reg mt_fns[] = {
 
 // TODO: Review which are available in Lua 5.1. __pairs at least should be
 // removed.
-void set_common_obj_mtfns (lua_State *L) {
-  lua_pushcfunction(L, mto_newindex);
-  lua_setfield(L, -2, "__newindex");
+static inline void set_common_obj_mtfns (lua_State *L) {
+
   lua_pushcfunction(L, mto_len);
   lua_setfield(L, -2, "__len");
-  lua_pushcfunction(L, mto_pairs);
-  lua_setfield(L, -2, "__pairs");
+
+  lua_pushcfunction(L, mto_newindex);
+  lua_setfield(L, -2, "__newindex");
+
+  lua_pushcfunction(L, mtv_add); // No difference between concat and add in JS
+  lua_setfield(L, -2, "__concat");
+
   lua_pushcfunction(L, mtv_eq);
   lua_setfield(L, -2, "__eq");
   lua_pushcfunction(L, mtv_lt);
   lua_setfield(L, -2, "__lt");
   lua_pushcfunction(L, mtv_le);
   lua_setfield(L, -2, "__le");
+
+  lua_pushcfunction(L, mtv_add);
+  lua_setfield(L, -2, "__add");
   lua_pushcfunction(L, mtv_sub);
   lua_setfield(L, -2, "__sub");
   lua_pushcfunction(L, mtv_mul);
@@ -1419,18 +1308,7 @@ void set_common_obj_mtfns (lua_State *L) {
   lua_setfield(L, -2, "__pow");
   lua_pushcfunction(L, mtv_unm);
   lua_setfield(L, -2, "__unm");
-  lua_pushcfunction(L, mtv_band);
-  lua_setfield(L, -2, "__band");
-  lua_pushcfunction(L, mtv_bor);
-  lua_setfield(L, -2, "__bor");
-  lua_pushcfunction(L, mtv_bxor);
-  lua_setfield(L, -2, "__bxor");
-  lua_pushcfunction(L, mtv_bnot);
-  lua_setfield(L, -2, "__bnot");
-  lua_pushcfunction(L, mtv_shl);
-  lua_setfield(L, -2, "__shl");
-  lua_pushcfunction(L, mtv_shr);
-  lua_setfield(L, -2, "__shr");
+
   lua_pop(L, 1);
 }
 
@@ -1483,8 +1361,8 @@ int luaopen_santoku_web_val (lua_State *L)
   lua_setfield(L, -2, "IDX_REF_TBL");
 
   EM_ASM(({
-    Module.FINALIZERS = new FinalizationRegistry(ref => {
-      Module.val_ref_delete($0, ref);
+    Module["FINALIZERS"] = new FinalizationRegistry(ref => {
+      Module["val_ref_delete"]($0, ref);
     })
   }), L);
 
