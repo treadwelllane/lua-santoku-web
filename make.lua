@@ -21,15 +21,13 @@ local env = {
 
   test = {
     ldflags = {
-      "-flto", "-Oz", "--closure", "1", "--bind",
-      "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$stringToNewUTF8'"
+      "flto", "-Oz", "--closure", "1", "--bind",
+      "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$stringToNewUTF8'",
     },
     dependencies = {
       "luacov >= 0.15.0-1",
     },
-
   },
-
 
 }
 
@@ -41,4 +39,3 @@ return {
   type = "lib",
   env = env,
 }
-
