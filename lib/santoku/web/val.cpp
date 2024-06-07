@@ -283,6 +283,16 @@ static inline int mtv_unm (lua_State *L) {
   return 1;
 }
 
+static inline int mtv_tostring (lua_State *L) {
+  val v0 = peek_val(L, -1);
+  val v1 = val::take_ownership((EM_VAL) EM_ASM_PTR(({
+    var v0 = String(Emval.toValue($0));
+    return Emval.toHandle(v0);
+  }), v0.as_handle()));
+  lua_pushstring(L, v1.as<string>().c_str());
+  return 1;
+}
+
 static inline void push_val (lua_State *L, val v, int uv) {
 
   int n = lua_gettop(L);
@@ -1286,6 +1296,9 @@ static inline void set_common_obj_mtfns (lua_State *L) {
 
   lua_pushcfunction(L, mtv_add); // No difference between concat and add in JS
   lua_setfield(L, -2, "__concat");
+
+  lua_pushcfunction(L, mtv_tostring);
+  lua_setfield(L, -2, "__tostring");
 
   lua_pushcfunction(L, mtv_eq);
   lua_setfield(L, -2, "__eq");
