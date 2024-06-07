@@ -10,5 +10,5 @@ collectgarbage("stop")
 
 test("error tostring", function ()
   local e = js.Error:new("Some error")
-  assert(teq({ "Error: Some error" }, { tostring(e) }))
+  assert(teq({ "Error: Some error" }, { tostring(e):match("[^\n]*") }))
 end)

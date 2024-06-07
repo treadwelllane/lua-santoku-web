@@ -54,24 +54,23 @@ return function (callback, global, opts, run, ...)
   end
 
   local function wrapError ()
-    -- TODO: check if instanceof error object instead of duck type
     if global.addEventListener then
       global:addEventListener("error", function (_, ev)
-        callback(format("error", ev and ev.message or ev))
+        callback(format("error", ev))
       end)
       global:addEventListener("uncaughtException", function (_, ev)
-        callback(format("uncaughtException", ev and ev.message or ev))
+        callback(format("uncaughtException", ev))
       end)
       global:addEventListener("unhandledRejection", function (_, ev)
-        callback(format("unhandledRejection", ev and ev.message or ev))
+        callback(format("unhandledRejection", ev))
       end)
     end
     if global.process and global.process.on then
       global.process:on("uncaughtException", function (_, ev)
-        callback(format("uncaughtException", ev and ev.message or ev))
+        callback(format("uncaughtException", ev))
       end)
       global.process:on("unhandledRejection", function (_, ev)
-        callback(format("unhandledRejection", ev and ev.message or ev))
+        callback(format("unhandledRejection", ev))
       end)
     end
   end

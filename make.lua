@@ -1,7 +1,7 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.109-1",
+  version = "0.0.110-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,
@@ -21,7 +21,7 @@ local env = {
 
   test = {
     ldflags = {
-      "-flto", "-Oz", "--closure", "1",
+      -- "-flto", "-Oz", "--closure", "1",
       "--bind", "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$stringToNewUTF8'",
     },
     dependencies = {
