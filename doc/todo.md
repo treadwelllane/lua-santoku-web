@@ -1,5 +1,8 @@
 # Now
 
+- Do we need to call stringToNewUTF8 in the proxied get() method? Can we just
+  pass the string val ref into Module.get?
+
 - Figure out how to test that EPHEMERON_IDX is empty (or as empty as it should
   be) after running garbage collection.
 - Use prefixes for method names
