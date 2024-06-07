@@ -286,7 +286,8 @@ static inline int mtv_unm (lua_State *L) {
 static inline int mtv_tostring (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = val::take_ownership((EM_VAL) EM_ASM_PTR(({
-    var v0 = String(Emval.toValue($0));
+    var v0 = Emval.toValue($0);
+    v0 = v0 instanceof Error ? v0.stack : String(v0);
     return Emval.toHandle(v0);
   }), v0.as_handle()));
   lua_pushstring(L, v1.as<string>().c_str());
