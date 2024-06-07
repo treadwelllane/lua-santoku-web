@@ -94,7 +94,7 @@ return function (callback, global, opts, run, ...)
   if run then
     varg.tup(function (ok, ...)
       if not ok then
-        callback(format("error", ...))
+        callback(format("error", { ... }))
       end
     end, pcall(run, ...))
   end
