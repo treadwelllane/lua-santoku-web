@@ -11,9 +11,18 @@ return function (callback, global, opts, run, ...)
   local logtypes = { "log", "error" }
   local oldlogs = {}
   local oldprint = nil
+  local oldfetch = nil
 
   local function format (...)
     return JSON:stringify({ opts.name or "(no label)", ... })
+  end
+
+  local function wrapFetch ()
+    oldfetch = global.fetch
+    global.fetch = function (_, ...)
+      callback(format("fetch", { ... }))
+      return oldfetch(_, ...)
+    end
   end
 
   local function wrapPrint ()
@@ -65,6 +74,10 @@ return function (callback, global, opts, run, ...)
         callback(format("unhandledRejection", ev and ev.message or ev))
       end)
     end
+  end
+
+  if opts.fetch ~= false then
+    wrapFetch()
   end
 
   if opts.print ~= false then
