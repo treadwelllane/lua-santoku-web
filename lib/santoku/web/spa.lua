@@ -1248,9 +1248,11 @@ return function (opts)
     local serviceWorker = navigator.serviceWorker
 
     local e_reload = document:querySelector("body > .warn-update-worker")
-    e_reload:addEventListener("click", function ()
-      window.location = window.location
-    end)
+    if e_reload then
+      e_reload:addEventListener("click", function ()
+        window.location = window.location
+      end)
+    end
 
     M.style_update_worker = function ()
 
@@ -1333,6 +1335,13 @@ return function (opts)
 
     end
 
+  end
+
+  for k, v in it.pairs(opts.pages) do
+    if v.default then
+      M.forward(k)
+      return
+    end
   end
 
   M.forward("home")
