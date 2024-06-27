@@ -1,7 +1,7 @@
 local template = require("santoku.template")
-local manifest = <%
+local html = <%
   local serialize = require("santoku.serialize")
-  return serialize(readfile("res/manifest.json"))
+  return serialize(readfile("res/wrap_events.tk.js"))
 %> -- luacheck: ignore
 
-return template.compile(manifest)
+return template.compile(html)
