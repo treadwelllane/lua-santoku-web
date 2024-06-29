@@ -2,6 +2,8 @@
 <html>
   <head>
 
+    <% return opts.prepend_head %>
+
     <% -- Do we really want this as the base href? Should it just be for
        -- specific thing? %>
     <base target="_blank" rel="noopener noreferrer">
@@ -50,23 +52,7 @@
       </div>
     </template>
 
-    <% return opts.append_head %>
-
     <style>
-
-      <% push(opts.font_url) %>
-      @font-face {
-        font-family: "<% return opts.font_name %>";
-        src: url("<% return opts.font_url %>")
-             format("<% return opts.font_format %>");
-      }
-      <% pop() %>
-
-      <% push(opts.font_name) %>
-      * {
-        font-family: "<% return opts.font_name %>";
-      }
-      <% pop() %>
 
       html, body {
         padding: 0;
@@ -86,24 +72,25 @@
 
       body > .warn-update-worker {
         align-items: center;
-        background: <% return opts.warning_bg %>;
         border-radius: 0;
         border: none;
-        color: <% return opts.warning_fg %>;
         flex-direction: row;
         font-size: initial;
         font-weight: initial;
-        height: <% return opts.banner_height %>px;
         justify-content: center;
         line-height: initial;
         margin: 0;
         outline: none;
         padding: 0;
         position: fixed;
-        top: -<% return opts.banner_height %>px;
-        transition: transform <% return opts.transition_time %> ease;
         width: 100vw;
         z-index: 101;
+
+        height: <% return opts.banner_height %>px;
+        top: -<% return opts.banner_height %>px;
+        color: <% return opts.banner_fg %>;
+        background: <% return opts.banner_bg %>;
+        transition: transform <% return opts.transition_time %>ms ease;
       }
 
       .page {
@@ -113,7 +100,7 @@
         bottom: 0;
         position: absolute;
         overflow: visible;
-        transition: transform <% return opts.transition_time %> ease;
+        transition: transform <% return opts.transition_time %>ms ease;
       }
 
       main > .page {
@@ -132,41 +119,33 @@
 
       .page > header {
         width: 100%;
-        height: <% return opts.header_height %>px;
         position: fixed;
         display: flex;
         top: 0;
         left: 0;
         z-index: 99;
-        background: <% return opts.dark_bg %>;
-        color: <% return opts.dark_fg %>;
-        box-shadow: <% return opts.shadow2 %>;
-        transition: box-shadow <% return opts.transition_time %> ease;
+
+        color: <% return opts.header_fg %>;
+        background: <% return opts.header_bg %>;
+        height: <% return opts.header_height %>px;
+        box-shadow: <% return opts.header_shadow %>;
+        transition: box-shadow <% return opts.transition_time %>ms ease;
       }
 
       .page > header.animated {
-        transition: box-shadow <% return opts.transition_time %> ease,
-                    transform <% return opts.transition_time %> ease,
-                    opacity <% return opts.transition_time %> ease;
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .page > header > h1 {
         margin: 0;
         padding: 0;
-        font-size: 1.375rem;
+        font-size: 1.375em;
         display: flex;
         flex-direction: row;
         align-items: center;
-        padding-left: 2rem;
-      }
-
-      body:not(.is-wide) > .page > header > h1 {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        justify-content: center;
-        padding-left: 0;
+        padding-left: 2em;
       }
 
       .page > header > button {
@@ -180,10 +159,11 @@
         display: flex;
         align-items: center;
         justify-content: center;
+
         height: <% return opts.header_height %>px;
         width: <% return opts.header_height %>px;
-        fill: <% return opts.dark_fg %>;
-        color: <% return opts.dark_fg %>;
+        fill: <% return opts.header_fg %>;
+        color: <% return opts.header_fg %>;
       }
 
       .page > header > button > svg {
@@ -194,30 +174,46 @@
         margin-left: auto;
       }
 
+      body > .page {
+        background: <% return opts.page_bg %>;
+      }
+
       body > .page > main {
         flex-grow: 1;
         position: relative;
-        background: <% return opts.light_bg %>;
-        margin-top: <% return opts.header_height %>px;
         display: flex;
         flex-direction: column;
-        transition: transform <% return opts.transition_time %> ease,
-                    opacity <% return opts.transition_time %> ease,
-                    filter <% return opts.transition_time %> ease;
         overflow: visible;
+
+        background: <% return opts.page_bg %>;
+        margin-top: <% return opts.header_height %>px;
+        transition: transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease,
+                    filter <% return opts.transition_time %>ms ease,
+                    max-width <% return opts.transition_time %>ms ease;
       }
 
       body > .page > nav:before {
         opacity: 0;
         background: #000000;
-        transition: opacity <% return opts.transition_time %> ease;
         position: fixed;
         content: ' ';
         top: 0px;
         left: 270px;
         width: 100vw;
-        height: calc(100vh + <% return opts.header_height %>px);
         pointer-events: none;
+
+        transition: opacity <% return opts.transition_time %>ms ease;
+        height: calc(100vh + <% return opts.header_height %>px);
+      }
+
+      body:not(.is-wide) > .page > header > h1 {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        justify-content: center;
+        padding-left: 0;
       }
 
       body:not(.is-wide) > .page.showing-nav > nav:before {
@@ -240,30 +236,32 @@
         position: relative;
         display: flex;
         flex-direction: column;
-        transition: transform <% return opts.transition_time %> ease,
-                    opacity <% return opts.transition_time %> ease;
         overflow: visible;
+
+        transition: transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .page > nav {
         display: flex;
         flex-direction: column;
-        background: <% return opts.light_bg %>;
         position: fixed;
         top: 0;
         left: 0;
         width: 270px;
         max-width: 100vw;
         min-width: 0;
-        margin-top: <% return opts.header_height %>px;
         height: 100vh;
         z-index: 99;
-        box-shadow: <% return opts.shadow2 %>;
+
+        background: <% return opts.nav_bg %>;
+        margin-top: <% return opts.header_height %>px;
+        box-shadow: <% return opts.nav_shadow %>;
       }
 
       .page > nav.animated {
-        transition: transform <% return opts.transition_time %> ease,
-                    opacity <% return opts.transition_time %> ease;
+        transition: transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .page > nav > button {
@@ -271,32 +269,40 @@
         margin: 0;;
         border-radius: 0;
         text-align: left;
-        padding-left: 2rem;
-        color: <% return opts.light_fg %>;
+        padding-left: 2em;
         border: none;
         height: <% return opts.header_height %>px;
+        transition: background <% return opts.transition_time %>ms ease;
       }
 
       .page > nav > button.is-active {
-        background: <% return opts.secondary_bg %>;
+        background: <% return opts.nav_active_bg %>;
       }
 
       .page > .fab {
         position: fixed;
-        top: calc(100% - <% return opts.fab_width_large %>px - 16px);
-        left: calc(100% - <% return opts.fab_width_large %>px - 16px);
         flex-shrink: 0;
         border: none;
         outline: none;
-        height: <% return opts.fab_width_large %>px;
-        width: <% return opts.fab_width_large %>px;
-        border-radius: <% return opts.fab_radius_large %>px;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: <% return opts.shadow3 %>;
         cursor: pointer;
         pointer-events: all;
+
+        color: <% return opts.fab_fg %>;
+        background: <% return opts.fab_bg %>;
+        top: calc(100% - <% return opts.fab_width_large %>px - 16px);
+        left: calc(100% - <% return opts.fab_width_large %>px - 16px);
+        height: <% return opts.fab_width_large %>px;
+        width: <% return opts.fab_width_large %>px;
+        border-radius: <% return opts.fab_radius_large %>px;
+        box-shadow: <% return opts.fab_shadow %>;
+      }
+
+      .transition *,
+      .animated * {
+        pointer-events: none;
       }
 
       .page > .fab.top {
@@ -315,7 +321,7 @@
       }
 
       .page > .fab.minmax > svg {
-        transition: transform <% return opts.transition_time %> ease;
+        transition: transform <% return opts.transition_time %>ms ease;
       }
 
       .page.maximized > .fab.minmax > svg {
@@ -323,66 +329,13 @@
       }
 
       .page > .fab.animated {
-        transition: box-shadow <% return opts.transition_time %> ease,
-                    transform <% return opts.transition_time %> ease,
-                    opacity <% return opts.transition_time %> ease;
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .page > .fab.animated > svg {
-        transition: transform <% return opts.transition_time %> ease;
-      }
-
-      .success {
-        color: <% return opts.success_fg %>;
-        fill: <% return opts.success_fg %>;
-        background: <% return opts.success_bg %>;
-      }
-
-      .warning {
-        color: <% return opts.warning_fg %>;
-        fill: <% return opts.warning_fg %>;
-        background: <% return opts.warning_bg %>;
-      }
-
-      .primary {
-        color: <% return opts.primary_fg %>;
-        fill: <% return opts.primary_fg %>;
-        background: <% return opts.primary_bg %>;
-      }
-
-      .dark {
-        color: <% return opts.dark_fg %>;
-        fill: <% return opts.dark_fg %>;
-        background: <% return opts.dark_bg %>;
-      }
-
-      .light {
-        color: <% return opts.light_fg %>;
-        fill: <% return opts.light_fg %>;
-        background: <% return opts.light_bg %>;
-      }
-
-      input {
-        font-size: 1rem;
-      }
-
-      .page > header > h1 > input {
-        background: none;
-        border: none;
-        outline: none;
-        padding: none;
-        margin: none;
-        color: <% return opts.header_input_fg %>;
-        flex-grow: 1;
-        flex-shrink: 1;
-        min-width: 0;
-        font-size: 1.375rem;
-        text-align: center;
-        text-overflow: ellipsis;
-      }
-
-      .page > header > h1 > input::placeholder {
-        color: <% return opts.header_input_placeholder_fg %>;
+        transition: transform <% return opts.transition_time %>ms ease;
       }
 
       button:focus,
@@ -392,8 +345,8 @@
       }
 
       button {
-        transition: filter <% return opts.transition_time %> ease,
-                    background <% return opts.transition_time %> ease;
+        transition: filter <% return opts.transition_time %>ms ease,
+                    background <% return opts.transition_time %>ms ease;
       }
 
       img {
@@ -419,32 +372,35 @@
 
       .page > .snack {
         position: fixed;
-        min-height: <% return opts.snack_height %>px;
-        max-height: <% return opts.snack_height %>px;
         display: flex;
         flex-direction: row;
         align-items: center;
-        max-width: calc(100% - 16px - <% return opts.fab_width_large %>px - 56px);
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
+        padding-left: 0.75em;
+        padding-right: 0.75em;
         left: 16px;
+        pointer-events: all;
+
+        color: <% return opts.snack_fg %>;
+        background: <% return opts.snack_bg %>;
+        min-height: <% return opts.snack_height %>px;
+        max-height: <% return opts.snack_height %>px;
+        max-width: calc(100% - 16px - <% return opts.fab_width_large %>px - 56px);
         top: calc(100% - <% return opts.snack_height %>px - 16px);
         border-radius: <% return opts.snack_radius %>px;
-        box-shadow: <% return opts.shadow3 %>;
-        pointer-events: all;
+        box-shadow: <% return opts.snack_shadow %>;
       }
 
       .page > .snack.animated {
-        transition: box-shadow <% return opts.transition_time %> ease,
-                    transform <% return opts.transition_time %> ease,
-                    opacity <% return opts.transition_time %> ease;
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .page > .snack * {
-        font-size: 1rem;
+        font-size: 1em;
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
@@ -455,72 +411,25 @@
         outline: none;
         background: none;
         flex-shrink: 0;
-        padding-left: 1rem;
-        padding-right: 1rem;
-        padding-top: 0.75rem;
-        padding-bottom: 0.75rem;
-        margin: -0.75rem;
+        padding-left: 1em;
+        padding-right: 1em;
+        padding-top: 0.75em;
+        padding-bottom: 0.75em;
+        margin: -0.75em;
         color: rgba(255, 255, 255, 1);
         fill: rgba(255, 255, 255, 1);
       }
 
       .page > .snack > button:first-child {
-        margin-right: 0.75rem;
+        margin-right: 0.75em;
       }
 
       .page > .snack > button:last-child {
-        margin-left: 0.75rem;
+        margin-left: 0.75em;
       }
 
       .page > .snack > button:first-child:last-child {
-        margin: -0.75rem;
-      }
-
-      .page > .snack > input {
-        flex: 1;
-        width: 100%;
-        border: none;
-        outline: none;
-        margin: 0;
-        background: none;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        color: <% return opts.snack_fg %>;
-      }
-
-      .page > .snack > input::placeholder {
-        color: <% return opts.snack_placeholder_fg %>;
-      }
-
-      .page > .snack.success {
-        color: <% return opts.success_fg %>;
-        fill: <% return opts.success_fg %>;
-        background: <% return opts.snack_success_bg %>;
-      }
-
-      .page > .snack.warning {
-        color: <% return opts.warning_fg %>;
-        fill: <% return opts.warning_fg %>;
-        background: <% return opts.snack_warning_bg %>;
-      }
-
-      .page > .snack.primary {
-        color: <% return opts.primary_fg %>;
-        fill: <% return opts.primary_fg %>;
-        background: <% return opts.snack_primary_bg %>;
-      }
-
-      .page > .snack.dark {
-        color: <% return opts.dark_fg %>;
-        fill: <% return opts.dark_fg %>;
-        background: <% return opts.snack_dark_bg %>;
-      }
-
-      .page > .snack.light {
-        color: <% return opts.light_fg %>;
-        fill: <% return opts.light_fg %>;
-        background: <% return opts.snack_light_bg %>;
+        margin: -0.75em;
       }
 
       body.transition,
@@ -535,11 +444,6 @@
         overflow: hidden;
       }
 
-      .transition *,
-      .animated * {
-        pointer-events: none;
-      }
-
       .ripple-container {
         position: absolute;
         top: 0;
@@ -550,14 +454,15 @@
         transform: translateZ(0);
         border-radius: inherit;
         pointer-events: none;
-        animation: ripple-container calc(<% return opts.transition_time %> * 2) forwards;
+
+        animation: ripple-container calc(<% return opts.transition_time %>ms * 2) forwards;
       }
 
       .page > header > button > .ripple-container {
-        top: 0.25rem;
-        left: 0.25rem;
-        bottom: 0.25rem;
-        right: 0.25rem;
+        top: 0.25em;
+        left: 0.25em;
+        bottom: 0.25em;
+        right: 0.25em;
         border-radius: 50%;
       }
 
@@ -566,17 +471,14 @@
         position: absolute;
         border-radius: 50%;
         transform: scale(0.7);
-        background: <% return opts.light_bg %>;
         opacity: 0.45;
-        animation: ripple-wave calc(<% return opts.transition_time %> * 3) forwards;
+
+        background: <% return opts.ripple_bg %>;
+        animation: ripple-wave calc(<% return opts.transition_time %>ms * 3) forwards;
       }
 
-      button.ripple-dark .ripple-wave {
-        background: <% return opts.dark_bg %>;
-      }
-
-      .ripple.dark > .ripple-container > .ripple-wave {
-        background: <% return opts.dark_bg %>;
+      nav > button .ripple-wave {
+        background: <% return opts.nav_ripple_bg %>;
       }
 
       @keyframes ripple-shadow {
@@ -589,106 +491,38 @@
         to { transform: scale(24); opacity:0; }
       }
 
-      .page > main > .loading {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        height: 2rem;
-        width: 2rem;
-        margin-top: 1rem;
-        transition: transform <% return opts.transition_time %> ease,
-                    opacity <% return opts.transition_time %> ease;
-      }
-
-      .page.loaded > main  > .loading {
-        pointer-events: none;
-        transform: translate(-50%, calc(-50% + 2rem));
-        opacity: 0;
-      }
-
-      .page > main > .loading > svg  {
-        width: 2rem;
-        height: 2rem;
-        animation: loading-rotator 1.4s linear infinite;
-      }
-
-      .page > main > .loading > svg > circle {
-        stroke: <% return opts.primary_bg %>;
-        stroke-dasharray: 180;
-        stroke-dashoffset: 0;
-        transform-origin: center;
-        animation: loading-dash 1.4s ease-in-out infinite;
-      }
-
-      @keyframes loading-rotator {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(270deg);
-        }
-      }
-
-      @keyframes loading-dash {
-        0% {
-          stroke-dashoffset: 180;
-        }
-        50% {
-          stroke-dashoffset: 45;
-          transform:rotate(135deg);
-        }
-        100% {
-          stroke-dashoffset: 180;
-          transform:rotate(450deg);
-        }
-      }
-
-      .page > main > .empty {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        text-align: center;
-        pointer-events: none;
-        opacity: 0;
-        transform: translate(-50%, calc(-50% - 2rem));
-        transition: transform <% return opts.transition_time %> ease,
-                    opacity <% return opts.transition_time %> ease;
-      }
-
-      .page.loaded.empty > main > .empty {
-        pointer-events: all;
-        opacity: 1;
-        transform: translate(-50%, -50%);
-      }
-
-      .page.loaded > main > *:not(.loading):not(.empty) {
-        animation: <% return opts.transition_time %> ease forwards page-main-contents-enter;
-      }
-
       @keyframes page-main-contents-enter {
         from {
-          transform: translateY(-2rem);
+          transform: translateY(-2em);
           opacity: 0;
         }
         to {
-          transform: translateY(0rem);
+          transform: translateY(0em);
           opacity: 1;
         }
       }
 
     </style>
 
+    <% return opts.append_head %>
+
   </head>
 
   <body>
-    <script src="/index.js"></script>
+
+    <% return opts.prepend_body %>
+
+    <script src="<% return opts.index_js %>"></script>
+
     <% push(opts.service_worker) %>
       <button class="warn-update-worker">
         A new version of <% return opts.title %>
         is available. Click to Update!
       </button>
     <% pop() %>
+
+    <% return opts.append_body %>
+
   </body>
 
 </html>

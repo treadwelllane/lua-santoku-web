@@ -11,6 +11,13 @@
 
 # Next
 
+- Ripple incorrectly positioned for buttons with SVG icons when the icon is
+  clicked (it works when the surrounding button is clicked)
+- Prevent scroll when nav overlay active
+- Snacks/fabs incorrectly positioned when browser toolbar hides on scroll
+- Consider not automatically setting up .fab.minmax and not automatically
+  rotating it based on the state (should be users responsibility)
+
 - Consider hiding "this" argument with setfenv: a Lua function called from JS
   will have "this" in it's environment
 

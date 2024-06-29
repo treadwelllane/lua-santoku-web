@@ -338,6 +338,9 @@ return function (opts)
       view.fabs_top_offset = (view.fabs_top_offset or 0) + opts.header_height
       view.snack_offset = view.snack_offset - opts.header_height
       view.snack_opacity = 1
+      if view.e_nav and e_body.classList:contains("is-wide") then
+        M.toggle_nav_state(view, true, false, false)
+      end
     end
 
     M.style_header(view, animate)
@@ -355,7 +358,7 @@ return function (opts)
     end
 
     if next_view.e_header then
-      next_view.e_header.classList:add("nohide")
+      next_view.e_header.classList:add("no-hide")
     end
 
     next_view.e_minmax:addEventListener("click", function ()
@@ -366,7 +369,7 @@ return function (opts)
 
   M.setup_ripples = function (el)
 
-    el:querySelectorAll("button:not(.noripple)")
+    el:querySelectorAll("button:not(.no-ripple)")
       :forEach(function (_, el)
         M.setup_ripple(el)
       end)
@@ -455,7 +458,7 @@ return function (opts)
         if view.header_offset > view.header_max then
           view.header_offset = view.header_max
         end
-        view.e_header.style["box-shadow"] = opts.shadow2
+        view.e_header.style["box-shadow"] = opts.header_shadow
       else
         if view.header_offset < view.header_min then
           view.header_offset = view.header_min
@@ -505,7 +508,8 @@ return function (opts)
       end
     end
 
-    view.nav_slide = view.nav_slide or (view.e_nav and view.el.classList:contains("showing-nav")) and 0 or -270
+    view.nav_slide = view.maximized and -270 or view.nav_slide or
+      (view.e_nav and view.el.classList:contains("showing-nav")) and 0 or -270
     view.e_nav.style.transform = "translate(" .. view.nav_slide .. "px, " .. view.nav_offset .. "px)"
     view.e_nav.style.opacity = view.nav_opacity
     view.e_nav.style["z-index"] = view.nav_index
@@ -530,7 +534,7 @@ return function (opts)
       end)
     end
 
-    local nav_push = view.nav_push or ((view.e_nav and e_body.classList:contains("is-wide")) and 270 or 0)
+    local nav_push = view.maximized and 0 or ((view.e_nav and e_body.classList:contains("is-wide")) and 270 or 0)
     view.e_main.style.transform = "translate(" .. nav_push .. "px," .. view.main_offset .. "px)"
     view.e_main.style["max-width"] = "calc(100vw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
@@ -671,7 +675,7 @@ return function (opts)
       el.style["pointer-events"] = "all"
       el.style.opacity = view.fabs_top_opacity
       el.style.transform =
-        "scale(" .. view.fabs_top_scale .. ") " ..
+        "scale(" .. (view.fabs_top_scale or 1) .. ") " ..
         "translateY(" .. (view.fabs_top_offset + top_offset_total) .. "px)"
 
       top_offset_total = top_offset_total +
@@ -708,17 +712,18 @@ return function (opts)
     local bottom_offset_total = 0
 
     view.e_snacks:forEach(function (_, e_snack)
+      local nav_push = view.maximized and 0 or ((view.e_nav and e_body.classList:contains("is-wide")) and 270 or 0)
       e_snack.style["z-index"] = view.snack_index
       if not M.should_show(view, e_snack) then
         e_snack.style.opacity = 0
         e_snack.style["pointer-events"] = "none"
         e_snack.style.transform =
-          "translateY(" .. (view.snack_offset - bottom_offset_total) .. "px)"
+          "translate(" .. nav_push .. "px," .. (view.snack_offset - bottom_offset_total) .. "px)"
       else
         e_snack.style.opacity = view.snack_opacity
         e_snack.style["pointer-events"] = (view.snack_opacity or 0) == 0 and "none" or "all"
         e_snack.style.transform =
-          "translateY(" .. (view.snack_offset - bottom_offset_total) .. "px)"
+          "translate(" .. nav_push .. "px," .. (view.snack_offset - bottom_offset_total) .. "px)"
         bottom_offset_total = bottom_offset_total +
             opts.snack_height + 16
       end
@@ -796,7 +801,7 @@ return function (opts)
       next_view.header_offset = M.get_base_header_offset(next_view)
       next_view.header_opacity = 1
       next_view.header_index = 100
-      next_view.header_shadow = opts.shadow2
+      next_view.header_shadow = opts.header_shadow
       M.style_header(next_view)
 
     elseif not last_view and transition == "exit" then
@@ -808,7 +813,7 @@ return function (opts)
       next_view.header_offset = opts.transition_forward_height + M.get_base_header_offset(next_view)
       next_view.header_opacity = 0
       next_view.header_index = 100
-      next_view.header_shadow = opts.shadow2
+      next_view.header_shadow = opts.header_shadow
       M.style_header(next_view)
 
       M.after_frame(function ()
@@ -822,7 +827,7 @@ return function (opts)
       last_view.header_offset = M.get_base_header_offset(last_view) - opts.transition_forward_height / 2
       last_view.header_opacity = 1
       last_view.header_index = 98
-      last_view.header_shadow = opts.shadow2
+      last_view.header_shadow = opts.header_shadow
       M.style_header(last_view, true)
 
     elseif transition == "enter" and direction == "backward" then
@@ -830,7 +835,7 @@ return function (opts)
       next_view.header_offset = M.get_base_header_offset(next_view) - opts.transition_forward_height / 2
       next_view.header_opacity = 1
       next_view.header_index = 98
-      next_view.header_shadow = opts.shadow2
+      next_view.header_shadow = opts.header_shadow
       M.style_header(next_view)
 
       M.after_frame(function ()
@@ -843,7 +848,7 @@ return function (opts)
       last_view.header_offset = opts.transition_forward_height + M.get_base_header_offset(last_view)
       last_view.header_opacity = 0
       last_view.header_index = 100
-      last_view.header_shadow = opts.shadow2
+      last_view.header_shadow = opts.header_shadow
       M.style_header(last_view, true)
 
     else
@@ -984,7 +989,7 @@ return function (opts)
       next_view.fab_shared_index = 99
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 1
-      next_view.fab_shared_shadow = opts.shadow3
+      next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = 0
       next_view.fab_shared_svg_offset = 0
 
@@ -1009,7 +1014,7 @@ return function (opts)
       next_view.fab_shared_index = 99
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 0
-      next_view.fab_shared_shadow = opts.shadow3
+      next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = 0
       next_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
 
@@ -1042,7 +1047,7 @@ return function (opts)
       last_view.fab_shared_index = 99
       last_view.fab_shared_scale = 1
       last_view.fab_shared_opacity = 1
-      last_view.fab_shared_shadow = opts.shadow3_transparent
+      last_view.fab_shared_shadow = opts.fab_shadow_transparent
       last_view.fab_shared_offset = 0
       last_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
 
@@ -1063,7 +1068,7 @@ return function (opts)
       next_view.fab_shared_index = 99
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 0
-      next_view.fab_shared_shadow = opts.shadow3
+      next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = 0
       next_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
 
@@ -1094,7 +1099,7 @@ return function (opts)
       last_view.fab_shared_index = 99
       last_view.fab_shared_scale = 1
       last_view.fab_shared_opacity = 1
-      last_view.fab_shared_shadow = opts.shadow3_transparent
+      last_view.fab_shared_shadow = opts.fab_shadow_transparent
       last_view.fab_shared_offset = 0
       last_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
 
@@ -1115,7 +1120,7 @@ return function (opts)
       next_view.fab_shared_index = 98
       next_view.fab_shared_scale = 0.75
       next_view.fab_shared_opacity = 0
-      next_view.fab_shared_shadow = opts.shadow3
+      next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = opts.transition_forward_height
       next_view.fab_shared_svg_offset = 0
 
@@ -1149,7 +1154,7 @@ return function (opts)
       next_view.fab_shared_index = 96
       next_view.fab_shared_scale = 0.75
       next_view.fab_shared_opacity = 0
-      next_view.fab_shared_shadow = opts.shadow3
+      next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = 0
       next_view.fab_shared_svg_offset = 0
 
@@ -1180,7 +1185,7 @@ return function (opts)
       last_view.fab_shared_index = 96
       last_view.fab_shared_scale = 1
       last_view.fab_shared_opacity = 0
-      last_view.fab_shared_shadow = opts.shadow3
+      last_view.fab_shared_shadow = opts.fab_shadow
       last_view.fab_shared_offset = 0
       last_view.fab_shared_svg_offset = 0
 
@@ -1198,19 +1203,19 @@ return function (opts)
 
     elseif transition == "exit" and direction == "backward" then
 
-      last_view.fab_shared_index = 96
+      last_view.fab_shared_index = 98
       last_view.fab_shared_scale = 0.75
       last_view.fab_shared_opacity = 0
-      last_view.fab_shared_shadow = opts.shadow3
+      last_view.fab_shared_shadow = opts.fab_shadow
       last_view.fab_shared_offset = opts.transition_forward_height
       last_view.fab_shared_svg_offset = 0
 
-      last_view.fabs_bottom_index = 96
+      last_view.fabs_bottom_index = 98
       last_view.fabs_bottom_scale = 0.75
       last_view.fabs_bottom_opacity = 0
       last_view.fabs_bottom_offset = opts.transition_forward_height
 
-      last_view.fabs_top_index = 96
+      last_view.fabs_top_index = 98
       last_view.fabs_top_scale = 0.75
       last_view.fabs_top_opacity = 0
       last_view.fabs_top_offset = opts.transition_forward_height + M.get_base_fabs_top_offset(last_view)
@@ -1307,7 +1312,7 @@ return function (opts)
   M.after_transition = function (fn)
     return window:setTimeout(function ()
       window:requestAnimationFrame(fn)
-    end, opts.transition_time_ms)
+    end, tonumber(opts.transition_time))
   end
 
   M.after_frame = function (fn)
@@ -1380,7 +1385,7 @@ return function (opts)
       end)
     end
 
-    if next_view.e_header and not next_view.e_header.classList:contains("nohide") then
+    if next_view.e_header and not next_view.e_header.classList:contains("no-hide") then
       next_view.curr_scrolly = nil
       next_view.last_scrolly = nil
       next_view.scroll_listener = M.scroll_listener(next_view)
@@ -1521,6 +1526,11 @@ return function (opts)
 
     view.switch = function (...)
       return M.switch(view, ...)
+    end
+
+    view.maximize = function ()
+      local active = stack[#stack]
+      return M.style_maximized(active, true)
     end
 
     return view
@@ -1667,6 +1677,7 @@ return function (opts)
       end
       M.style_nav(active, true)
       M.style_main(active, true)
+      M.style_snacks(active, true)
     end
   end
 
