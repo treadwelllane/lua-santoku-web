@@ -59,6 +59,10 @@ end
 
 local function parse_attr_value (data, attr, attrs)
 
+  if attr.value == "" then
+    return data
+  end
+
   if attr.value and data[attr.value] and data[attr.value] ~= "" then
     return data[attr.value]
   end
@@ -79,6 +83,8 @@ M.populate = function (el, data)
     return el
   end
 
+  local recurse = true
+
   if el.hasAttributes and el:hasAttributes() then
 
     local attrs = Array:from(el.attributes)
@@ -89,29 +95,58 @@ M.populate = function (el, data)
       attr.value = str.interp(attr.value, data)
     end)
 
-    attrs:forEach(function (_, attr)
-      if attr.name == "data-text" then
-        el:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
-      elseif attr.name == "data-value" then
-        el.value = parse_attr_value(data, attr, el.attributes)
-      elseif attr.name == "data-src" then
-        el.src = parse_attr_value(data, attr, el.attributes)
-      elseif attr.name == "data-checked" then
-        el.checked = data[attr.value] or false
-      end
+    local repeat_ = attrs:find(function (_, attr)
+      return attr.name == "data-repeat"
     end)
+
+    if repeat_ then
+
+      recurse = false
+
+      for i = 1, #data[repeat_.value] do
+        local r0 = el:cloneNode(true)
+        r0:removeAttribute("data-repeat")
+        M.populate(r0, data[repeat_.value][i])
+        el.parentNode:append(r0)
+      end
+
+      el:remove()
+
+    else
+
+      attrs:forEach(function (_, attr)
+        if attr.name == "data-text" then
+          el:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
+          el:removeAttribute(attr.name)
+        elseif attr.name == "data-value" then
+          el.value = parse_attr_value(data, attr, el.attributes)
+          el:removeAttribute(attr.name)
+        elseif attr.name == "data-src" then
+          el.src = parse_attr_value(data, attr, el.attributes)
+          el:removeAttribute(attr.name)
+        elseif attr.name == "data-checked" then
+          el.checked = data[attr.value] or false
+          el:removeAttribute(attr.name)
+        end
+      end)
+
+    end
 
   end
 
-  Array:from(el.childNodes):forEach(function (_, node)
-    if node.nodeType == 3 then -- text
-      node.nodeValue = str.interp(node.nodeValue, data)
-    end
-  end)
+  if recurse then
 
-  Array:from(el.children):forEach(function (_, child)
-    M.populate(child, data)
-  end)
+    Array:from(el.childNodes):forEach(function (_, node)
+      if node.nodeType == 3 then -- text
+        node.nodeValue = str.interp(node.nodeValue, data)
+      end
+    end)
+
+    Array:from(el.children):forEach(function (_, child)
+      M.populate(child, data)
+    end)
+
+  end
 
   return el
 
