@@ -1,66 +1,45 @@
 return {
 
+  index_js = "/index.js",
   logo_padding = "20%",
+  theme_color = "#f3f4f6",
+  background_color = "#f3f4f6",
+
+  header_height = "64",
+  header_bg = "#1f2937",
+  header_fg = "#ffffff",
+  header_shadow = "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+
+  nav_bg = "#ffffff",
+  nav_shadow = "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+  nav_active_bg = "#e5e7eb",
+
+  page_bg = "#ffffff",
+
+  ripple_bg = "#ffffff",
+  nav_ripple_bg = "#e5e7eb",
 
   banner_height = "32",
-  header_height = "64",
-  header_input_fg = "rgba(255, 255, 255, 1)",
-  header_input_placeholder_fg = "#F5F5F5BF",
+  banner_bg = "#ef4444",
+  banner_fg = "#ffffff",
 
+  fab_bg = "#1f2937",
+  fab_fg = "#ffffff",
   fab_width_large = "56",
   fab_width_small = "40",
   fab_radius_large = "16",
   fab_radius_small = "12",
   fab_shared_svg_transition_height = "24",
-
-  theme_color = "#FFFFFF",
-  background_color = "#FFFFFF",
-
-  card_bg = "#E8EAF6",
-  card_fg = "#282828",
-  card_main_border = "1px solid #C5CAE9",
-  card_radius = "0.75rem",
-
-  divider_bg = "#BDBDBD",
-  divider_border = "1px solid #BDBDBD",
-
-  dark_bg = "#282828",
-  dark_fg = "#FFFFFF",
-
-  light_bg = "#FFFFFF",
-  light_fg = "#282828",
-
-  secondary_bg = "#EDEDED",
-  secondary_fg = "#282828",
-
-  primary_bg = "#3F51B5",
-  primary_fg = "#FFFFFF",
-
-  warning_bg = "#F44336",
-  warning_fg = "#FFFFFF",
-
-  success_bg = "#4CAF50",
-  success_fg = "#FFFFFF",
-
-  splash_background = "#282828",
+  fab_shadow = "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+  fab_shadow_transparent = "0 10px 15px -3px rgb(0 0 0 / 0.0), 0 4px 6px -4px rgb(0 0 0 / 0.0)",
 
   snack_height = "40",
-  snack_radius = "3",
-  snack_bg = "rgba(0, 0, 0, 0.625)",
-  snack_dark_bg = "#282828DF",
-  snack_fg = "rgba(255, 255, 255, 1)",
-  snack_light_bg = "#FFFFFFDF",
-  snack_placeholder_fg = "rgba(200, 200, 200)",
-  snack_primary_bg = "#3F51B5DF",
-  snack_success_bg = "#4CAF50DF",
-  snack_warning_bg = "#F44336DF",
+  snack_radius = "6",
+  snack_bg = "#1f2937df",
+  snack_fg = "#ffffff",
+  snack_shadow = "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
 
-  shadow1 = "0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)",
-  shadow1_transparent = "0 1px 3px rgba(0,0,0,0), 0 1px 2px rgba(0,0,0,0)",
-  shadow2 = "0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23)",
-  shadow2_transparent = "0 3px 6px rgba(0,0,0,0), 0 3px 6px rgba(0,0,0,0)",
-  shadow3 = "0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23)",
-  shadow3_transparent = "0 10px 20px rgba(0,0,0,0), 0 6px 6px rgba(0,0,0,0)",
+  splash_background = "#1f2937",
 
   cache_fetch_retry_backoff_ms = "1000",
   cache_fetch_retry_backoff_multiply = "2",
@@ -68,10 +47,7 @@ return {
 
   event_buffer_max = "100",
 
+  transition_time = "250",
   transition_forward_height = "32",
-  transition_time = "250ms",
-  transition_time_fast = "125ms",
-  transition_time_fast_ms = "125",
-  transition_time_ms = "250",
 
 }
