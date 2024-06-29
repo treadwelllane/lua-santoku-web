@@ -30,6 +30,9 @@ return {
   light_bg = "#FFFFFF",
   light_fg = "#282828",
 
+  secondary_bg = "#EDEDED",
+  secondary_fg = "#282828",
+
   primary_bg = "#3F51B5",
   primary_fg = "#FFFFFF",
 

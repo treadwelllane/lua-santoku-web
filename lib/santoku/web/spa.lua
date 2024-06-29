@@ -151,6 +151,13 @@ return function (opts)
       return
     end
 
+    next_view.e_nav:addEventListener("click", function (_, ev)
+      local rect = next_view.e_nav:getBoundingClientRect()
+      if ev.clientX > rect.right then
+        M.toggle_nav_state(next_view, false)
+      end
+    end)
+
     next_view.e_nav_buttons = next_view.e_nav:querySelectorAll("button[data-page]")
     next_view.nav_order = {}
     next_view.e_nav_buttons:forEach(function (_, el)
@@ -158,26 +165,26 @@ return function (opts)
       arr.push(next_view.nav_order, n)
       next_view.nav_order[n] = #next_view.nav_order
       el:addEventListener("click", function ()
-        if el.classList:contains("active") then
+        if el.classList:contains("is-active") then
           return
         end
         M.switch(next_view, n)
         M.toggle_nav_state(next_view, false)
         next_view.e_nav_buttons:forEach(function (_, el0)
           if el0 == el then
-            el0.classList:add("active")
+            el0.classList:add("is-active")
           else
-            el0.classList:remove("active")
+            el0.classList:remove("is-active")
           end
         end)
       end)
     end)
 
     local def = M.find_default(next_view.page.pages, next_view.nav_order[1])
-    next_view.e_nav_buttons[next_view.nav_order[def] - 1].classList:add("active")
+    next_view.e_nav_buttons[next_view.nav_order[def] - 1].classList:add("is-active")
     M.switch(next_view, def)
 
-    if e_body.classList:contains("wide") then
+    if e_body.classList:contains("is-wide") then
       M.toggle_nav_state(next_view, true, false, false)
     else
       M.toggle_nav_state(next_view, false, false, false)
@@ -272,7 +279,7 @@ return function (opts)
       return
     end
 
-    if e_body.classList:contains("wide") then
+    if e_body.classList:contains("is-wide") then
       e_title.style.width = nil
       return
     end
@@ -498,7 +505,7 @@ return function (opts)
       end
     end
 
-    view.nav_slide = view.nav_slide or (view.e_nav and view.el.classList:contains("showing-nav")) and 0 or -360
+    view.nav_slide = view.nav_slide or (view.e_nav and view.el.classList:contains("showing-nav")) and 0 or -270
     view.e_nav.style.transform = "translate(" .. view.nav_slide .. "px, " .. view.nav_offset .. "px)"
     view.e_nav.style.opacity = view.nav_opacity
     view.e_nav.style["z-index"] = view.nav_index
@@ -523,7 +530,7 @@ return function (opts)
       end)
     end
 
-    local nav_push = view.nav_push or ((view.e_nav and e_body.classList:contains("wide")) and 360 or 0)
+    local nav_push = view.nav_push or ((view.e_nav and e_body.classList:contains("is-wide")) and 270 or 0)
     view.e_main.style.transform = "translate(" .. nav_push .. "px," .. view.main_offset .. "px)"
     view.e_main.style["max-width"] = "calc(100vw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
@@ -549,7 +556,7 @@ return function (opts)
       end)
     end
 
-    view.e_main.style.transform = "translateX(" .. view.main_offset .. "px)"
+    view.e_main.style.transform = "translateY(" .. -view.main_offset .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
 
@@ -1411,6 +1418,12 @@ return function (opts)
 
   M.exit_switch = function (view, last_view, direction, next_view)
 
+    view.header_offset = M.get_base_header_offset(view)
+    M.style_header(view, true)
+
+    last_view.el.style.marginTop = "-" .. window.scrollY .. "px"
+    window:scrollTo({ top = 0, left = 0, behavior = "instant" })
+
     if last_view.page.pre_remove then
       last_view.page.pre_remove(last_view, opts)
     end
@@ -1619,7 +1632,7 @@ return function (opts)
   M.setup_ripples(e_body)
 
   M.toggle_nav_state = function (view, state, animate, restyle)
-    if e_body.classList:contains("wide") then
+    if e_body.classList:contains("is-wide") then
       state = true
     end
     if state == true then
@@ -1632,7 +1645,7 @@ return function (opts)
     if view.el.classList:contains("showing-nav") then
       view.nav_slide = 0
     else
-      view.nav_slide = -360
+      view.nav_slide = -270
     end
     if restyle ~= false then
       M.style_nav(view, animate ~= false)
@@ -1641,13 +1654,13 @@ return function (opts)
 
   M.on_resize = function ()
     if window.innerWidth > 961 then
-      e_body.classList:add("wide")
+      e_body.classList:add("is-wide")
     else
-      e_body.classList:remove("wide")
+      e_body.classList:remove("is-wide")
     end
     local active = stack[#stack]
     if active then
-      if e_body.classList:contains("wide") then
+      if e_body.classList:contains("is-wide") then
         M.toggle_nav_state(active, true, false, false)
       else
         M.toggle_nav_state(active, false, false, false)
