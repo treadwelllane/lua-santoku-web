@@ -1624,33 +1624,35 @@ return function (opts)
   end
 
   M.forward = function (policy)
+    M.after_frame(function ()
 
-    M.fill_defaults()
+      M.fill_defaults()
 
-    local page = opts.pages[state.path[1]]
+      local page = opts.pages[state.path[1]]
 
-    if not page then
-      err.error("no page found", state.path[1])
-    end
-
-    if M.maybe_redirect(page, policy) then
-      return
-    end
-
-    if not active_view or page ~= active_view.page then
-      local last_view = active_view
-      active_view = M.init_view(state.path[1], page)
-      M.enter(active_view, "forward", last_view, state.path[2])
-      if last_view then
-        M.exit(last_view, "forward", active_view)
+      if not page then
+        err.error("no page found", state.path[1])
       end
-      M.set_route(policy)
-    elseif state.path[2] then
-      M.switch(active_view, state.path[2], policy)
-    else
-      M.set_route(policy)
-    end
 
+      if M.maybe_redirect(page, policy) then
+        return
+      end
+
+      if not active_view or page ~= active_view.page then
+        local last_view = active_view
+        active_view = M.init_view(state.path[1], page)
+        M.enter(active_view, "forward", last_view, state.path[2])
+        if last_view then
+          M.exit(last_view, "forward", active_view)
+        end
+        M.set_route(policy)
+      elseif state.path[2] then
+        M.switch(active_view, state.path[2], policy)
+      else
+        M.set_route(policy)
+      end
+
+    end)
   end
 
   window:addEventListener("popstate", function (_, ev)
