@@ -71,10 +71,21 @@ return function (opts)
       local e_wave = e_ripple:querySelector(".ripple-wave")
       local dia = num.min(el.offsetHeight, el.offsetWidth, 100)
 
+      local x = ev.offsetX
+      local y = ev.offsetY
+      local el0 = ev.target
+      while el0 and el0 ~= el do
+        local rchild = el0:getBoundingClientRect()
+        local rparent = el0.parentElement:getBoundingClientRect()
+        x = x + rchild.left - rparent.left
+        y = y + rchild.top - rparent.top
+        el0 = el0.parentNode
+      end
+
       e_wave.style.width = dia .. "px"
       e_wave.style.height = dia .. "px"
-      e_wave.style.left = (ev.offsetX - dia / 2) .. "px"
-      e_wave.style.top = (ev.offsetY - dia / 2) .. "px"
+      e_wave.style.left = (x - dia / 2) .. "px"
+      e_wave.style.top = (y - dia / 2) .. "px"
 
       el:append(e_ripple)
 
@@ -375,17 +386,21 @@ return function (opts)
 
   M.setup_ripples = function (el)
 
-    el:querySelectorAll("button:not(.no-ripple)")
-      :forEach(function (_, el)
-        M.setup_ripple(el)
-      end)
+    el:querySelectorAll("button:not(.no-ripple)"):forEach(function (_, el)
+      if el._ripple then
+        return
+      end
+      M.setup_ripple(el)
+      el._ripple = true
+    end)
 
-    el:querySelectorAll(".ripple")
-      :forEach(function (_, el)
-        if el ~= t_ripple then
-          M.setup_ripple(el)
-        end
-      end)
+    el:querySelectorAll(".ripple"):forEach(function (_, el)
+      if el._ripple or el == t_ripple then
+        return
+      end
+      el._ripple = true
+      M.setup_ripple(el)
+    end)
 
   end
 
