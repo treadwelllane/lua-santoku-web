@@ -104,11 +104,14 @@ M.populate = function (el, data)
 
       recurse = false
 
+      local el_before = el.nextSibling
+
       for i = 1, #data[repeat_.value] do
         local r0 = el:cloneNode(true)
         r0:removeAttribute("data-repeat")
         M.populate(r0, data[repeat_.value][i])
-        el.parentNode:append(r0)
+        el.parentNode:insertBefore(r0, el_before)
+        el_before = r0
       end
 
       el:remove()
