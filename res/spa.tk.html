@@ -105,11 +105,12 @@
 
       main > .page {
         min-width: 100%;
-        max-width: 100%;
+        min-height: 100%;
       }
 
-      *:not(main) > .page {
-        min-width: 100vw;
+      body > .page {
+        background: <% return opts.page_bg %>;
+        min-height: 100vh;
         max-width: 100vw;
       }
 
@@ -174,10 +175,6 @@
         margin-left: auto;
       }
 
-      body > .page {
-        background: <% return opts.page_bg %>;
-      }
-
       body > .page > main {
         flex-grow: 1;
         position: relative;
@@ -185,11 +182,13 @@
         flex-direction: column;
         overflow: visible;
 
+        min-height: 100vh;
+        min-width: 100vw;
         background: <% return opts.page_bg %>;
         margin-top: <% return opts.header_height %>px;
         transition: transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease,
-                    filter <% return opts.transition_time %>ms ease,
+                    box-shadow <% return opts.transition_time %>ms ease,
                     max-width <% return opts.transition_time %>ms ease;
       }
 
@@ -237,6 +236,8 @@
         display: flex;
         flex-direction: column;
         overflow: visible;
+        min-width: 100%;
+        min-height: 100%;
 
         transition: transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
@@ -300,11 +301,6 @@
         box-shadow: <% return opts.fab_shadow %>;
       }
 
-      .transition *,
-      .animated * {
-        pointer-events: none;
-      }
-
       .page > .fab.top {
         top: calc(<% return opts.header_height %>px + 16px);
       }
@@ -345,7 +341,7 @@
       }
 
       button {
-        transition: filter <% return opts.transition_time %>ms ease,
+        transition: box-shadow <% return opts.transition_time %>ms ease,
                     background <% return opts.transition_time %>ms ease;
       }
 
@@ -399,6 +395,11 @@
                     opacity <% return opts.transition_time %>ms ease;
       }
 
+      .transition *,
+      .animated * {
+        pointer-events: none;
+      }
+
       .page > .snack * {
         font-size: 1em;
         overflow: hidden;
@@ -430,18 +431,6 @@
 
       .page > .snack > button:first-child:last-child {
         margin: -0.75em;
-      }
-
-      body.transition,
-      body.transition > .page,
-      body.transition > .page > main {
-        max-height: 100%;
-        max-width: 100%;
-      }
-
-      body.transition,
-      body.transition > .page > main {
-        overflow: hidden;
       }
 
       .ripple-container {
@@ -478,6 +467,10 @@
       }
 
       nav > button .ripple-wave {
+        background: <% return opts.nav_ripple_bg %>;
+      }
+
+      .ripple-dark .ripple-wave {
         background: <% return opts.nav_ripple_bg %>;
       }
 
@@ -526,3 +519,5 @@
   </body>
 
 </html>
+
+

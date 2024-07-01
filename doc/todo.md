@@ -11,9 +11,12 @@
 
 # Next
 
+- Refactor to slot-based navs: first "slot" is the forward/backward pager and
+  is used for the pages passed into the top-level spa(...). Subsequent navs must
+  specify data-type as drawer, footer, or more TBD.
+
 - Ripple incorrectly positioned for buttons with SVG icons when the icon is
   clicked (it works when the surrounding button is clicked)
-- Fix instant scroll too top when calling backward after scrolling. Similar solution to that of switch?
 - Prevent scroll when nav overlay active
 - Snacks/fabs incorrectly positioned when browser toolbar hides on scroll
 - Consider not automatically setting up .fab.minmax and not automatically

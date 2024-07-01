@@ -8,6 +8,7 @@ local document = js.document
 local Array = js.Array
 local Promise = js.Promise
 local global = js.self or js.global or js.window
+local localStorage = global.localStorage
 
 local M = {}
 
@@ -224,13 +225,58 @@ M.component = function (tag, callback)
   return class
 end
 
-M.querystring = function (t)
-  local o = { "?" }
-  for k, v in pairs(t) do
-    arr.push(o, js:encodeURIComponent(k), "=", js:encodeURIComponent(v), "&")
+M.parse_path = function (url)
+  local result = { path = {}, params = {} }
+  local path, query
+  if url then
+    path, query = str.match(url, "([^?]+)%??(.*)")
   end
-  o[#o] = nil
-  return arr.concat(o)
+  if path then
+    for segment in str.gmatch(path, "[^/]+") do
+      arr.push(result.path, segment)
+    end
+  end
+  if query then
+    for param, value in str.gmatch(query, "([^&=?]+)=([^&=?]+)") do
+      param = js:decodeURIComponent(param)
+      value = js:decodeURIComponent(value)
+      param = tonumber(param) or param
+      value = tonumber(value) or value
+      result.params[param] = value
+    end
+  end
+  return result
+end
+
+M.encode_path = function (t)
+  local out = {}
+  for i = 1, #t.path do
+    arr.push(out, "/", js:decodeURIComponent(t.path[i]))
+  end
+  if t.params and next(t.params) then
+    arr.push(out, "?")
+    for k, v in pairs(t.params) do
+      arr.push(out, js:encodeURIComponent(k), "=", js:encodeURIComponent(v), "&")
+    end
+    out[#out] = nil
+  end
+  return arr.concat(out)
+end
+
+M.set_local = function (k, v)
+  if localStorage then
+    if v == nil then
+      return localStorage:removeItem(tostring(k))
+    else
+      return localStorage:setItem(tostring(k), tostring(v))
+    end
+  end
+end
+
+M.get_local = function (k)
+  if localStorage then
+    return localStorage:getItem(tostring(k))
+  end
 end
 
 return M

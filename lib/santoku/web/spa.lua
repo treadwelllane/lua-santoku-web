@@ -2,6 +2,7 @@ local err = require("santoku.error")
 local error = err.error
 
 local js = require("santoku.web.js")
+local val = require("santoku.web.val")
 local str = require("santoku.string")
 local fun = require("santoku.functional")
 local op = require("santoku.op")
@@ -17,28 +18,37 @@ return function (opts)
 
   opts = tbl.merge({}, opts, defaults)
 
+  local Array = js.Array
+  local MutationObserver = js.MutationObserver
   local window = js.window
   local document = window.document
   local history = window.history
-  local Array = js.Array
-  local MutationObserver = js.MutationObserver
+  local location = window.location
 
   local e_head = document.head
   local e_body = document.body
   local t_ripple = e_head:querySelector("template.ripple")
 
-  local stack = {}
+  local state = util.parse_path(str.match(location.hash, "^#+(.*)"))
+  local active_view
   local update_worker = false
 
   local M = {}
 
-  M.find_default = function (pages, def)
+  M.find_default = function (pages, path, i)
+    path = path or {}
+    i = i or 1
     for k, v in it.pairs(pages) do
       if v.default then
-        return k
+        path[i] = k
+        if v.pages then
+          return M.find_default(v.pages, path, i + 1)
+        else
+          return path
+        end
       end
     end
-    return def or "home"
+    return path
   end
 
   M.setup_ripple = function (el)
@@ -143,7 +153,7 @@ return function (opts)
 
   end
 
-  M.setup_nav = function (next_view)
+  M.setup_nav = function (next_view, sub_view_name)
 
     next_view.e_nav = next_view.el:querySelector(".page > nav")
 
@@ -168,21 +178,17 @@ return function (opts)
         if el.classList:contains("is-active") then
           return
         end
-        M.switch(next_view, n)
+        M.push(next_view.name, n)
         M.toggle_nav_state(next_view, false)
-        next_view.e_nav_buttons:forEach(function (_, el0)
-          if el0 == el then
-            el0.classList:add("is-active")
-          else
-            el0.classList:remove("is-active")
-          end
-        end)
       end)
     end)
 
-    local def = M.find_default(next_view.page.pages, next_view.nav_order[1])
-    next_view.e_nav_buttons[next_view.nav_order[def] - 1].classList:add("is-active")
-    M.switch(next_view, def)
+    if not sub_view_name then
+      M.find_default(next_view.page.pages, state.path, 2)
+      sub_view_name = state.path[2]
+    end
+
+    M.switch(next_view, sub_view_name, "ignore")
 
     if e_body.classList:contains("is-wide") then
       M.toggle_nav_state(next_view, true, false, false)
@@ -459,7 +465,7 @@ return function (opts)
           view.header_offset = view.header_max
         end
         view.e_header.style["box-shadow"] = opts.header_shadow
-      else
+      elseif diff < 0 then
         if view.header_offset < view.header_min then
           view.header_offset = view.header_min
           if not update_worker then
@@ -508,8 +514,16 @@ return function (opts)
       end
     end
 
-    view.nav_slide = view.maximized and -270 or view.nav_slide or
-      (view.e_nav and view.el.classList:contains("showing-nav")) and 0 or -270
+    if view.maximized then
+      view.nav_slide = -270
+    elseif not view.nav_slide then
+      if view.e_nav and view.el.classList:contains("showing-nav") then
+        view.nav_slide = 0
+      else
+        view.nav_slide = -270
+      end
+    end
+
     view.e_nav.style.transform = "translate(" .. view.nav_slide .. "px, " .. view.nav_offset .. "px)"
     view.e_nav.style.opacity = view.nav_opacity
     view.e_nav.style["z-index"] = view.nav_index
@@ -536,7 +550,7 @@ return function (opts)
 
     local nav_push = view.maximized and 0 or ((view.e_nav and e_body.classList:contains("is-wide")) and 270 or 0)
     view.e_main.style.transform = "translate(" .. nav_push .. "px," .. view.main_offset .. "px)"
-    view.e_main.style["max-width"] = "calc(100vw - " .. nav_push .. "px)"
+    view.e_main.style["min-width"] = "calc(100vw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
 
@@ -568,7 +582,7 @@ return function (opts)
 
   M.style_fabs = function (view, animate)
 
-    if view.e_fabs.length <= 0 then
+    if not view.e_fabs or view.e_fabs.length <= 0 then
       return
     end
 
@@ -810,21 +824,23 @@ return function (opts)
 
     elseif transition == "enter" and direction == "forward" then
 
-      next_view.header_offset = opts.transition_forward_height + M.get_base_header_offset(next_view)
+      next_view.header_offset = last_view and last_view.header_offset or
+        M.get_base_header_offset(next_view)
+
       next_view.header_opacity = 0
       next_view.header_index = 100
       next_view.header_shadow = opts.header_shadow
       M.style_header(next_view)
 
       M.after_frame(function ()
-        next_view.header_offset = next_view.header_offset - opts.transition_forward_height
+        next_view.header_offset = M.get_base_header_offset(next_view)
         next_view.header_opacity = 1
         M.style_header(next_view, true)
       end)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.header_offset = M.get_base_header_offset(last_view) - opts.transition_forward_height / 2
+      last_view.header_offset = M.get_base_header_offset(last_view)
       last_view.header_opacity = 1
       last_view.header_index = 98
       last_view.header_shadow = opts.header_shadow
@@ -832,7 +848,9 @@ return function (opts)
 
     elseif transition == "enter" and direction == "backward" then
 
-      next_view.header_offset = M.get_base_header_offset(next_view) - opts.transition_forward_height / 2
+      next_view.header_offset = last_view.e_header and last_view.header_offset or
+        M.get_base_header_offset(next_view)
+
       next_view.header_opacity = 1
       next_view.header_index = 98
       next_view.header_shadow = opts.header_shadow
@@ -840,12 +858,13 @@ return function (opts)
 
       M.after_frame(function ()
         next_view.header_offset = M.get_base_header_offset(next_view)
+        next_view.header_opacity = 1
         M.style_header(next_view, true)
       end)
 
     elseif transition == "exit" and direction == "backward" then
 
-      last_view.header_offset = opts.transition_forward_height + M.get_base_header_offset(last_view)
+      last_view.header_offset = last_view.header_offset + opts.transition_forward_height
       last_view.header_opacity = 0
       last_view.header_index = 100
       last_view.header_shadow = opts.header_shadow
@@ -982,7 +1001,9 @@ return function (opts)
 
   M.style_fabs_transition = function (next_view, transition, direction, last_view)
 
-    local is_shared = last_view and next_view.e_fabs.length > 0 and last_view.e_fabs.length > 0
+    local is_shared =
+      (next_view and next_view.e_fabs and next_view.e_fabs.length > 0) and
+      (last_view and last_view.e_fabs and last_view.e_fabs.length > 0)
 
     if not last_view and transition == "enter" then
 
@@ -1291,22 +1312,19 @@ return function (opts)
   end
 
   M.scroll_listener = function (view)
-
-    local ticking = false
-
+    local ready = true
     return function ()
       view.curr_scrolly = window.scrollY
-      if not ticking then
-        window:requestAnimationFrame(function ()
-          M.style_header(view)
-          M.style_nav(view)
+      if ready and not view.scrolling then
+        ready = false
+        M.style_header(view, true)
+        M.style_nav(view, true)
+        M.after_frame(function ()
           view.last_scrolly = view.curr_scrolly
-          ticking = false
+          ready = true
         end)
-        ticking = true
       end
     end
-
   end
 
   M.after_transition = function (fn)
@@ -1315,53 +1333,38 @@ return function (opts)
     end, tonumber(opts.transition_time))
   end
 
+  M.after_transition_scroll = function (fn)
+    return window:setTimeout(function ()
+      window:requestAnimationFrame(fn)
+    end, tonumber(opts.transition_scroll_time))
+  end
+
   M.after_frame = function (fn)
     return window:requestAnimationFrame(function ()
       window:requestAnimationFrame(fn)
     end)
   end
 
-  M.post_enter_switch = function (view, next_view, from_class)
-
-    next_view.el.classList:remove("enter", "forward", "backward", from_class)
-
+  M.post_enter_switch = function (view, next_view)
     view.el.classList:remove("transition")
-
-    if next_view.page.post_append then
-      next_view.page.post_append(next_view, opts)
-    end
-
     M.setup_ripples(next_view.el)
-
   end
 
-  M.post_exit_switch = function (_, last_view, to_class)
-
-    last_view.el.classList:remove("exit", "forward", "backward", to_class)
-
+  M.post_exit_switch = function (last_view)
     last_view.el:remove()
-
-    if last_view.page.post_remove then
-      last_view.page.post_remove(last_view, opts)
+    if last_view.page.destroy then
+      last_view.page.destroy(last_view, opts)
     end
-
   end
 
-  M.post_exit = function (last_view, to_class)
-
-    last_view.el.classList:remove("exit", "forward", "backward", to_class)
-
+  M.post_exit = function (last_view)
     last_view.el:remove()
-
-    if last_view.page.post_remove then
-      last_view.page.post_remove(last_view, opts)
+    if last_view.page.destroy then
+      last_view.page.destroy(last_view, opts)
     end
-
   end
 
-  M.post_enter = function (next_view, from_class)
-
-    next_view.el.classList:remove("enter", "forward", "backward", from_class)
+  M.post_enter = function (next_view)
 
     e_body.classList:remove("transition")
 
@@ -1373,7 +1376,7 @@ return function (opts)
 
     if e_back then
       e_back:addEventListener("click", function ()
-        M.backward()
+        history:back()
       end)
     end
 
@@ -1403,21 +1406,16 @@ return function (opts)
 
     M.style_main_transition_switch(next_view, "enter", direction, last_view)
 
-    if next_view.page.pre_append then
-      next_view.page.pre_append(next_view, opts)
+    if next_view.page.init then
+      next_view.page.init(next_view, opts)
     end
 
-    local from_class = "from-" .. (last_view and last_view.name or "none")
+    view.el.classList:add("transition")
+    view.e_main:append(next_view.el)
 
     M.after_transition(function ()
-      return M.post_enter_switch(view, next_view, from_class)
+      return M.post_enter_switch(view, next_view)
     end)
-
-    view.el.classList:add("transition")
-
-    next_view.el.classList:add("enter", direction, from_class)
-
-    view.e_main:append(next_view.el)
 
   end
 
@@ -1429,23 +1427,17 @@ return function (opts)
     last_view.el.style.marginTop = "-" .. window.scrollY .. "px"
     window:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
-    if last_view.page.pre_remove then
-      last_view.page.pre_remove(last_view, opts)
-    end
-
     M.style_main_transition_switch(next_view, "exit", direction, last_view)
 
-    local to_class = "to-" .. (next_view and next_view.name or "none")
-
     M.after_transition(function ()
-      return M.post_exit_switch(view, last_view, to_class)
+      return M.post_exit_switch(last_view)
     end)
 
-    last_view.el.classList:add("exit", direction, to_class)
+    last_view.el.classList:add("exit", direction)
 
   end
 
-  M.enter = function (next_view, direction, last_view)
+  M.enter = function (next_view, direction, last_view, sub_view_name)
 
     next_view.el = util.clone(next_view.page.template)
     next_view.e_header = next_view.el:querySelector(".page > header")
@@ -1453,7 +1445,7 @@ return function (opts)
     next_view.e_snacks = next_view.el:querySelector(".page > .snacks")
 
     M.setup_observer(next_view)
-    M.setup_nav(next_view)
+    M.setup_nav(next_view, sub_view_name)
     M.setup_fabs(next_view, last_view)
     M.setup_snacks(next_view)
     M.setup_header_title_width(next_view)
@@ -1464,29 +1456,28 @@ return function (opts)
     M.style_fabs_transition(next_view, "enter", direction, last_view)
     M.style_snacks_transition(next_view, "enter", direction, last_view)
 
-    if next_view.page.pre_append then
-      next_view.page.pre_append(next_view, opts)
+    if next_view.page.init then
+      next_view.page.init(next_view, opts)
     end
 
-    local from_class = "from-" .. (last_view and last_view.name or "none")
+    e_body.classList:add("transition")
+    e_body:append(next_view.el)
 
     M.after_transition(function ()
-      return M.post_enter(next_view, from_class)
+      return M.post_enter(next_view)
     end)
-
-    e_body.classList:add("transition")
-
-    next_view.el.classList:add("enter", direction, from_class)
-
-    e_body:append(next_view.el)
 
   end
 
   M.exit = function (last_view, direction, next_view)
 
-    if last_view.page.pre_remove then
-      last_view.page.pre_remove(last_view, opts)
-    end
+    last_view.e_main.style.marginTop = (opts.header_height - window.scrollY) .. "px"
+    last_view.scrolling = true
+    window:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    M.after_transition(function ()
+      last_view.scrolling = false
+      last_view.e_main.style.marginTop = opts.header_height .. "px"
+    end)
 
     M.style_header_transition(next_view, "exit", direction, last_view)
     M.style_main_transition(next_view, "exit", direction, last_view)
@@ -1494,160 +1485,177 @@ return function (opts)
     M.style_fabs_transition(next_view, "exit", direction, last_view)
     M.style_snacks_transition(next_view, "exit", direction, last_view)
 
-    local to_class = "to-" .. (next_view and next_view.name or "none")
-
     if last_view.scroll_listener then
       window:removeEventListener("scroll", last_view.scroll_listener)
       last_view.scroll_listener = nil
     end
 
+    last_view.el.classList:add("exit", direction)
     M.after_transition(function ()
-      return M.post_exit(last_view, to_class)
+      return M.post_exit(last_view, opts)
     end)
-
-    last_view.el.classList:add("exit", direction, to_class)
 
   end
 
-  M.init_view = function (name, page, init_opts)
+  M.init_view = function (name, page)
 
     local view = {
-
-      forward = M.forward,
-      backward = M.backward,
+      push = M.push,
       replace = M.replace,
-
       page = page,
       name = name,
-      state = init_opts.state or {},
-      switches = {},
-
+      state = state
     }
 
-    view.switch = function (...)
-      return M.switch(view, ...)
-    end
-
     view.maximize = function ()
-      local active = stack[#stack]
-      return M.style_maximized(active, true)
+      return M.style_maximized(active_view, true)
     end
 
     return view
 
   end
 
-  M.switch = function (view, name, switch_opts)
+  M.get_url = function ()
+    local p = util.encode_path(state)
+    return "/#" .. p
+  end
 
-    switch_opts = switch_opts or {}
+  M.set_route = function (policy)
+    if policy == "replace" then
+      history:replaceState(val(state, true), nil, M.get_url())
+    elseif policy == "push" then
+      history:pushState(val(state, true), nil, M.get_url())
+    end
+  end
+
+  M.switch_dir = function (view, next_switch, last_switch)
+    local idx_next, idx_last
+    idx_next = varg.sel(2, arr.find(view.nav_order, fun.bind(op.eq, next_switch.name)))
+    if last_switch then
+      idx_last = varg.sel(2, arr.find(view.nav_order, fun.bind(op.eq, last_switch.name)))
+      return idx_next < idx_last and "backward" or "forward"
+    else
+      return "forward"
+    end
+  end
+
+  M.maybe_redirect = function (page)
+    if page and page.redirect then
+      return varg.tup(function (redir, ...)
+        if redir then
+          M.replace(...)
+          return true
+        end
+      end, page.redirect(active_view, page))
+    end
+  end
+
+  M.switch = function (view, name, policy)
 
     local page = view.page.pages and view.page.pages[name]
 
     if not page then
-      -- TODO: Consider throwing error instead
-      return false, "no page found", name
+      err.error("no switch found", name)
     end
 
-    local last_switch = view.switches[#view.switches]
-    local next_switch = M.init_view(name, page, switch_opts)
-
-    local idx_next, idx_last, dir
-
-    idx_next = varg.sel(2, arr.find(view.nav_order, fun.bind(op.eq, next_switch.name)))
-    if last_switch then
-      idx_last = varg.sel(2, arr.find(view.nav_order, fun.bind(op.eq, last_switch.name)))
-      dir = idx_next < idx_last and "backward" or "forward"
-    else
-      dir = "forward"
+    if M.maybe_redirect(page, policy) then
+      return
     end
 
-    M.enter_switch(view, next_switch, dir, last_switch)
+    local last_view = view.active_view
+    view.active_view = M.init_view(name, page)
 
-    if last_switch then
-      M.exit_switch(view, last_switch, dir, next_switch)
-    end
+    view.e_nav_buttons:forEach(function (_, el)
+      if el.dataset.page == name then
+        el.classList:add("is-active")
+      else
+        el.classList:remove("is-active")
+      end
+    end)
 
-    arr.push(view.switches, next_switch)
+    local dir = M.switch_dir(view, view.active_view, last_view)
 
-  end
-
-  M.forward = function (name, forward_opts)
-
-    forward_opts = forward_opts or {}
-
-    local page = opts.pages[name]
-
-    if not page then
-      -- TODO: Consider throwing error instead
-      return false, "no page found", name
-    end
-
-    local last_view = stack[#stack]
-    local next_view = M.init_view(name, page, forward_opts)
-
-    M.enter(next_view, "forward", last_view)
+    M.enter_switch(view, view.active_view, dir, last_view)
 
     if last_view then
-      M.exit(last_view, "forward", next_view)
+      M.exit_switch(view, last_view, dir, view.active_view)
     end
 
-    arr.push(stack, next_view)
+    M.set_route(policy)
 
   end
 
-  M.replace = function (name, replace_opts)
-
-    replace_opts = replace_opts or {}
-    replace_opts.n = replace_opts.n or 1
-
-    local last_n = #stack
-
-    M.forward(name, replace_opts)
-
-    arr.remove(stack, last_n - replace_opts.n + 1, last_n)
-
+  M.fill_defaults = function ()
+    if #state.path < 1 then
+      return
+    end
+    local v = opts.pages[state.path[1]]
+    if not v then
+      err.error("Invalid page", state.path[1])
+    end
+    if v.pages and not state.path[2] then
+      M.find_default(v.pages, state.path, 2)
+    end
   end
 
-  M.backward = function (backward_opts)
+  M.push = function (...)
+    arr.overlay(state.path, 1, ...)
+    M.forward("push")
+  end
 
-    backward_opts = backward_opts or {}
-    backward_opts.n = backward_opts.n or 1
+  M.replace = function (...)
+    arr.overlay(state.path, 1, ...)
+    M.forward("replace")
+  end
 
-    local last_view = stack[#stack]
-    local next_view = stack[#stack - backward_opts.n]
+  M.forward = function (policy)
 
-    if not next_view then
+    M.fill_defaults()
 
-      M.replace("home", backward_opts)
+    local page = opts.pages[state.path[1]]
 
-    else
+    if not page then
+      err.error("no page found", state.path[1])
+    end
 
-      if backward_opts.state then
-        next_view.state = backward_opts.state
+    if M.maybe_redirect(page, policy) then
+      return
+    end
+
+    if not active_view or page ~= active_view.page then
+      local last_view = active_view
+      active_view = M.init_view(state.path[1], page)
+      M.enter(active_view, "forward", last_view, state.path[2])
+      if last_view then
+        M.exit(last_view, "forward", active_view)
       end
-
-      M.enter(next_view, "backward", last_view)
-      M.exit(last_view, "backward", next_view)
-
-      arr.remove(stack, #stack - backward_opts.n + 1, #stack)
-
+      M.set_route(policy)
+    elseif state.path[2] then
+      M.switch(active_view, state.path[2], policy)
+    else
+      M.set_route(policy)
     end
 
   end
 
-  window:addEventListener("popstate", function ()
-    history:go()
+  window:addEventListener("popstate", function (_, ev)
+    if ev.state then
+      state = ev.state:val():lua(true)
+      M.forward("ignore")
+    else
+      history:back()
+    end
   end)
 
   M.setup_ripples(e_body)
 
-  M.toggle_nav_state = function (view, state, animate, restyle)
+  M.toggle_nav_state = function (view, open, animate, restyle)
     if e_body.classList:contains("is-wide") then
-      state = true
+      open = true
     end
-    if state == true then
+    if open == true then
       view.el.classList:add("showing-nav")
-    elseif state == false then
+    elseif open == false then
       view.el.classList:remove("showing-nav")
     else
       view.el.classList:toggle("showing-nav")
@@ -1663,21 +1671,21 @@ return function (opts)
   end
 
   M.on_resize = function ()
+    local was_wide = e_body.classList:contains("is-wide")
     if window.innerWidth > 961 then
       e_body.classList:add("is-wide")
     else
       e_body.classList:remove("is-wide")
     end
-    local active = stack[#stack]
-    if active then
+    if active_view then
       if e_body.classList:contains("is-wide") then
-        M.toggle_nav_state(active, true, false, false)
-      else
-        M.toggle_nav_state(active, false, false, false)
+        M.toggle_nav_state(active_view, true, false, false)
+      elseif was_wide then
+        M.toggle_nav_state(active_view, false, false, false)
       end
-      M.style_nav(active, true)
-      M.style_main(active, true)
-      M.style_snacks(active, true)
+      M.style_nav(active_view, true)
+      M.style_main(active_view, true)
+      M.style_snacks(active_view, true)
     end
   end
 
@@ -1689,7 +1697,7 @@ return function (opts)
     local e_reload = document:querySelector("body > .warn-update-worker")
     if e_reload then
       e_reload:addEventListener("click", function ()
-        window.location = window.location
+        window.location:reload()
       end)
     end
 
@@ -1698,19 +1706,18 @@ return function (opts)
       if not update_worker then
 
         update_worker = true
-        local active = stack[#stack]
 
-        active.header_offset = active.header_offset + opts.banner_height
-        active.nav_offset = active.nav_offset + opts.banner_height
-        active.main_offset = active.main_offset + opts.banner_height
-        active.fabs_top_offset = active.fabs_top_offset + opts.banner_height
-        active.header_min = - opts.header_height + M.get_base_header_offset(active)
-        active.header_max = M.get_base_header_offset(active)
+        active_view.header_offset = active_view.header_offset + opts.banner_height
+        active_view.nav_offset = active_view.nav_offset + opts.banner_height
+        active_view.main_offset = active_view.main_offset + opts.banner_height
+        active_view.fabs_top_offset = active_view.fabs_top_offset + opts.banner_height
+        active_view.header_min = - opts.header_height + M.get_base_header_offset(active_view)
+        active_view.header_max = M.get_base_header_offset(active_view)
 
-        M.style_header(active, true)
-        M.style_nav(active, true)
-        M.style_main(active, true)
-        M.style_fabs(active, true)
+        M.style_header(active_view, true)
+        M.style_nav(active_view, true)
+        M.style_main(active_view, true)
+        M.style_fabs(active_view, true)
 
       end
 
@@ -1783,6 +1790,12 @@ return function (opts)
   end)
 
   M.on_resize()
-  M.forward(M.find_default(opts.pages))
+
+  if #state.path > 0 then
+    M.forward("replace")
+  else
+    M.find_default(opts.pages, state.path, 1)
+    M.forward("push")
+  end
 
 end
