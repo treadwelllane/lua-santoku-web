@@ -1,7 +1,7 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.120-1",
+  version = "0.0.121-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,

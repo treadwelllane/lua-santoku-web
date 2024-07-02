@@ -189,7 +189,7 @@ return function (opts)
         if el.classList:contains("is-active") then
           return
         end
-        M.push(next_view.name, n)
+        M.forward(next_view.name, n)
         M.toggle_nav_state(next_view, false)
       end)
     end)
@@ -472,24 +472,6 @@ return function (opts)
       end)
     end
 
-    if view.last_scrolly then
-      local diff = view.last_scrolly - view.curr_scrolly
-      view.header_offset = view.header_offset + diff
-      if diff > 0 then
-        if view.header_offset > view.header_max then
-          view.header_offset = view.header_max
-        end
-        view.e_header.style["box-shadow"] = opts.header_shadow
-      elseif diff < 0 then
-        if view.header_offset < view.header_min then
-          view.header_offset = view.header_min
-          if not update_worker then
-            view.e_header.style["box-shadow"] = "none"
-          end
-        end
-      end
-    end
-
     view.e_header.style.transform = "translateY(" .. view.header_offset .. "px)"
     view.e_header.style.opacity = view.header_opacity
     view.e_header.style["z-index"] = view.header_index
@@ -513,20 +495,6 @@ return function (opts)
         view.e_nav.classList:remove("animated")
         view.nav_animation = nil
       end)
-    end
-
-    if view.last_scrolly then
-      local diff = view.last_scrolly - view.curr_scrolly
-      view.nav_offset = view.nav_offset + diff
-      if diff > 0 then
-        if view.nav_offset > view.header_max then
-          view.nav_offset = view.header_max
-        end
-      else
-        if view.nav_offset < view.header_min then
-          view.nav_offset = view.header_min
-        end
-      end
     end
 
     if view.maximized then
@@ -865,7 +833,6 @@ return function (opts)
 
       next_view.header_offset = last_view.e_header and last_view.header_offset or
         M.get_base_header_offset(next_view)
-
       next_view.header_opacity = 1
       next_view.header_index = 98
       next_view.header_shadow = opts.header_shadow
@@ -879,7 +846,8 @@ return function (opts)
 
     elseif transition == "exit" and direction == "backward" then
 
-      last_view.header_offset = last_view.header_offset + opts.transition_forward_height
+      last_view.header_offset = last_view.e_header and last_view.header_offset or
+        M.get_base_header_offset(next_view)
       last_view.header_opacity = 0
       last_view.header_index = 100
       last_view.header_shadow = opts.header_shadow
@@ -1326,16 +1294,31 @@ return function (opts)
 
   end
 
+  M.style_header_hide = function (view, hide)
+    if hide then
+      view.header_offset = M.get_base_header_offset(view) - opts.header_height
+    else
+      view.header_offset = M.get_base_header_offset(view)
+    end
+    view.nav_offset = view.header_offset
+    M.style_header(view, true)
+    M.style_nav(view, true)
+  end
+
   M.scroll_listener = function (view)
     local ready = true
+    local last_scroll, curr_scroll
     return function ()
-      view.curr_scrolly = window.scrollY
-      if ready and not view.scrolling then
+      if ready then
         ready = false
-        M.style_header(view, true)
-        M.style_nav(view, true)
         M.after_frame(function ()
-          view.last_scrolly = view.curr_scrolly
+          curr_scroll = window.scrollY
+          if (curr_scroll <= tonumber(opts.header_height)) or (last_scroll and last_scroll - curr_scroll > 10) then
+            M.style_header_hide(view, false)
+          elseif (last_scroll and curr_scroll - last_scroll > 10) then
+            M.style_header_hide(view, true)
+          end
+          last_scroll = curr_scroll
           ready = true
         end)
       end
@@ -1346,12 +1329,6 @@ return function (opts)
     return window:setTimeout(function ()
       window:requestAnimationFrame(fn)
     end, tonumber(opts.transition_time))
-  end
-
-  M.after_transition_scroll = function (fn)
-    return window:setTimeout(function ()
-      window:requestAnimationFrame(fn)
-    end, tonumber(opts.transition_scroll_time))
   end
 
   M.after_frame = function (fn)
@@ -1487,10 +1464,8 @@ return function (opts)
   M.exit = function (last_view, direction, next_view)
 
     last_view.e_main.style.marginTop = (opts.header_height - window.scrollY) .. "px"
-    last_view.scrolling = true
     window:scrollTo({ top = 0, left = 0, behavior = "instant" })
     M.after_transition(function ()
-      last_view.scrolling = false
       last_view.e_main.style.marginTop = opts.header_height .. "px"
     end)
 
@@ -1515,14 +1490,20 @@ return function (opts)
   M.init_view = function (name, page)
 
     local view = {
-      push = M.push,
-      replace = M.replace,
+      forward = M.forward,
+      backward = M.backward,
+      replace_forward = M.replace_forward,
+      replace_backward = M.replace_backward,
       page = page,
       name = name,
       state = state
     }
 
-    view.maximize = function ()
+    view.toggle_nav = function ()
+      return M.toggle_nav_state(active_view, not view.el.classList:contains("showing-nav"), true, true)
+    end
+
+    view.toggle_maximize = function ()
       return M.style_maximized(active_view, true)
     end
 
@@ -1558,7 +1539,7 @@ return function (opts)
     if page and page.redirect then
       return varg.tup(function (redir, ...)
         if redir then
-          M.replace(...)
+          M.replace_forward(...)
           return true
         end
       end, page.redirect(active_view, page))
@@ -1613,17 +1594,28 @@ return function (opts)
     end
   end
 
-  M.push = function (...)
+  M.forward = function (...)
     arr.overlay(state.path, 1, ...)
-    M.forward("push")
+    M.transition("push", "forward")
   end
 
-  M.replace = function (...)
+  M.backward = function (...)
     arr.overlay(state.path, 1, ...)
-    M.forward("replace")
+    M.transition("push", "backward")
   end
 
-  M.forward = function (policy)
+  M.replace_forward = function (...)
+    arr.overlay(state.path, 1, ...)
+    M.transition("replace", "forward")
+  end
+
+  M.replace_backward = function (...)
+    arr.overlay(state.path, 1, ...)
+    M.transition("replace", "backward")
+  end
+
+  M.transition = function (policy, dir)
+    dir = dir or "forward"
     M.after_frame(function ()
 
       M.fill_defaults()
@@ -1641,9 +1633,9 @@ return function (opts)
       if not active_view or page ~= active_view.page then
         local last_view = active_view
         active_view = M.init_view(state.path[1], page)
-        M.enter(active_view, "forward", last_view, state.path[2])
+        M.enter(active_view, dir, last_view, state.path[2])
         if last_view then
-          M.exit(last_view, "forward", active_view)
+          M.exit(last_view, dir, active_view)
         end
         M.set_route(policy)
       elseif state.path[2] then
@@ -1658,9 +1650,7 @@ return function (opts)
   window:addEventListener("popstate", function (_, ev)
     if ev.state then
       state = ev.state:val():lua(true)
-      M.forward("ignore")
-    else
-      history:back()
+      M.transition("ignore", "backward")
     end
   end)
 
@@ -1809,10 +1799,10 @@ return function (opts)
   M.on_resize()
 
   if #state.path > 0 then
-    M.forward("replace")
+    M.transition("replace", "forward")
   else
     M.find_default(opts.pages, state.path, 1)
-    M.forward("push")
+    M.transition("push", "forward")
   end
 
 end

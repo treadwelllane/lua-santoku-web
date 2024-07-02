@@ -130,10 +130,6 @@
         background: <% return opts.header_bg %>;
         height: <% return opts.header_height %>px;
         box-shadow: <% return opts.header_shadow %>;
-        transition: box-shadow <% return opts.transition_time %>ms ease-in-out;
-      }
-
-      .page > header.animated {
         transition: box-shadow <% return opts.transition_time %>ms ease-in-out,
                     transform <% return opts.transition_time %>ms ease-in-out,
                     opacity <% return opts.transition_time %>ms ease-in-out;
@@ -258,9 +254,6 @@
         background: <% return opts.nav_bg %>;
         margin-top: <% return opts.header_height %>px;
         box-shadow: <% return opts.nav_shadow %>;
-      }
-
-      .page > nav.animated {
         transition: transform <% return opts.transition_time %>ms ease-in-out,
                     opacity <% return opts.transition_time %>ms ease-in-out;
       }
