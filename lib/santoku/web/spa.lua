@@ -186,11 +186,12 @@ return function (opts)
       arr.push(next_view.nav_order, n)
       next_view.nav_order[n] = #next_view.nav_order
       el:addEventListener("click", function ()
-        if el.classList:contains("is-active") then
-          return
+        if not el.classList:contains("is-active") then
+          M.forward(next_view.name, n)
         end
-        M.forward(next_view.name, n)
-        M.toggle_nav_state(next_view, false)
+        M.after_frame(function ()
+          M.toggle_nav_state(next_view, false)
+        end)
       end)
     end)
 
@@ -756,7 +757,7 @@ return function (opts)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.nav_offset = M.get_base_nav_offset(last_view) - opts.transition_forward_height / 2
+      last_view.nav_offset = last_view.nav_offset - opts.transition_forward_height / 2
       last_view.nav_opacity = 1
       last_view.nav_index = 97
       M.style_nav(last_view, true)
@@ -807,26 +808,29 @@ return function (opts)
 
     elseif transition == "enter" and direction == "forward" then
 
-      next_view.header_offset = last_view and last_view.header_offset or
-        M.get_base_header_offset(next_view)
-
-      next_view.header_opacity = 0
+      next_view.header_offset = last_view.header_offset
       next_view.header_index = 100
-      next_view.header_shadow = opts.header_shadow
+
+      if next_view.header_offset < M.get_base_header_offset(next_view) then
+        next_view.header_opacity = 1
+        next_view.header_shadow = "none"
+      else
+        next_view.header_opacity = 0
+        next_view.header_shadow = "none"
+      end
+
       M.style_header(next_view)
 
       M.after_frame(function ()
         next_view.header_offset = M.get_base_header_offset(next_view)
         next_view.header_opacity = 1
+        next_view.header_shadow = opts.header_shadow
         M.style_header(next_view, true)
       end)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.header_offset = M.get_base_header_offset(last_view)
-      last_view.header_opacity = 1
       last_view.header_index = 98
-      last_view.header_shadow = opts.header_shadow
       M.style_header(last_view, true)
 
     elseif transition == "enter" and direction == "backward" then
@@ -846,11 +850,9 @@ return function (opts)
 
     elseif transition == "exit" and direction == "backward" then
 
-      last_view.header_offset = last_view.e_header and last_view.header_offset or
-        M.get_base_header_offset(next_view)
       last_view.header_opacity = 0
       last_view.header_index = 100
-      last_view.header_shadow = opts.header_shadow
+      last_view.header_shadow = "none"
       M.style_header(last_view, true)
 
     else
@@ -1297,8 +1299,10 @@ return function (opts)
   M.style_header_hide = function (view, hide)
     if hide then
       view.header_offset = M.get_base_header_offset(view) - opts.header_height
+      view.header_shadow = "none"
     else
       view.header_offset = M.get_base_header_offset(view)
+      view.header_shadow = opts.header_shadow
     end
     view.nav_offset = view.header_offset
     M.style_header(view, true)
@@ -1309,8 +1313,9 @@ return function (opts)
     local ready = true
     local last_scroll, curr_scroll
     return function ()
-      if ready then
+      if ready and not view.no_scroll then
         ready = false
+        view.no_scroll = false
         M.after_frame(function ()
           curr_scroll = window.scrollY
           if (curr_scroll <= tonumber(opts.header_height)) or (last_scroll and last_scroll - curr_scroll > 10) then
@@ -1417,6 +1422,7 @@ return function (opts)
     M.style_header(view, true)
 
     last_view.el.style.marginTop = "-" .. window.scrollY .. "px"
+    last_view.no_scroll = true
     window:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.style_main_transition_switch(next_view, "exit", direction, last_view)
@@ -1464,10 +1470,8 @@ return function (opts)
   M.exit = function (last_view, direction, next_view)
 
     last_view.e_main.style.marginTop = (opts.header_height - window.scrollY) .. "px"
+    last_view.no_scroll = true
     window:scrollTo({ top = 0, left = 0, behavior = "instant" })
-    M.after_transition(function ()
-      last_view.e_main.style.marginTop = opts.header_height .. "px"
-    end)
 
     M.style_header_transition(next_view, "exit", direction, last_view)
     M.style_main_transition(next_view, "exit", direction, last_view)
@@ -1525,6 +1529,9 @@ return function (opts)
   end
 
   M.switch_dir = function (view, next_switch, last_switch)
+    if view.header_offset and view.header_offset < M.get_base_header_offset(view) then
+      return "forward"
+    end
     local idx_next, idx_last
     idx_next = varg.sel(2, arr.find(view.nav_order, fun.bind(op.eq, next_switch.name)))
     if last_switch then
@@ -1795,6 +1802,8 @@ return function (opts)
   window:addEventListener("resize", function ()
     M.on_resize()
   end)
+
+  history.scrollRestoration = "manual"
 
   M.on_resize()
 
