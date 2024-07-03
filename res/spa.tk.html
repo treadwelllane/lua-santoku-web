@@ -90,7 +90,7 @@
         top: -<% return opts.banner_height %>px;
         color: <% return opts.banner_fg %>;
         background: <% return opts.banner_bg %>;
-        transition: transform <% return opts.transition_time %>ms ease-in-out;
+        transition: transform <% return opts.transition_time %>ms ease;
       }
 
       .page {
@@ -100,7 +100,7 @@
         bottom: 0;
         position: absolute;
         overflow: visible;
-        transition: transform <% return opts.transition_time %>ms ease-in-out;
+        transition: transform <% return opts.transition_time %>ms ease;
       }
 
       main > .page {
@@ -130,9 +130,9 @@
         background: <% return opts.header_bg %>;
         height: <% return opts.header_height %>px;
         box-shadow: <% return opts.header_shadow %>;
-        transition: box-shadow <% return opts.transition_time %>ms ease-in-out,
-                    transform <% return opts.transition_time %>ms ease-in-out,
-                    opacity <% return opts.transition_time %>ms ease-in-out;
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .page > header > h1 {
@@ -177,15 +177,16 @@
         display: flex;
         flex-direction: column;
         overflow: visible;
+        box-shadow: <% return opts.main_shadow %>;
 
         min-height: 100vh;
         min-width: 100vw;
         background: <% return opts.page_bg %>;
         margin-top: <% return opts.header_height %>px;
-        transition: transform <% return opts.transition_time %>ms ease-in-out,
-                    opacity <% return opts.transition_time %>ms ease-in-out,
-                    box-shadow <% return opts.transition_time %>ms ease-in-out,
-                    max-width <% return opts.transition_time %>ms ease-in-out;
+        transition: transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease,
+                    box-shadow <% return opts.transition_time %>ms ease,
+                    max-width <% return opts.transition_time %>ms ease;
       }
 
       body > .page > nav:before {
@@ -198,7 +199,7 @@
         width: 100vw;
         pointer-events: none;
 
-        transition: opacity <% return opts.transition_time %>ms ease-in-out;
+        transition: opacity <% return opts.transition_time %>ms ease;
         height: calc(100vh + <% return opts.header_height %>px);
       }
 
@@ -235,8 +236,8 @@
         min-width: 100%;
         min-height: 100%;
 
-        transition: transform <% return opts.transition_time %>ms ease-in-out,
-                    opacity <% return opts.transition_time %>ms ease-in-out;
+        transition: transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .page > nav {
@@ -254,8 +255,8 @@
         background: <% return opts.nav_bg %>;
         margin-top: <% return opts.header_height %>px;
         box-shadow: <% return opts.nav_shadow %>;
-        transition: transform <% return opts.transition_time %>ms ease-in-out,
-                    opacity <% return opts.transition_time %>ms ease-in-out;
+        transition: transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .page > nav > button {
@@ -266,7 +267,7 @@
         padding-left: 32px;
         border: none;
         height: <% return opts.header_height %>px;
-        transition: background <% return opts.transition_time %>ms ease-in-out;
+        transition: background <% return opts.transition_time %>ms ease;
       }
 
       .page > nav > button.is-active {
@@ -310,7 +311,7 @@
       }
 
       .page > .fab.minmax > svg {
-        transition: transform <% return opts.transition_time %>ms ease-in-out;
+        transition: transform <% return opts.transition_time %>ms ease;
       }
 
       .page.maximized > .fab.minmax > svg {
@@ -318,13 +319,13 @@
       }
 
       .page > .fab.animated {
-        transition: box-shadow <% return opts.transition_time %>ms ease-in-out,
-                    transform <% return opts.transition_time %>ms ease-in-out,
-                    opacity <% return opts.transition_time %>ms ease-in-out;
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .page > .fab.animated > svg {
-        transition: transform <% return opts.transition_time %>ms ease-in-out;
+        transition: transform <% return opts.transition_time %>ms ease;
       }
 
       button:focus,
@@ -334,8 +335,8 @@
       }
 
       button {
-        transition: box-shadow <% return opts.transition_time %>ms ease-in-out,
-                    background <% return opts.transition_time %>ms ease-in-out;
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    background <% return opts.transition_time %>ms ease;
       }
 
       img {
@@ -383,9 +384,9 @@
       }
 
       .page > .snack.animated {
-        transition: box-shadow <% return opts.transition_time %>ms ease-in-out,
-                    transform <% return opts.transition_time %>ms ease-in-out,
-                    opacity <% return opts.transition_time %>ms ease-in-out;
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
       .transition *,
