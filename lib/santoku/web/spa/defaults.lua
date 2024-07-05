@@ -50,6 +50,12 @@ return {
   event_buffer_max = "100",
 
   transition_time = "250",
+  transition_time_main = "250",
+  transition_time_wave = "500",
   transition_forward_height = "32",
+
+  nav_width = "270",
+  nav_pull_gutter = "32",
+  nav_pull_threshold = "32",
 
 }
