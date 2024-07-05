@@ -52,6 +52,10 @@
       </div>
     </template>
 
+    <template class="nav-overlay">
+      <div class="nav-overlay"></div>
+    </template>
+
     <style>
 
       html, body {
@@ -71,13 +75,15 @@
       }
 
       body > .warn-update-worker {
-        align-items: center;
+        display: inline-block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         border-radius: 0;
         border: none;
         flex-direction: row;
         font-size: initial;
         font-weight: initial;
-        justify-content: center;
         line-height: initial;
         margin: 0;
         outline: none;
@@ -85,6 +91,8 @@
         position: fixed;
         width: 100vw;
         z-index: 101;
+        padding-left: 16px;
+        padding-right: 16px;
 
         height: <% return opts.banner_height %>px;
         top: -<% return opts.banner_height %>px;
@@ -125,7 +133,6 @@
         top: 0;
         left: 0;
         z-index: 99;
-
         color: <% return opts.header_fg %>;
         background: <% return opts.header_bg %>;
         height: <% return opts.header_height %>px;
@@ -138,10 +145,19 @@
       .page > header > h1 {
         margin: 0;
         padding: 0;
+        align-self: center;
         font-size: 1.375em;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
+        display: inline-block;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      body.is-wide > .page > header > h1:first-child,
+      body.is-wide > .page > header > button.menu:first-child + h1 {
         padding-left: 32px;
       }
 
@@ -156,7 +172,6 @@
         display: flex;
         align-items: center;
         justify-content: center;
-
         height: <% return opts.header_height %>px;
         width: <% return opts.header_height %>px;
         fill: <% return opts.header_fg %>;
@@ -178,29 +193,14 @@
         flex-direction: column;
         overflow: visible;
         box-shadow: <% return opts.main_shadow %>;
-
         min-height: 100vh;
         min-width: 100vw;
         background: <% return opts.page_bg %>;
         margin-top: <% return opts.header_height %>px;
-        transition: transform <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease,
-                    box-shadow <% return opts.transition_time %>ms ease,
-                    max-width <% return opts.transition_time %>ms ease;
-      }
-
-      body > .page > nav:before {
-        opacity: 0;
-        background: #000000;
-        position: fixed;
-        content: ' ';
-        top: 0px;
-        left: 270px;
-        width: 100vw;
-        pointer-events: none;
-
-        transition: opacity <% return opts.transition_time %>ms ease;
-        height: calc(100vh + <% return opts.header_height %>px);
+        transition: transform <% return opts.transition_time_main %>ms ease,
+                    opacity <% return opts.transition_time_main %>ms ease,
+                    box-shadow <% return opts.transition_time_main %>ms ease,
+                    max-width <% return opts.transition_time_main %>ms ease;
       }
 
       body:not(.is-wide) > .page > header > h1 {
@@ -208,19 +208,7 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        justify-content: center;
-        padding-left: 0;
-      }
-
-      body:not(.is-wide) > .page.showing-nav > nav:before {
-        opacity: 0.5;
-        pointer-events: all;
-        user-select: none;
-      }
-
-      body:not(.is-wide) > .page.showing-nav > main {
-        pointer-events: none;
-        user-select: none;
+        text-align: center;
       }
 
       body.is-wide > .page > header > button.menu {
@@ -235,31 +223,67 @@
         overflow: visible;
         min-width: 100%;
         min-height: 100%;
-
-        transition: transform <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease;
+        transition: transform <% return opts.transition_time_main %>ms ease,
+                    opacity <% return opts.transition_time_main %>ms ease;
       }
 
       .page > nav {
+        position: relative;
         display: flex;
         flex-direction: column;
         position: fixed;
         top: 0;
         left: 0;
-        width: 270px;
+        width: <% return opts.nav_width %>px;
+        overflow-y: auto;
         max-width: 100vw;
         min-width: 0;
-        height: 100vh;
-        z-index: 99;
-
+        height: calc(100vh + <% return opts.header_height %>px);
+        padding-bottom: calc(<% return opts.header_height %>px * 2);
+        z-index: 97;
         background: <% return opts.nav_bg %>;
-        margin-top: <% return opts.header_height %>px;
         box-shadow: <% return opts.nav_shadow %>;
         transition: transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
       }
 
+      .page > .nav-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 100vw;
+        opacity: 0;
+        background: #000000;
+        pointer-events: none;
+        transition: opacity <% return opts.transition_time %>ms ease;
+      }
+
+      body:not(.is-wide) > .page.showing-nav > .nav-overlay {
+        opacity: 0.5;
+        pointer-events: all;
+      }
+
+      body:not(.is-wide) > .page.showing-nav > main {
+        user-select: none;
+        pointer-events: none;
+      }
+
+      body:not(.is-wide) > .page.showing-nav > main {
+        user-select: none;
+        pointer-events: none;
+      }
+
+      .page > nav > *:first-child {
+        margin-top: <% return opts.header_height %>px;
+      }
+
+      .page > nav > *:last-child {
+        margin-bottom: <% return opts.header_height %>px;
+      }
+
       .page > nav > button {
+        flex-shrink: 0;
         font-weight: bold;
         margin: 0;;
         border-radius: 0;
@@ -284,7 +308,6 @@
         justify-content: center;
         cursor: pointer;
         pointer-events: all;
-
         color: <% return opts.fab_fg %>;
         background: <% return opts.fab_bg %>;
         top: calc(100% - <% return opts.fab_width_large %>px - 16px);
@@ -372,7 +395,6 @@
         padding-right: 0.75em;
         left: 16px;
         pointer-events: all;
-
         color: <% return opts.snack_fg %>;
         background: <% return opts.snack_bg %>;
         min-height: <% return opts.snack_height %>px;
@@ -441,8 +463,6 @@
         transform: translateZ(0);
         border-radius: inherit;
         pointer-events: none;
-
-        animation: ripple-container calc(<% return opts.transition_time %>ms * 2) forwards;
       }
 
       .page > header > button > .ripple-container {
@@ -459,9 +479,8 @@
         border-radius: 50%;
         transform: scale(0.7);
         opacity: 0.45;
-
         background: <% return opts.ripple_bg %>;
-        animation: ripple-wave calc(<% return opts.transition_time %>ms * 3) forwards;
+        animation: ripple-wave <% return opts.transition_time_wave %>ms forwards ease;
       }
 
       nav > button .ripple-wave {
@@ -507,8 +526,7 @@
 
     <% push(opts.service_worker) %>
       <button class="warn-update-worker">
-        A new version of <% return opts.title %>
-        is available. Click to Update!
+        Update available. Click to update!
       </button>
     <% pop() %>
 
@@ -517,5 +535,3 @@
   </body>
 
 </html>
-
-
