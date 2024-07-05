@@ -11,14 +11,26 @@
 
 # Next
 
+- Nav touch.pageX doesn't consider horizontal scroll
+
+- Link buttons, dropdown, typeahead single/multi select
+- Generalized banner
+- Modals
+- Footer with tray extend
+- Header with tray extend
+- Pull to refresh
+
+- Header-fixed elements
+- Restore scroll positions
+- Malformed URL handling
+- Horizontal scroll fix on animation (marginLeft/etc)
+- Asset generation
+
 - Consider using properties instead of classes when not needed in CSS
 - Refactor to slot-based navs: first "slot" is the forward/backward pager and
   is used for the pages passed into the top-level spa(...). Subsequent navs must
   specify data-type as drawer, footer, or more TBD.
 
-- Ripple incorrectly positioned for buttons with SVG icons when the icon is
-  clicked (it works when the surrounding button is clicked)
-- Prevent scroll when nav overlay active
 - Snacks/fabs incorrectly positioned when browser toolbar hides on scroll
 - Consider not automatically setting up .fab.minmax and not automatically
   rotating it based on the state (should be users responsibility)
