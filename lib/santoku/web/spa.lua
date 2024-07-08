@@ -165,9 +165,9 @@ return function (opts)
 
   end
 
-  M.setup_nav = function (next_view, sub_view_name)
+  M.setup_nav = function (next_view, sub_view_name, dir, init)
 
-    next_view.e_nav = next_view.el:querySelector(".page > nav")
+    next_view.e_nav = next_view.el:querySelector("section > nav")
 
     if not next_view.e_nav then
       return
@@ -188,7 +188,9 @@ return function (opts)
     local active_touch_x = {}
 
     local function on_touch_start (_, ev)
-      if n_active_touch == 0 and ev.changedTouches.length == 1 and ev.changedTouches[0].pageX <= tonumber(opts.nav_pull_gutter) then
+      if n_active_touch == 0 and ev.changedTouches.length == 1 and
+        ev.changedTouches[0].pageX <= tonumber(opts.nav_pull_gutter)
+      then
         ev:preventDefault()
         Array:from(ev.changedTouches):forEach(function (_, t)
           n_active_touch = n_active_touch + 1
@@ -247,7 +249,7 @@ return function (opts)
       sub_view_name = state.path[2]
     end
 
-    M.switch(next_view, sub_view_name, "ignore")
+    M.switch(next_view, sub_view_name, "ignore", dir, init)
 
     if e_body.classList:contains("is-wide") then
       M.toggle_nav_state(next_view, true, false, false)
@@ -259,7 +261,7 @@ return function (opts)
 
   M.setup_fabs = function (next_view, last_view)
 
-    next_view.e_fabs = next_view.el:querySelectorAll(".page > .fab")
+    next_view.e_fabs = next_view.el:querySelectorAll("section > button.fab")
 
     next_view.e_fabs_shared = {}
     next_view.e_fabs_top = {}
@@ -283,7 +285,7 @@ return function (opts)
       end
 
       if not el.classList:contains("small") and
-        last_view and last_view.el:querySelectorAll(".page > .fab:not(.small)")
+        last_view and last_view.el:querySelectorAll("section > button.fab:not(.small)")
       then
         arr.push(next_view.e_fabs_shared, el)
       elseif el.classList:contains("top") then
@@ -300,7 +302,7 @@ return function (opts)
 
   M.setup_snacks = function (next_view)
 
-    next_view.e_snacks = next_view.el:querySelectorAll(".page > .snack")
+    next_view.e_snacks = next_view.el:querySelectorAll("section > .snack")
     next_view.snack_observed_classes = {}
 
     for i = 0, next_view.e_snacks.length - 1 do
@@ -319,19 +321,13 @@ return function (opts)
 
   end
 
-  -- TODO: Currently this figures out how many
-  -- buttons are on either side of the title,
-  -- and sets the title width such that it
-  -- doesn't overlap the side with the most
-  -- buttons. The problem is that if one side
-  -- has a button and the other doesnt, and the
-  -- title is long enough to overlap, it
-  -- confusingly gets cut off on the side
-  -- without buttons, when ideally it should
-  -- only be getting cut off by the buttons. We
-  -- need some sort of adaptive centering as the
-  -- user types into the title input or based on
-  -- the actual displayed length.
+  -- TODO: Currently this figures out how many buttons are on either side of the
+  -- title, and sets the title width such that it doesn't overlap the side with
+  -- the most buttons. The problem is that if one side has a button and the
+  -- other doesnt, and the title is long enough to overlap, it confusingly gets
+  -- cut off on the side without buttons, when ideally it should only be getting
+  -- cut off by the buttons. We need some sort of adaptive centering as the user
+  -- types into the title input or based on the actual displayed length.
   M.setup_header_title_width = function (view)
 
     if not view.e_header then
@@ -373,7 +369,7 @@ return function (opts)
     end)
 
     local shrink = num.max(offset_left, offset_right) * 2
-    local maxWidth = "calc(100vw - " .. shrink .. "px)"
+    local maxWidth = "calc(100dvw - " .. shrink .. "px)"
 
     e_title.style.maxWidth = maxWidth
 
@@ -410,9 +406,15 @@ return function (opts)
 
     M.style_header(view, animate)
     M.style_nav(view, animate)
-    M.style_main(view, animate)
     M.style_fabs(view, animate)
     M.style_snacks(view, animate)
+
+    if view.active_view then
+      M.style_main_header_switch(view, animate)
+      M.style_main_switch(view, animate)
+    else
+      M.style_main(view, animate)
+    end
 
   end
 
@@ -420,10 +422,6 @@ return function (opts)
 
     if not next_view.e_minmax then
       return
-    end
-
-    if next_view.e_header then
-      next_view.e_header.classList:add("no-hide")
     end
 
     next_view.e_minmax:addEventListener("click", function ()
@@ -452,22 +450,7 @@ return function (opts)
 
   end
 
-  M.get_base_nav_offset = function (view)
-    return (update_worker and opts.banner_height or 0) +
-           (view.maximized and (- opts.header_height) or 0)
-  end
-
-  M.get_base_main_offset = function (view)
-    return (update_worker and opts.banner_height or 0) +
-           (view.maximized and (- opts.header_height) or 0)
-  end
-
   M.get_base_header_offset = function (view)
-    return (update_worker and opts.banner_height or 0) +
-           (view.maximized and (- opts.header_height) or 0)
-  end
-
-  M.get_base_fabs_top_offset = function (view)
     return (update_worker and opts.banner_height or 0) +
            (view.maximized and (- opts.header_height) or 0)
   end
@@ -580,11 +563,43 @@ return function (opts)
       end)
     end
 
-    local nav_push = view.maximized and 0 or ((view.e_nav and e_body.classList:contains("is-wide")) and opts.nav_width or 0)
+    local nav_push = view.maximized
+      and 0 or ((view.e_nav and e_body.classList:contains("is-wide"))
+      and opts.nav_width or 0)
+
     view.e_main.style.transform = "translate(" .. nav_push .. "px," .. view.main_offset .. "px)"
-    view.e_main.style["min-width"] = "calc(100vw - " .. nav_push .. "px)"
+    view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
+
+  end
+
+  M.style_main_header_switch = function (view, animate)
+
+    if not view.e_main_header then
+      return
+    end
+
+    if animate then
+      view.e_main_header.classList:add("animated")
+      if view.main_header_animation then
+        window:clearTimeout(view.main_header_animation)
+        view.main_header_animation = nil
+      end
+      view.main_header_animation = M.after_transition(function ()
+        view.e_main_header.classList:remove("animated")
+        view.main_header_animation = nil
+      end)
+    end
+
+    local nav_push = view.maximized
+      and 0 or ((view.parent and view.parent.e_nav and e_body.classList:contains("is-wide"))
+      and opts.nav_width or 0)
+
+    view.e_main_header.style.transform = "translate(" .. nav_push .. "px," .. view.main_header_offset .. "px)"
+    view.e_main_header.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
+    view.e_main_header.style.opacity = view.main_header_opacity
+    view.e_main_header.style["z-index"] = view.main_header_index
 
   end
 
@@ -606,7 +621,12 @@ return function (opts)
       end)
     end
 
-    view.e_main.style.transform = "translateY(" .. -view.main_offset .. "px)"
+    local nav_push = view.maximized
+      and 0 or ((view.parent and view.parent.e_nav and e_body.classList:contains("is-wide"))
+      and opts.nav_width or 0)
+
+    view.e_main.style.transform = "translate(" .. nav_push .. "px," .. view.main_offset .. "px)"
+    view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
 
@@ -757,9 +777,14 @@ return function (opts)
 
     local bottom_offset_total = 0
 
+    local nav_push = view.maximized
+      and 0 or ((view.parent and view.parent.e_nav and e_body.classList:contains("is-wide"))
+      and opts.nav_width or 0)
+
     view.e_snacks:forEach(function (_, e_snack)
-      local nav_push = view.maximized and 0 or ((view.e_nav and e_body.classList:contains("is-wide")) and opts.nav_width or 0)
+
       e_snack.style["z-index"] = view.snack_index
+
       if not M.should_show(view, e_snack) then
         e_snack.style.opacity = 0
         e_snack.style["pointer-events"] = "none"
@@ -773,6 +798,7 @@ return function (opts)
         bottom_offset_total = bottom_offset_total +
             opts.snack_height + 16
       end
+
     end)
 
   end
@@ -781,24 +807,20 @@ return function (opts)
 
     if not last_view and transition == "enter" then
 
-      next_view.nav_offset = M.get_base_nav_offset(next_view)
+      next_view.nav_offset = M.get_base_header_offset(next_view)
       next_view.nav_opacity = 1
-      next_view.nav_index = 95
+      next_view.nav_index = opts.nav_index + 1
       M.style_nav(next_view)
-
-    elseif not last_view and transition == "exit" then
-
-      error("invalid state: nav exit transition with no last view")
 
     elseif transition == "enter" and direction == "forward" then
 
-      next_view.nav_offset = M.get_base_nav_offset(next_view) + opts.transition_forward_height / 2
+      next_view.nav_offset = M.get_base_header_offset(next_view) + opts.transition_forward_height
       next_view.nav_opacity = 0
-      next_view.nav_index = 97
+      next_view.nav_index = opts.nav_index + 1
       M.style_nav(next_view)
 
       M.after_frame(function ()
-        next_view.nav_offset = next_view.nav_offset - opts.transition_forward_height / 2
+        next_view.nav_offset = next_view.nav_offset - opts.transition_forward_height
         next_view.nav_opacity = 1
         M.style_nav(next_view, true)
       end)
@@ -807,27 +829,27 @@ return function (opts)
 
       last_view.nav_offset = last_view.nav_offset - opts.transition_forward_height
       last_view.nav_opacity = 0
-      last_view.nav_index = 95
+      last_view.nav_index = opts.nav_index - 1
       M.style_nav(last_view, true)
 
     elseif transition == "enter" and direction == "backward" then
 
-      next_view.nav_offset = M.get_base_nav_offset(next_view) - opts.transition_forward_height / 2
+      next_view.nav_offset = M.get_base_header_offset(next_view) - opts.transition_forward_height
       next_view.nav_opacity = 0
-      next_view.nav_index = 95
+      next_view.nav_index = opts.nav_index - 1
       M.style_nav(next_view)
 
       M.after_frame(function ()
-        next_view.nav_offset = M.get_base_nav_offset(next_view)
+        next_view.nav_offset = M.get_base_header_offset(next_view)
         next_view.nav_opacity = 1
         M.style_nav(next_view, true)
       end)
 
     elseif transition == "exit" and direction == "backward" then
 
-      last_view.nav_offset = opts.transition_forward_height + M.get_base_nav_offset(last_view)
+      last_view.nav_offset = opts.transition_forward_height + M.get_base_header_offset(last_view)
       last_view.nav_opacity = 0
-      last_view.nav_index = 97
+      last_view.nav_index = opts.nav_index + 1
       M.style_nav(last_view, true)
 
     else
@@ -847,18 +869,14 @@ return function (opts)
 
       next_view.header_offset = M.get_base_header_offset(next_view)
       next_view.header_opacity = 1
-      next_view.header_index = 100
+      next_view.header_index = opts.header_index + 1
       next_view.header_shadow = opts.header_shadow
       M.style_header(next_view)
-
-    elseif not last_view and transition == "exit" then
-
-      error("invalid state: header exit transition with no last view")
 
     elseif transition == "enter" and direction == "forward" then
 
       next_view.header_offset = last_view.header_offset
-      next_view.header_index = 100
+      next_view.header_index = opts.header_index + 1
 
       if next_view.header_offset < M.get_base_header_offset(next_view) then
         next_view.header_opacity = 1
@@ -879,7 +897,7 @@ return function (opts)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.header_index = 98
+      last_view.header_index = opts.header_index - 1
       M.style_header(last_view, true)
 
     elseif transition == "enter" and direction == "backward" then
@@ -887,7 +905,7 @@ return function (opts)
       next_view.header_offset = last_view.e_header and last_view.header_offset or
         M.get_base_header_offset(next_view)
       next_view.header_opacity = 1
-      next_view.header_index = 98
+      next_view.header_index = opts.header_index - 1
       next_view.header_shadow = opts.header_shadow
       M.style_header(next_view)
 
@@ -900,7 +918,7 @@ return function (opts)
     elseif transition == "exit" and direction == "backward" then
 
       last_view.header_opacity = 0
-      last_view.header_index = 100
+      last_view.header_index = opts.header_index + 1
       last_view.header_shadow = "none"
       M.style_header(last_view, true)
 
@@ -916,52 +934,49 @@ return function (opts)
 
     if not last_view and transition == "enter" then
 
-      next_view.main_offset = M.get_base_main_offset(next_view)
+      next_view.main_offset = M.get_base_header_offset(next_view)
       next_view.main_opacity = 1
-      next_view.main_index = 94
+      next_view.main_index = opts.main_index - 1
       M.style_main(next_view)
-
-    elseif not last_view and transition == "exit" then
-
-      error("invalid state: main exit transition with no last view")
 
     elseif transition == "enter" and direction == "forward" then
 
-      next_view.main_offset = M.get_base_main_offset(next_view) + opts.transition_forward_height / 2
+      next_view.main_offset = M.get_base_header_offset(next_view) + opts.transition_forward_height
       next_view.main_opacity = 0
-      next_view.main_index = 96
+      next_view.main_index = opts.main_index + 1
       M.style_main(next_view)
 
       M.after_frame(function ()
-        next_view.main_offset = next_view.main_offset - opts.transition_forward_height / 2
+        next_view.main_offset = next_view.main_offset - opts.transition_forward_height
         next_view.main_opacity = 1
         M.style_main(next_view, true)
       end)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.main_offset = M.get_base_main_offset(last_view) - opts.transition_forward_height
+      last_view.main_offset = M.get_base_header_offset(last_view) - opts.transition_forward_height
       last_view.main_opacity = 0
-      last_view.main_index = 94
+      last_view.main_index = opts.main_index - 1
       M.style_main(last_view, true)
 
     elseif transition == "enter" and direction == "backward" then
 
-      next_view.main_offset = M.get_base_main_offset(next_view) - opts.transition_forward_height / 2
-      next_view.main_opacity = 1
-      next_view.main_index = 94
+      next_view.main_offset = M.get_base_header_offset(next_view) - opts.transition_forward_height
+      next_view.main_opacity = 0
+      next_view.main_index = opts.main_index + 1
       M.style_main(next_view)
 
       M.after_frame(function ()
-        next_view.main_offset = M.get_base_main_offset(next_view)
+        next_view.main_offset = M.get_base_header_offset(next_view)
+        next_view.main_opacity = 1
         M.style_main(next_view, true)
       end)
 
     elseif transition == "exit" and direction == "backward" then
 
-      last_view.main_offset = opts.transition_forward_height + M.get_base_main_offset(last_view)
+      last_view.main_offset = M.get_base_header_offset(last_view) + opts.transition_forward_height
       last_view.main_opacity = 0
-      last_view.main_index = 96
+      last_view.main_index = opts.main_index + 1
       M.style_main(last_view, true)
 
     else
@@ -972,57 +987,110 @@ return function (opts)
 
   end
 
-  M.style_main_transition_switch = function (next_view, transition, direction, last_view)
+  M.style_main_header_transition_switch = function (next_view, transition, direction, last_view, init)
 
-    if not last_view and transition == "enter" then
+    if init and direction == "forward" then
 
-      next_view.main_offset = 0
-      next_view.main_opacity = 1
-      next_view.main_index = 94
-      M.style_main_switch(next_view)
-
-    elseif not last_view and transition == "exit" then
-
-      error("invalid state: main exit transition with no last view")
+      next_view.main_header_offset = M.get_base_header_offset(next_view.parent)
+      next_view.main_header_opacity = 1
+      next_view.main_header_index = opts.main_header_index + 1
+      M.style_main_header_switch(next_view)
 
     elseif transition == "enter" and direction == "forward" then
 
-      next_view.main_offset = 32
+      next_view.main_header_offset = M.get_base_header_offset(next_view.parent) + opts.transition_forward_height
+      next_view.main_header_opacity = 0
+      next_view.main_header_index = opts.main_header_index + 1
+      M.style_main_header_switch(next_view)
+
+      M.after_frame(function ()
+        next_view.main_header_offset = M.get_base_header_offset(next_view.parent)
+        next_view.main_header_opacity = 1
+        M.style_main_header_switch(next_view, true)
+      end)
+
+    elseif transition == "exit" and direction == "forward" then
+
+      last_view.main_header_offset = M.get_base_header_offset(last_view.parent) - opts.transition_forward_height
+      last_view.main_header_opacity = 0
+      last_view.main_header_index = opts.main_header_index - 1
+      M.style_main_header_switch(last_view, true)
+
+    elseif transition == "enter" and direction == "backward" then
+
+      next_view.main_header_offset = M.get_base_header_offset(next_view.parent) - opts.transition_forward_height
+      next_view.main_header_opacity = 0
+      next_view.main_header_index = opts.main_header_index - 1
+      M.style_main_header_switch(next_view)
+
+      M.after_frame(function ()
+        next_view.main_header_offset = M.get_base_header_offset(next_view.parent)
+        next_view.main_header_opacity = 1
+        M.style_main_header_switch(next_view, true)
+      end)
+
+    elseif transition == "exit" and direction == "backward" then
+
+      last_view.main_header_offset = M.get_base_header_offset(last_view.parent) + opts.transition_forward_height
+      last_view.main_header_opacity = 0
+      last_view.main_header_index = opts.main_header_index + 1
+      M.style_main_header_switch(last_view, true)
+
+    else
+
+      error("invalid state: main header transition")
+
+    end
+
+  end
+
+  M.style_main_transition_switch = function (next_view, transition, direction, last_view, init)
+
+    if init and direction == "forward" then
+
+      next_view.main_offset = M.get_base_header_offset(next_view.parent)
+      next_view.main_opacity = 1
+      next_view.main_index = opts.main_index + 1
+      M.style_main_switch(next_view)
+
+    elseif transition == "enter" and direction == "forward" then
+
+      next_view.main_offset = M.get_base_header_offset(next_view.parent) + opts.transition_forward_height
       next_view.main_opacity = 0
-      next_view.main_index = 94
+      next_view.main_index = opts.main_index + 1
       M.style_main_switch(next_view)
 
       M.after_frame(function ()
-        next_view.main_offset = 0
+        next_view.main_offset = M.get_base_header_offset(next_view.parent)
         next_view.main_opacity = 1
         M.style_main_switch(next_view, true)
       end)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.main_offset = -32
+      last_view.main_offset = M.get_base_header_offset(last_view.parent) - opts.transition_forward_height
       last_view.main_opacity = 0
-      last_view.main_index = 96
+      last_view.main_index = opts.main_index - 1
       M.style_main_switch(last_view, true)
 
     elseif transition == "enter" and direction == "backward" then
 
-      next_view.main_offset = -32
+      next_view.main_offset = M.get_base_header_offset(next_view.parent) - opts.transition_forward_height
       next_view.main_opacity = 0
-      next_view.main_index = 94
+      next_view.main_index = opts.main_index - 1
       M.style_main_switch(next_view)
 
       M.after_frame(function ()
-        next_view.main_offset = 0
+        next_view.main_offset = M.get_base_header_offset(next_view.parent)
         next_view.main_opacity = 1
         M.style_main_switch(next_view, true)
       end)
 
     elseif transition == "exit" and direction == "backward" then
 
-      last_view.main_offset = 32
+      last_view.main_offset = M.get_base_header_offset(last_view.parent) + opts.transition_forward_height
       last_view.main_opacity = 0
-      last_view.main_index = 96
+      last_view.main_index = opts.main_index + 1
       M.style_main_switch(last_view, true)
 
     else
@@ -1041,47 +1109,43 @@ return function (opts)
 
     if not last_view and transition == "enter" then
 
-      next_view.fab_shared_index = 99
+      next_view.fab_shared_index = opts.fab_index + 1
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 1
       next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = 0
       next_view.fab_shared_svg_offset = 0
 
-      next_view.fabs_bottom_index = 98
+      next_view.fabs_bottom_index = opts.fab_index - 1
       next_view.fabs_bottom_scale = 1
       next_view.fabs_bottom_opacity = 1
       next_view.fabs_bottom_offset = 0
 
-      next_view.fabs_top_index = 98
+      next_view.fabs_top_index = opts.fab_index - 1
       next_view.fabs_top_scale = 1
       next_view.fabs_top_opacity = 1
-      next_view.fabs_top_offset = M.get_base_fabs_top_offset(next_view)
+      next_view.fabs_top_offset = M.get_base_header_offset(next_view)
 
       M.style_fabs(next_view)
 
-    elseif not last_view and transition == "exit" then
-
-      error("invalid state: fabs exit transition with no last view")
-
     elseif is_shared and transition == "enter" and direction == "forward" then
 
-      next_view.fab_shared_index = 99
+      next_view.fab_shared_index = opts.fab_index + 1
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 0
       next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = 0
       next_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
 
-      next_view.fabs_bottom_index = 98
+      next_view.fabs_bottom_index = opts.fab_index - 1
       next_view.fabs_bottom_scale = 0.75
       next_view.fabs_bottom_opacity = 0
       next_view.fabs_bottom_offset = opts.transition_forward_height
 
-      next_view.fabs_top_index = 98
+      next_view.fabs_top_index = opts.fab_index - 1
       next_view.fabs_top_scale = 0.75
       next_view.fabs_top_opacity = 0
-      next_view.fabs_top_offset = opts.transition_forward_height + M.get_base_fabs_top_offset(next_view)
+      next_view.fabs_top_offset = opts.transition_forward_height + M.get_base_header_offset(next_view)
 
       M.style_fabs(next_view)
 
@@ -1093,49 +1157,49 @@ return function (opts)
         next_view.fabs_bottom_offset = 0
         next_view.fabs_top_scale = 1
         next_view.fabs_top_opacity = 1
-        next_view.fabs_top_offset = M.get_base_fabs_top_offset(next_view)
+        next_view.fabs_top_offset = M.get_base_header_offset(next_view)
         M.style_fabs(next_view, true)
       end)
 
     elseif is_shared and transition == "exit" and direction == "forward" then
 
-      last_view.fab_shared_index = 99
+      last_view.fab_shared_index = opts.fab_index + 1
       last_view.fab_shared_scale = 1
       last_view.fab_shared_opacity = 1
       last_view.fab_shared_shadow = opts.fab_shadow_transparent
       last_view.fab_shared_offset = 0
       last_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
 
-      last_view.fabs_bottom_index = 96
+      last_view.fabs_bottom_index = opts.fab_index - 2
       last_view.fabs_bottom_scale = 1
       last_view.fabs_bottom_opacity = 0
       last_view.fabs_bottom_offset = 0
 
-      last_view.fabs_top_index = 96
+      last_view.fabs_top_index = opts.fab_index - 2
       last_view.fabs_top_scale = 1
       last_view.fabs_top_opacity = 0
-      last_view.fabs_top_offset = M.get_base_fabs_top_offset(last_view)
+      last_view.fabs_top_offset = M.get_base_header_offset(last_view)
 
       M.style_fabs(last_view, true)
 
     elseif is_shared and transition == "enter" and direction == "backward" then
 
-      next_view.fab_shared_index = 99
+      next_view.fab_shared_index = opts.fab_index + 1
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 0
       next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = 0
       next_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
 
-      next_view.fabs_bottom_index = 96
+      next_view.fabs_bottom_index = opts.fab_index - 2
       next_view.fabs_bottom_scale = 0.75
       next_view.fabs_bottom_opacity = 0
       next_view.fabs_bottom_offset = 0
 
-      next_view.fabs_top_index = 96
+      next_view.fabs_top_index = opts.fab_index - 2
       next_view.fabs_top_scale = 0.75
       next_view.fabs_top_opacity = 0
-      next_view.fabs_top_offset = M.get_base_fabs_top_offset(next_view)
+      next_view.fabs_top_offset = M.get_base_header_offset(next_view)
 
       M.style_fabs(next_view)
 
@@ -1151,43 +1215,43 @@ return function (opts)
 
     elseif is_shared and transition == "exit" and direction == "backward" then
 
-      last_view.fab_shared_index = 99
+      last_view.fab_shared_index = opts.fab_index + 1
       last_view.fab_shared_scale = 1
       last_view.fab_shared_opacity = 1
       last_view.fab_shared_shadow = opts.fab_shadow_transparent
       last_view.fab_shared_offset = 0
       last_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
 
-      last_view.fabs_bottom_index = 98
+      last_view.fabs_bottom_index = opts.fab_index - 1
       last_view.fabs_bottom_scale = 0.75
       last_view.fabs_bottom_opacity = 0
       last_view.fabs_bottom_offset = opts.transition_forward_height
 
-      last_view.fabs_top_index = 100
+      last_view.fabs_top_index = opts.fab_index + 2
       last_view.fabs_top_scale = 0.75
       last_view.fabs_top_opacity = 0
-      last_view.fabs_top_offset = opts.transition_forward_height + M.get_base_fabs_top_offset(last_view)
+      last_view.fabs_top_offset = opts.transition_forward_height + M.get_base_header_offset(last_view)
 
       M.style_fabs(last_view, true)
 
     elseif transition == "enter" and direction == "forward" then
 
-      next_view.fab_shared_index = 98
+      next_view.fab_shared_index = opts.fab_index - 1
       next_view.fab_shared_scale = 0.75
       next_view.fab_shared_opacity = 0
       next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = opts.transition_forward_height
       next_view.fab_shared_svg_offset = 0
 
-      next_view.fabs_bottom_index = 98
+      next_view.fabs_bottom_index = opts.fab_index - 1
       next_view.fabs_bottom_scale = 0.75
       next_view.fabs_bottom_opacity = 0
       next_view.fabs_bottom_offset = opts.transition_forward_height
 
-      next_view.fabs_top_index = 98
+      next_view.fabs_top_index = opts.fab_index - 1
       next_view.fabs_bottom_scale = 0.75
       next_view.fabs_bottom_opacity = 0
-      next_view.fabs_top_offset = opts.transition_forward_height + M.get_base_fabs_top_offset(next_view)
+      next_view.fabs_top_offset = opts.transition_forward_height + M.get_base_header_offset(next_view)
 
       M.style_fabs(next_view)
 
@@ -1200,28 +1264,28 @@ return function (opts)
         next_view.fabs_bottom_offset = 0
         next_view.fabs_top_scale = 1
         next_view.fabs_top_opacity = 1
-        next_view.fabs_top_offset = M.get_base_fabs_top_offset(next_view)
+        next_view.fabs_top_offset = M.get_base_header_offset(next_view)
         M.style_fabs(next_view, true)
       end)
 
     elseif transition == "enter" and direction == "backward" then
 
-      next_view.fab_shared_index = 96
+      next_view.fab_shared_index = opts.fab_index - 2
       next_view.fab_shared_scale = 0.75
       next_view.fab_shared_opacity = 0
       next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = 0
       next_view.fab_shared_svg_offset = 0
 
-      next_view.fabs_bottom_index = 96
+      next_view.fabs_bottom_index = opts.fab_index - 2
       next_view.fabs_bottom_scale = 0.75
       next_view.fabs_bottom_opacity = 0
       next_view.fabs_bottom_offset = 0
 
-      next_view.fabs_top_index = 96
+      next_view.fabs_top_index = opts.fab_index - 2
       next_view.fabs_bottom_scale = 0.75
       next_view.fabs_bottom_opacity = 0
-      next_view.fabs_top_offset = M.get_base_fabs_top_offset(next_view)
+      next_view.fabs_top_offset = M.get_base_header_offset(next_view)
 
       M.style_fabs(next_view)
 
@@ -1237,43 +1301,43 @@ return function (opts)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.fab_shared_index = 96
+      last_view.fab_shared_index = opts.fab_index - 2
       last_view.fab_shared_scale = 1
       last_view.fab_shared_opacity = 0
       last_view.fab_shared_shadow = opts.fab_shadow
       last_view.fab_shared_offset = 0
       last_view.fab_shared_svg_offset = 0
 
-      last_view.fabs_bottom_index = 96
+      last_view.fabs_bottom_index = opts.fab_index - 2
       last_view.fabs_bottom_scale = 1
       last_view.fabs_bottom_opacity = 0
       last_view.fabs_bottom_offset = 0
 
-      last_view.fabs_top_index = 96
+      last_view.fabs_top_index = opts.fab_index - 2
       last_view.fabs_top_scale = 1
       last_view.fabs_top_opacity = 0
-      last_view.fabs_top_offset = M.get_base_fabs_top_offset(last_view)
+      last_view.fabs_top_offset = M.get_base_header_offset(last_view)
 
       M.style_fabs(last_view, true)
 
     elseif transition == "exit" and direction == "backward" then
 
-      last_view.fab_shared_index = 98
+      last_view.fab_shared_index = opts.fab_index - 1
       last_view.fab_shared_scale = 0.75
       last_view.fab_shared_opacity = 0
       last_view.fab_shared_shadow = opts.fab_shadow
       last_view.fab_shared_offset = opts.transition_forward_height
       last_view.fab_shared_svg_offset = 0
 
-      last_view.fabs_bottom_index = 98
+      last_view.fabs_bottom_index = opts.fab_index - 1
       last_view.fabs_bottom_scale = 0.75
       last_view.fabs_bottom_opacity = 0
       last_view.fabs_bottom_offset = opts.transition_forward_height
 
-      last_view.fabs_top_index = 98
+      last_view.fabs_top_index = opts.fab_index - 1
       last_view.fabs_top_scale = 0.75
       last_view.fabs_top_opacity = 0
-      last_view.fabs_top_offset = opts.transition_forward_height + M.get_base_fabs_top_offset(last_view)
+      last_view.fabs_top_offset = opts.transition_forward_height + M.get_base_header_offset(last_view)
 
       M.style_fabs(last_view, true)
 
@@ -1291,18 +1355,14 @@ return function (opts)
 
       next_view.snack_offset = M.get_base_snack_offset(next_view)
       next_view.snack_opacity = next_view.maximized and 0 or 1
-      next_view.snack_index = 96
+      next_view.snack_index = opts.snack_index - 1
       M.style_snacks(next_view)
-
-    elseif not last_view and transition == "exit" then
-
-      error("invalid state: snack exit transition with no last view")
 
     elseif transition == "enter" and direction == "forward" then
 
       next_view.snack_offset = M.get_base_snack_offset(next_view) + opts.transition_forward_height
       next_view.snack_opacity = 0
-      next_view.snack_index = 98
+      next_view.snack_index = opts.snack_index + 1
       M.style_snacks(next_view)
 
       M.after_frame(function ()
@@ -1313,16 +1373,16 @@ return function (opts)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.snack_offset = M.get_base_snack_offset(last_view) - opts.transition_forward_height / 2
+      last_view.snack_offset = M.get_base_snack_offset(last_view) - opts.transition_forward_height
       last_view.snack_opacity = next_view.maximized and 0 or 1
-      last_view.snack_index = 96
+      last_view.snack_index = opts.snack_index - 1
       M.style_snacks(last_view, true)
 
     elseif transition == "enter" and direction == "backward" then
 
-      next_view.snack_offset = M.get_base_snack_offset(next_view)  - opts.transition_forward_height / 2
+      next_view.snack_offset = M.get_base_snack_offset(next_view)  - opts.transition_forward_height
       next_view.snack_opacity = next_view.maximized and 0 or 1
-      next_view.snack_index = 96
+      next_view.snack_index = opts.snack_index - 1
       M.style_snacks(next_view)
 
       M.after_frame(function ()
@@ -1334,7 +1394,7 @@ return function (opts)
 
       last_view.snack_offset = opts.transition_forward_height + M.get_base_snack_offset(last_view)
       last_view.snack_opacity = 0
-      last_view.snack_index = 98
+      last_view.snack_index = opts.snack_index + 1
       M.style_snacks(last_view, true)
 
     else
@@ -1353,9 +1413,17 @@ return function (opts)
       view.header_offset = M.get_base_header_offset(view)
       view.header_shadow = opts.header_shadow
     end
+    if view.active_view then
+      view.active_view.main_header_offset = view.header_offset
+      view.active_view.main_offset = view.header_offset
+    end
     view.nav_offset = view.header_offset
     M.style_header(view, true)
     M.style_nav(view, true)
+    if view.active_view then
+      M.style_main_header_switch(view.active_view, true)
+      M.style_main_switch(view.active_view, true)
+    end
   end
 
   M.scroll_listener = function (view)
@@ -1421,7 +1489,7 @@ return function (opts)
       next_view.page.post_append(next_view, opts)
     end
 
-    local e_back = next_view.el:querySelector(".page > header > .back")
+    local e_back = next_view.el:querySelector("section > header > button.back")
 
     if e_back then
       e_back:addEventListener("click", function ()
@@ -1429,7 +1497,7 @@ return function (opts)
       end)
     end
 
-    local e_menu = next_view.el:querySelector(".page > header > .menu")
+    local e_menu = next_view.el:querySelector("section > header > button.menu")
 
     if e_menu then
       e_menu:addEventListener("click", function ()
@@ -1437,7 +1505,7 @@ return function (opts)
       end)
     end
 
-    if next_view.e_header and not next_view.e_header.classList:contains("no-hide") then
+    if next_view.e_header and not next_view.el.classList:contains("maximized") then
       next_view.curr_scrolly = nil
       next_view.last_scrolly = nil
       next_view.scroll_listener = M.scroll_listener(next_view)
@@ -1448,12 +1516,14 @@ return function (opts)
 
   end
 
-  M.enter_switch = function (view, next_view, direction, last_view)
+  M.enter_switch = function (view, next_view, direction, last_view, init)
 
     next_view.el = util.clone(next_view.page.template)
-    next_view.e_main = next_view.el:querySelector(".page > main")
+    next_view.e_main = next_view.el:querySelector("section > main")
+    next_view.e_main_header = next_view.el:querySelector("section > header")
 
-    M.style_main_transition_switch(next_view, "enter", direction, last_view)
+    M.style_main_header_transition_switch(next_view, "enter", direction, last_view, init)
+    M.style_main_transition_switch(next_view, "enter", direction, last_view, init)
 
     if next_view.page.init then
       next_view.page.init(next_view, opts)
@@ -1477,6 +1547,7 @@ return function (opts)
     last_view.no_scroll = true
     window:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
+    M.style_main_header_transition_switch(next_view, "exit", direction, last_view)
     M.style_main_transition_switch(next_view, "exit", direction, last_view)
 
     M.after_transition(function ()
@@ -1487,24 +1558,29 @@ return function (opts)
 
   end
 
-  M.enter = function (next_view, direction, last_view, sub_view_name)
+  M.enter = function (next_view, direction, last_view, sub_view_name, init)
 
     next_view.el = util.clone(next_view.page.template)
-    next_view.e_header = next_view.el:querySelector(".page > header")
-    next_view.e_main = next_view.el:querySelector(".page > main")
-    next_view.e_snacks = next_view.el:querySelector(".page > .snacks")
+    next_view.e_header = next_view.el:querySelector("section > header")
+    next_view.e_main = next_view.el:querySelector("section > main")
+    next_view.e_snacks = next_view.el:querySelector("section > .snacks")
 
     M.setup_observer(next_view)
-    M.setup_nav(next_view, sub_view_name)
+    M.setup_nav(next_view, sub_view_name, direction, init)
     M.setup_fabs(next_view, last_view)
     M.setup_snacks(next_view)
     M.setup_header_title_width(next_view)
     M.setup_maximize(next_view)
     M.style_header_transition(next_view, "enter", direction, last_view)
-    M.style_main_transition(next_view, "enter", direction, last_view)
     M.style_nav_transition(next_view, "enter", direction, last_view)
     M.style_fabs_transition(next_view, "enter", direction, last_view)
     M.style_snacks_transition(next_view, "enter", direction, last_view)
+
+    -- NOTE: No need to handle the active_view exist case, since it's handled by
+    -- setup_nav above
+    if not next_view.active_view then
+      M.style_main_transition(next_view, "enter", direction, last_view)
+    end
 
     if next_view.page.init then
       next_view.page.init(next_view, opts)
@@ -1521,15 +1597,21 @@ return function (opts)
 
   M.exit = function (last_view, direction, next_view)
 
-    last_view.e_main.style.marginTop = (opts.header_height - window.scrollY) .. "px"
+    last_view.e_main.style.marginTop = -window.scrollY .. "px"
     last_view.no_scroll = true
     window:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.style_header_transition(next_view, "exit", direction, last_view)
-    M.style_main_transition(next_view, "exit", direction, last_view)
     M.style_nav_transition(next_view, "exit", direction, last_view)
     M.style_fabs_transition(next_view, "exit", direction, last_view)
     M.style_snacks_transition(next_view, "exit", direction, last_view)
+
+    if last_view.active_view then
+      M.style_main_header_transition_switch(nil, "exit", direction, last_view.active_view)
+      M.style_main_transition_switch(nil, "exit", direction, last_view.active_view)
+    else
+      M.style_main_transition(next_view, "exit", direction, last_view)
+    end
 
     if last_view.scroll_listener then
       window:removeEventListener("scroll", last_view.scroll_listener)
@@ -1543,9 +1625,10 @@ return function (opts)
 
   end
 
-  M.init_view = function (name, page)
+  M.init_view = function (name, page, parent)
 
     local view = {
+      parent = parent,
       forward = M.forward,
       backward = M.backward,
       replace_forward = M.replace_forward,
@@ -1580,9 +1663,9 @@ return function (opts)
     end
   end
 
-  M.switch_dir = function (view, next_switch, last_switch)
+  M.switch_dir = function (view, next_switch, last_switch, dir)
     if view.header_offset and view.header_offset < M.get_base_header_offset(view) then
-      return "forward"
+      return "backward"
     end
     local idx_next, idx_last
     idx_next = varg.sel(2, arr.find(view.nav_order, fun.bind(op.eq, next_switch.name)))
@@ -1590,7 +1673,7 @@ return function (opts)
       idx_last = varg.sel(2, arr.find(view.nav_order, fun.bind(op.eq, last_switch.name)))
       return idx_next < idx_last and "backward" or "forward"
     else
-      return "forward"
+      return dir or "forward"
     end
   end
 
@@ -1605,7 +1688,7 @@ return function (opts)
     end
   end
 
-  M.switch = function (view, name, policy)
+  M.switch = function (view, name, policy, dir, init)
 
     local page = view.page.pages and view.page.pages[name]
 
@@ -1618,7 +1701,7 @@ return function (opts)
     end
 
     local last_view = view.active_view
-    view.active_view = M.init_view(name, page)
+    view.active_view = M.init_view(name, page, view)
 
     view.e_nav_buttons:forEach(function (_, el)
       if el.dataset.page == name then
@@ -1628,9 +1711,9 @@ return function (opts)
       end
     end)
 
-    local dir = M.switch_dir(view, view.active_view, last_view)
+    local dir = M.switch_dir(view, view.active_view, last_view, dir)
 
-    M.enter_switch(view, view.active_view, dir, last_view)
+    M.enter_switch(view, view.active_view, dir, last_view, init)
 
     if last_view then
       M.exit_switch(view, last_view, dir, view.active_view)
@@ -1673,15 +1756,7 @@ return function (opts)
     M.transition("replace", "backward")
   end
 
-  M.transition = function (policy, dir)
-
-    if active_view and active_view.header_offset and
-      active_view.header_offset < M.get_base_header_offset(active_view)
-    then
-      dir = "backward"
-    elseif not dir then
-      dir = "forward"
-    end
+  M.transition = function (policy, dir, init)
 
     M.after_frame(function ()
 
@@ -1700,13 +1775,13 @@ return function (opts)
       if not active_view or page ~= active_view.page then
         local last_view = active_view
         active_view = M.init_view(state.path[1], page)
-        M.enter(active_view, dir, last_view, state.path[2])
+        M.enter(active_view, dir, last_view, state.path[2], init)
         if last_view then
           M.exit(last_view, dir, active_view)
         end
         M.set_route(policy)
       elseif state.path[2] then
-        M.switch(active_view, state.path[2], policy)
+        M.switch(active_view, state.path[2], policy, nil, init)
       else
         M.set_route(policy)
       end
@@ -1724,7 +1799,7 @@ return function (opts)
 
   M.setup_ripples(e_body)
 
-  M.toggle_nav_state = function (view, open, animate, restyle)
+  M.toggle_nav_state = function (view, open, animate, restyle, reuse_header)
     if e_body.classList:contains("is-wide") then
       open = true
     end
@@ -1736,11 +1811,17 @@ return function (opts)
       view.el.classList:toggle("showing-nav")
     end
     if view.el.classList:contains("showing-nav") then
+      if not reuse_header then
+        view.header_offset = M.get_base_header_offset(view)
+      end
+      view.header_shadow = opts.header_shadow
       view.nav_slide = 0
-      view.header_offset = M.get_base_header_offset(view)
-      view.nav_offset = M.get_base_nav_offset(view)
+      view.nav_offset = view.header_offset
+      view.nav_overlay_opacity = e_body.classList:contains("is-wide")
+        and 0 or 0.5
     else
       view.nav_slide = -opts.nav_width
+      view.nav_overlay_opacity = 0
     end
     if restyle ~= false then
       M.style_header(view, animate ~= false)
@@ -1757,14 +1838,19 @@ return function (opts)
     end
     if active_view then
       if e_body.classList:contains("is-wide") then
-        M.toggle_nav_state(active_view, true, false, false)
+        M.toggle_nav_state(active_view, true, nil, nil, true)
       elseif was_wide then
-        M.toggle_nav_state(active_view, false, false, false)
+        M.toggle_nav_state(active_view, false)
       end
       M.setup_header_title_width(active_view)
       M.style_nav(active_view, true)
-      M.style_main(active_view, true)
       M.style_snacks(active_view, true)
+      if active_view.active_view then
+        M.style_main_header_switch(active_view.active_view, true)
+        M.style_main_switch(active_view.active_view, true)
+      else
+        M.style_main(active_view, true)
+      end
     end
   end
 
@@ -1786,17 +1872,28 @@ return function (opts)
 
         update_worker = true
 
-        active_view.header_offset = active_view.header_offset + opts.banner_height
-        active_view.nav_offset = active_view.nav_offset + opts.banner_height
-        active_view.main_offset = active_view.main_offset + opts.banner_height
-        active_view.fabs_top_offset = active_view.fabs_top_offset + opts.banner_height
-        active_view.header_min = - opts.header_height + M.get_base_header_offset(active_view)
+        active_view.header_offset = (active_view.header_offset or M.get_base_header_offset(active_view)) + opts.banner_height
+        active_view.nav_offset = (active_view.nav_offset or M.get_base_header_offset(active_view)) + opts.banner_height
+        active_view.main_offset = (active_view.main_offset or M.get_base_header_offset(active_view)) + opts.banner_height
+        active_view.fabs_top_offset = (active_view.fabs_top_offset or M.get_base_header_offset(active_view)) + opts.banner_height
+        active_view.header_min = M.get_base_header_offset(active_view) - opts.header_height
         active_view.header_max = M.get_base_header_offset(active_view)
+
+        if active_view.active_view then
+          active_view.active_view.main_offset = (active_view.active_view.main_offset or M.get_base_header_offset(active_view)) + opts.banner_height
+          active_view.active_view.main_header_offset = (active_view.active_view.main_header_offset or M.get_base_header_offset(active_view)) + opts.banner_height
+        end
 
         M.style_header(active_view, true)
         M.style_nav(active_view, true)
-        M.style_main(active_view, true)
         M.style_fabs(active_view, true)
+
+        if active_view.active_view then
+          M.style_main_header_switch(active_view.active_view, true)
+          M.style_main_switch(active_view.active_view, true)
+        else
+          M.style_main(active_view, true)
+        end
 
       end
 
@@ -1873,10 +1970,10 @@ return function (opts)
   M.on_resize()
 
   if #state.path > 0 then
-    M.transition("replace", "forward")
+    M.transition("replace", "forward", true)
   else
     M.find_default(opts.pages, state.path, 1)
-    M.transition("push", "forward")
+    M.transition("push", "forward", true)
   end
 
 end

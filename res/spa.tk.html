@@ -58,20 +58,17 @@
 
     <style>
 
-      html, body {
-        padding: 0;
-        margin: 0;
-        min-height: 100%;
-        min-width: 100%;
-        max-width: 100vw;
-      }
-
       body {
         overscroll-behavior: contain;
         overflow: auto;
         display: flex;
         flex-direction: column;
         height: 100%;
+        padding: 0;
+        margin: 0;
+        min-height: 100%;
+        min-width: 100%;
+        max-width: 100dvw;
       }
 
       body > .warn-update-worker {
@@ -82,15 +79,13 @@
         border-radius: 0;
         border: none;
         flex-direction: row;
-        font-size: initial;
-        font-weight: initial;
-        line-height: initial;
         margin: 0;
-        outline: none;
         padding: 0;
+        top: 0;
+        left: 0;
         position: fixed;
-        width: 100vw;
-        z-index: 101;
+        width: 100dvw;
+        z-index: <% return opts.banner_index %>;
         padding-left: 16px;
         padding-right: 16px;
 
@@ -101,48 +96,31 @@
         transition: transform <% return opts.transition_time %>ms ease;
       }
 
-      .page {
-        display: flex;
-        flex-direction: column;
-        top: 0;
-        bottom: 0;
-        position: absolute;
-        overflow: visible;
-        transition: transform <% return opts.transition_time %>ms ease;
-      }
-
-      main > .page {
-        min-width: 100%;
-        min-height: 100%;
-      }
-
-      body > .page {
-        background: <% return opts.page_bg %>;
-        min-height: 100vh;
-        max-width: 100vw;
-      }
-
       body.update-worker > .warn-update-worker {
         transform: translateY(<% return opts.banner_height %>px);
       }
 
-      .page > header {
-        width: 100%;
+      body > section {
+        position: absolute;
+        min-height: 100dvh;
+        max-width: 100dvw;
+      }
+
+      body > section > header {
         position: fixed;
         display: flex;
-        top: 0;
-        left: 0;
-        z-index: 99;
+        min-width: 100%;
         color: <% return opts.header_fg %>;
         background: <% return opts.header_bg %>;
-        height: <% return opts.header_height %>px;
+        min-height: <% return opts.header_height %>px;
+        max-height: <% return opts.header_height %>px;
         box-shadow: <% return opts.header_shadow %>;
         transition: box-shadow <% return opts.transition_time %>ms ease,
                     transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
       }
 
-      .page > header > h1 {
+      body > section > header > h1 {
         margin: 0;
         padding: 0;
         align-self: center;
@@ -156,19 +134,17 @@
         padding-right: 16px;
       }
 
-      body.is-wide > .page > header > h1:first-child,
-      body.is-wide > .page > header > button.menu:first-child + h1 {
+      body.is-wide > section > header > h1:first-child,
+      body.is-wide > section > header > button.menu:first-child + h1 {
         padding-left: 32px;
       }
 
-      .page > header > button {
+      body > section > header > button {
         background: none;
-        outline: none;
         border: none;
         border-radius: 0;
         margin: 0;
         padding: 0;
-        outline: none;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -178,32 +154,15 @@
         color: <% return opts.header_fg %>;
       }
 
-      .page > header > button > svg {
+      body > section > header > button > svg {
         transform: scale(1.25);
       }
 
-      .page > header > *.right {
+      body > section > header > *.right {
         margin-left: auto;
       }
 
-      body > .page > main {
-        flex-grow: 1;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        overflow: visible;
-        box-shadow: <% return opts.main_shadow %>;
-        min-height: 100vh;
-        min-width: 100vw;
-        background: <% return opts.page_bg %>;
-        margin-top: <% return opts.header_height %>px;
-        transition: transform <% return opts.transition_time_main %>ms ease,
-                    opacity <% return opts.transition_time_main %>ms ease,
-                    box-shadow <% return opts.transition_time_main %>ms ease,
-                    max-width <% return opts.transition_time_main %>ms ease;
-      }
-
-      body:not(.is-wide) > .page > header > h1 {
+      body:not(.is-wide) > section > header > h1 {
         position: absolute;
         top: 50%;
         left: 50%;
@@ -211,78 +170,45 @@
         text-align: center;
       }
 
-      body.is-wide > .page > header > button.menu {
+      body.is-wide > section > header > button.menu {
         display: none;
       }
 
-      main > .page > main {
-        flex-grow: 1;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        overflow: visible;
-        min-width: 100%;
-        min-height: 100%;
-        transition: transform <% return opts.transition_time_main %>ms ease,
-                    opacity <% return opts.transition_time_main %>ms ease;
-      }
-
-      .page > nav {
+      body > section > nav {
         position: relative;
         display: flex;
         flex-direction: column;
         position: fixed;
-        top: 0;
-        left: 0;
         width: <% return opts.nav_width %>px;
         overflow-y: auto;
-        max-width: 100vw;
+        max-width: 100dvw;
         min-width: 0;
-        height: calc(100vh + <% return opts.header_height %>px);
-        padding-bottom: calc(<% return opts.header_height %>px * 2);
-        z-index: 97;
+        min-height: calc(100lvh + <% return opts.header_height %>px);
+        max-height: calc(100lvh + <% return opts.header_height %>px);
+        padding-top: <% return opts.header_height %>px;
+        padding-bottom: calc(<% return opts.header_height %>px * 3);
         background: <% return opts.nav_bg %>;
         box-shadow: <% return opts.nav_shadow %>;
         transition: transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
       }
 
-      .page > .nav-overlay {
+      body > section > .nav-overlay {
         position: fixed;
-        top: 0;
-        left: 0;
-        height: 100vh;
-        width: 100vw;
+        height: 100dvh;
+        width: 100dvw;
         opacity: 0;
         background: #000000;
         pointer-events: none;
         transition: opacity <% return opts.transition_time %>ms ease;
       }
 
-      body:not(.is-wide) > .page.showing-nav > .nav-overlay {
+      body:not(.is-wide) > section.showing-nav > .nav-overlay {
         opacity: 0.5;
         pointer-events: all;
       }
 
-      body:not(.is-wide) > .page.showing-nav > main {
-        user-select: none;
-        pointer-events: none;
-      }
-
-      body:not(.is-wide) > .page.showing-nav > main {
-        user-select: none;
-        pointer-events: none;
-      }
-
-      .page > nav > *:first-child {
-        margin-top: <% return opts.header_height %>px;
-      }
-
-      .page > nav > *:last-child {
-        margin-bottom: <% return opts.header_height %>px;
-      }
-
-      .page > nav > button {
+      body > section > nav > button {
         flex-shrink: 0;
         font-weight: bold;
         margin: 0;;
@@ -294,15 +220,14 @@
         transition: background <% return opts.transition_time %>ms ease;
       }
 
-      .page > nav > button.is-active {
+      body > section > nav > button.is-active {
         background: <% return opts.nav_active_bg %>;
       }
 
-      .page > .fab {
+      body > section > button.fab {
         position: fixed;
         flex-shrink: 0;
         border: none;
-        outline: none;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -318,72 +243,111 @@
         box-shadow: <% return opts.fab_shadow %>;
       }
 
-      .page > .fab.top {
+      body > section > button.fab.top {
         top: calc(<% return opts.header_height %>px + 16px);
       }
 
-      .page > .fab.small {
+      body > section > button.fab.small {
         height: <% return opts.fab_width_small %>px;
         width: <% return opts.fab_width_small %>px;
         border-radius: <% return opts.fab_radius_small %>px;
         left: calc(100% - <% return opts.fab_width_small %>px - 24px);
       }
 
-      .page > .fab.shared {
-        z-index: 99;
-      }
-
-      .page > .fab.minmax > svg {
+      body > section > button.fab.minmax > svg {
         transition: transform <% return opts.transition_time %>ms ease;
       }
 
-      .page.maximized > .fab.minmax > svg {
+      body > section.maximized > button.fab.minmax > svg {
         transform: rotate(180deg);
       }
 
-      .page > .fab.animated {
+      body > section > button.fab.animated {
         transition: box-shadow <% return opts.transition_time %>ms ease,
                     transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
       }
 
-      .page > .fab.animated > svg {
+      body > section > button.fab.animated > svg {
         transition: transform <% return opts.transition_time %>ms ease;
       }
 
-      button:focus,
-      button:active,
-      button:focus:active {
-        outline: none;
+      body > section > main {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        overflow: visible;
+        box-shadow: <% return opts.main_shadow %>;
+        min-height: 100dvh;
+        min-width: 100dvw;
+        transition: transform <% return opts.transition_time_main %>ms ease,
+                    opacity <% return opts.transition_time_main %>ms ease,
+                    box-shadow <% return opts.transition_time_main %>ms ease,
+                    max-width <% return opts.transition_time_main %>ms ease;
       }
 
-      button {
+      body > section > header ~ main {
+        top: <% return opts.header_height %>px;
+        min-height: calc(100dvh - <% return opts.header_height %>px);
+      }
+
+      body:not(.is-wide) > section.showing-nav > main {
+        user-select: none;
+        pointer-events: none;
+      }
+
+      body:not(.is-wide) > section.showing-nav > main {
+        user-select: none;
+        pointer-events: none;
+      }
+
+      body > section > main > section {
+        position: absolute;
+        min-width: 100%;
+        min-height: 100%;
+      }
+
+      body > section > main > section > main {
+        flex-grow: 1;
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+        min-width: 100%;
+        min-height: 100%;
+        transition: transform <% return opts.transition_time_main %>ms ease,
+                    opacity <% return opts.transition_time_main %>ms ease;
+      }
+
+      body > section > header ~ main > section > main {
+        top: <% return opts.header_height %>px;
+        min-height: calc(100% - <% return opts.header_height %>px);
+      }
+
+      body > section > main > section > header {
+        min-width: 100%;
+        position: fixed;
+        display: flex;
+        background: <% return opts.page_bg %>;
+        min-height: <% return opts.header_height %>px;
+        max-height: <% return opts.header_height %>px;
+        box-shadow: <% return opts.header_shadow %>;
         transition: box-shadow <% return opts.transition_time %>ms ease,
-                    background <% return opts.transition_time %>ms ease;
+                    transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
-      img {
-        -moz-user-select: none;
-        -ms-user-select: none;
-        -webkit-user-drag: none;
-        -webkit-user-select: none;
-        user-drag: none;
-        user-select: none;
+      body > section > header ~ main > section > header {
+        top: <% return opts.header_height %>px;
       }
 
-      button {
-        position: relative;
-        overflow: hidden;
-        -khtml-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        user-select: none;
+      body > section > header ~ main > section > header ~ main {
+        top: <% return opts.header_height %>px;
+        min-height: calc(100% - <% return opts.header_height %>px);
       }
 
-      .page > .snack {
+      body > section > .snack {
         position: fixed;
         display: flex;
         flex-direction: row;
@@ -405,27 +369,26 @@
         box-shadow: <% return opts.snack_shadow %>;
       }
 
-      .page > .snack.animated {
+      body > section > .snack.animated {
         transition: box-shadow <% return opts.transition_time %>ms ease,
                     transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
       }
 
-      .transition *,
-      .animated * {
+      body .transition *,
+      body .animated * {
         pointer-events: none;
       }
 
-      .page > .snack * {
+      body > section > .snack * {
         font-size: 1em;
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
       }
 
-      .page > .snack > button {
+      body > section > .snack > button {
         border: none;
-        outline: none;
         background: none;
         flex-shrink: 0;
         padding-left: 1em;
@@ -437,23 +400,23 @@
         fill: rgba(255, 255, 255, 1);
       }
 
-      .page > .snack > button:first-child {
+      body > section > .snack > button:first-child {
         margin-right: 0.75em;
       }
 
-      .page > .snack > button:last-child {
+      body > section > .snack > button:last-child {
         margin-left: 0.75em;
       }
 
-      .page > .snack > button:first-child:last-child {
+      body > section > .snack > button:first-child:last-child {
         margin: -0.75em;
       }
 
-      .ripple {
+      body .ripple {
         position: relative;
       }
 
-      .ripple-container {
+      body .ripple-container {
         position: absolute;
         top: 0;
         left: 0;
@@ -465,7 +428,7 @@
         pointer-events: none;
       }
 
-      .page > header > button > .ripple-container {
+      body > section > header > button > .ripple-container {
         top: 0.25em;
         left: 0.25em;
         bottom: 0.25em;
@@ -473,7 +436,7 @@
         border-radius: 50%;
       }
 
-      .ripple-wave {
+      body .ripple-container .ripple-wave {
         backface-visibility: hidden;
         position: absolute;
         border-radius: 50%;
@@ -483,12 +446,19 @@
         animation: ripple-wave <% return opts.transition_time_wave %>ms forwards ease;
       }
 
-      nav > button .ripple-wave {
+      body > section > nav > button .ripple-container .ripple-wave {
         background: <% return opts.nav_ripple_bg %>;
       }
 
-      .ripple-dark .ripple-wave {
+      body .ripple-dark .ripple-container .ripple-wave {
         background: <% return opts.nav_ripple_bg %>;
+      }
+
+      body button:not(.no-ripple):not(.warn-update-worker) {
+        position: relative;
+        overflow: hidden;
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    background <% return opts.transition_time %>ms ease;
       }
 
       @keyframes ripple-shadow {
@@ -499,17 +469,6 @@
 
       @keyframes ripple-wave {
         to { transform: scale(24); opacity:0; }
-      }
-
-      @keyframes page-main-contents-enter {
-        from {
-          transform: translateY(-2em);
-          opacity: 0;
-        }
-        to {
-          transform: translateY(0em);
-          opacity: 1;
-        }
       }
 
     </style>
