@@ -58,4 +58,13 @@ return {
   nav_pull_gutter = "32",
   nav_pull_threshold = "32",
 
+  banner_index = "110",
+  header_index = "100",
+  nav_index = "90",
+  nav_overlay_index = "80",
+  main_header_index = "70",
+  fab_index = "60",
+  snack_index = "50",
+  main_index = "40",
+
 }

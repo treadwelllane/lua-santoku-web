@@ -11,11 +11,10 @@
 
 # Next
 
-- Nav touch.pageX doesn't consider horizontal scroll
-
 - Link buttons, dropdown, typeahead single/multi select
 - Generalized banner
-- Modals
+- Modals (with workflow)
+- Snacks (minimize, maximize)
 - Footer with tray extend
 - Header with tray extend
 - Pull to refresh
@@ -23,7 +22,6 @@
 - Header-fixed elements
 - Restore scroll positions
 - Malformed URL handling
-- Horizontal scroll fix on animation (marginLeft/etc)
 - Asset generation
 
 - Consider using properties instead of classes when not needed in CSS
