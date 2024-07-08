@@ -179,10 +179,6 @@ return function (opts)
       M.toggle_nav_state(next_view, false)
     end)
 
-    next_view.e_nav:addEventListener("scroll", function (_, ev)
-      ev:stopPropagation()
-    end)
-
     local triggered_open = false
     local n_active_touch = 0
     local active_touch_x = {}
@@ -1407,9 +1403,11 @@ return function (opts)
 
   M.style_header_hide = function (view, hide)
     if hide then
+      view.header_hide = true
       view.header_offset = M.get_base_header_offset(view) - opts.header_height
       view.header_shadow = "none"
     else
+      view.header_hide = false
       view.header_offset = M.get_base_header_offset(view)
       view.header_shadow = opts.header_shadow
     end
@@ -1426,27 +1424,20 @@ return function (opts)
     end
   end
 
+  -- TODO: Should this be debounced or does the view.header_hide check
+  -- accomplish that?
   M.scroll_listener = function (view)
-    local ready = true
-    local last_scroll, curr_scroll
+    local last_scroll_top = 0;
     return function ()
-      if ready and not view.no_scroll then
-        ready = false
-        view.no_scroll = false
-        if view.el.classList:contains("showing-nav") and not e_body.classList:contains("is-wide") then
-          M.toggle_nav_state(view)
-        end
-        M.after_frame(function ()
-          curr_scroll = window.scrollY
-          if (curr_scroll <= tonumber(opts.header_height)) or (last_scroll and last_scroll - curr_scroll > 10) then
-            M.style_header_hide(view, false)
-          elseif (last_scroll and curr_scroll - last_scroll > 10) then
-            M.style_header_hide(view, true)
-          end
-          last_scroll = curr_scroll
-          ready = true
-        end)
+      local curr_scroll_top = window.pageYOffset or document.documentElement.scrollTop
+      if view.header_hide and curr_scroll_top <= tonumber(opts.header_height) then
+        M.style_header_hide(view, false)
+      elseif not view.header_hide and curr_scroll_top > last_scroll_top and (curr_scroll_top - last_scroll_top) > 10 then
+        M.style_header_hide(view, true)
+      elseif view.header_hide and curr_scroll_top < last_scroll_top and (last_scroll_top - curr_scroll_top) > 10 then
+        M.style_header_hide(view, false)
       end
+      last_scroll_top = curr_scroll_top <= 0 and 0 or curr_scroll_top
     end
   end
 

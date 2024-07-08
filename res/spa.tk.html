@@ -59,7 +59,7 @@
     <style>
 
       body {
-        overscroll-behavior: contain;
+        overscroll-behavior: contain; // NOTE: this disables pull to refresh
         overflow: auto;
         display: flex;
         flex-direction: column;
@@ -181,6 +181,7 @@
         position: fixed;
         width: <% return opts.nav_width %>px;
         overflow-y: auto;
+        overscroll-behavior: contain;
         max-width: 100dvw;
         min-width: 0;
         min-height: calc(100lvh + <% return opts.header_height %>px);
