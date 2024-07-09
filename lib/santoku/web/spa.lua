@@ -173,6 +173,10 @@ return function (opts)
       return
     end
 
+    next_view.e_nav:addEventListener("scroll", function (_, ev)
+      ev:stopPropagation()
+    end)
+
     next_view.e_nav_overlay = util.clone(t_nav_overlay, nil, next_view.el)
 
     next_view.e_nav_overlay:addEventListener("click", function ()
@@ -1401,7 +1405,7 @@ return function (opts)
 
   end
 
-  M.style_header_hide = function (view, hide)
+  M.style_header_hide = function (view, hide, restyle)
     if hide then
       view.header_hide = true
       view.header_offset = M.get_base_header_offset(view) - opts.header_height
@@ -1416,19 +1420,25 @@ return function (opts)
       view.active_view.main_offset = view.header_offset
     end
     view.nav_offset = view.header_offset
-    M.style_header(view, true)
-    M.style_nav(view, true)
-    if view.active_view then
-      M.style_main_header_switch(view.active_view, true)
-      M.style_main_switch(view.active_view, true)
+    if restyle ~= false then
+      M.style_header(view, true)
+      M.style_nav(view, true)
+      if view.active_view then
+        M.style_main_header_switch(view.active_view, true)
+        M.style_main_switch(view.active_view, true)
+      end
     end
   end
 
   -- TODO: Should this be debounced or does the view.header_hide check
   -- accomplish that?
   M.scroll_listener = function (view)
+    local ready = true
     local last_scroll_top = 0;
     return function ()
+      if not ready then
+        return
+      end
       local curr_scroll_top = window.pageYOffset or document.documentElement.scrollTop
       if view.header_hide and curr_scroll_top <= tonumber(opts.header_height) then
         M.style_header_hide(view, false)
@@ -1437,7 +1447,17 @@ return function (opts)
       elseif view.header_hide and curr_scroll_top < last_scroll_top and (last_scroll_top - curr_scroll_top) > 10 then
         M.style_header_hide(view, false)
       end
+      M.toggle_nav_state(view, false, true)
       last_scroll_top = curr_scroll_top <= 0 and 0 or curr_scroll_top
+      if last_scroll_top <= tonumber(opts.header_height) then
+        M.after_transition(function ()
+          ready = true
+        end)
+      else
+        M.after_frame(function ()
+          ready = true
+        end)
+      end
     end
   end
 
@@ -1802,20 +1822,16 @@ return function (opts)
       view.el.classList:toggle("showing-nav")
     end
     if view.el.classList:contains("showing-nav") then
-      if not reuse_header then
-        view.header_offset = M.get_base_header_offset(view)
-      end
-      view.header_shadow = opts.header_shadow
       view.nav_slide = 0
       view.nav_offset = view.header_offset
       view.nav_overlay_opacity = e_body.classList:contains("is-wide")
         and 0 or 0.5
+      M.style_header_hide(view, false, restyle)
     else
       view.nav_slide = -opts.nav_width
       view.nav_overlay_opacity = 0
     end
     if restyle ~= false then
-      M.style_header(view, animate ~= false)
       M.style_nav(view, animate ~= false)
     end
   end
