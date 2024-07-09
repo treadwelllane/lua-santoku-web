@@ -1433,31 +1433,46 @@ return function (opts)
   -- TODO: Should this be debounced or does the view.header_hide check
   -- accomplish that?
   M.scroll_listener = function (view)
+
     local ready = true
-    local last_scroll_top = 0;
+
+    local last_scroll_top = 0
+
+    local n = 0
+
     return function ()
+
       if not ready then
         return
       end
+
       local curr_scroll_top = window.pageYOffset or document.documentElement.scrollTop
+      local curr_diff = curr_scroll_top - last_scroll_top
+
+      if curr_diff >= 10 then
+        n = (n < 0 and 0 or n) + 1
+      elseif curr_diff <= -10 then
+        n = (n > 0 and 0 or n) - 1
+      end
+
       if view.header_hide and curr_scroll_top <= tonumber(opts.header_height) then
         M.style_header_hide(view, false)
-      elseif not view.header_hide and curr_scroll_top > last_scroll_top and (curr_scroll_top - last_scroll_top) > 10 then
+      elseif not view.header_hide and n > 4 then
         M.style_header_hide(view, true)
-      elseif view.header_hide and curr_scroll_top < last_scroll_top and (last_scroll_top - curr_scroll_top) > 10 then
+      elseif view.header_hide and n <= -4 then
         M.style_header_hide(view, false)
       end
-      M.toggle_nav_state(view, false, true)
-      last_scroll_top = curr_scroll_top <= 0 and 0 or curr_scroll_top
-      if last_scroll_top <= tonumber(opts.header_height) then
-        M.after_transition(function ()
-          ready = true
-        end)
-      else
-        M.after_frame(function ()
-          ready = true
-        end)
+
+      if not e_body.classList:contains("is-wide") and view.el.classList:contains("showing-nav") then
+        M.toggle_nav_state(view, false)
       end
+
+      last_scroll_top = curr_scroll_top <= 0 and 0 or curr_scroll_top
+
+      M.after_transition(function ()
+        ready = true
+      end)
+
     end
   end
 
@@ -1554,7 +1569,8 @@ return function (opts)
     view.header_offset = M.get_base_header_offset(view)
     M.style_header(view, true)
 
-    last_view.el.style.marginTop = "-" .. window.scrollY .. "px"
+    last_view.el.style.marginLeft = -window.scrollX .. "px"
+    last_view.el.style.marginTop = -window.scrollY .. "px"
     last_view.no_scroll = true
     window:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
@@ -1564,8 +1580,6 @@ return function (opts)
     M.after_transition(function ()
       return M.post_exit_switch(last_view)
     end)
-
-    last_view.el.classList:add("exit", direction)
 
   end
 
@@ -1608,7 +1622,14 @@ return function (opts)
 
   M.exit = function (last_view, direction, next_view)
 
-    last_view.e_main.style.marginTop = -window.scrollY .. "px"
+    if last_view.active_view then
+      last_view.active_view.e_main.style.marginLeft = -window.scrollX .. "px"
+      last_view.active_view.e_main.style.marginTop = -window.scrollY .. "px"
+    else
+      last_view.e_main.style.marginLeft = -window.scrollX .. "px"
+      last_view.e_main.style.marginTop = -window.scrollY .. "px"
+    end
+
     last_view.no_scroll = true
     window:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
@@ -1810,7 +1831,7 @@ return function (opts)
 
   M.setup_ripples(e_body)
 
-  M.toggle_nav_state = function (view, open, animate, restyle, reuse_header)
+  M.toggle_nav_state = function (view, open, animate, restyle)
     if e_body.classList:contains("is-wide") then
       open = true
     end
@@ -1845,7 +1866,7 @@ return function (opts)
     end
     if active_view then
       if e_body.classList:contains("is-wide") then
-        M.toggle_nav_state(active_view, true, nil, nil, true)
+        M.toggle_nav_state(active_view, true)
       elseif was_wide then
         M.toggle_nav_state(active_view, false)
       end
