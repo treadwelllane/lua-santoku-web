@@ -17,7 +17,7 @@
 
 - Generalized banners (like snacks, modals, fabs, etc.)
 - Dynamically add snacks/fabs/modals, banners
-- Expand banners, footers, headers
+- Expandable footers and headers
 - Nav as header tabs or footer tabs, supporting stacked header/footer
 - Pull to refresh
 - Restore scroll positions
