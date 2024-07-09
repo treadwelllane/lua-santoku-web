@@ -17,13 +17,13 @@
 - Header with tray extend
 - Pull to refresh
 
+# Later
+
 - Consider using properties instead of classes when not needed in CSS
 
 - Refactor to slot-based navs: first "slot" is the forward/backward pager and
   is used for the pages passed into the top-level spa(...). Subsequent navs must
   specify data-type as drawer, footer, or more TBD.
-
-# Later
 
 - Better error messages
 - Lua coverage
