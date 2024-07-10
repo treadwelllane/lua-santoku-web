@@ -2,7 +2,8 @@
 
 - Footer for main and switch
 - Link buttons, dropdown, typeahead single/multi select
-- Modals (using show/hide similar to snacks/fabs)
+- Banners (using show/hide similar to snacks/fabs, user-provided update-worker)
+- Modals (as above)
 - Malformed URL handling
 - Asset generation
 
