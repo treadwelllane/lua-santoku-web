@@ -1,7 +1,12 @@
 # Now
 
+- Dark theme
 - Footer for main and switch
-- Link buttons, dropdown, typeahead single/multi select
+- Link buttons
+- Dropdown
+- Typeahead single/multi select
+- Typeahead date picker
+- Typeahead time picker
 - Banners (using show/hide similar to snacks/fabs, user-provided update-worker)
 - Modals (as above)
 - Malformed URL handling
