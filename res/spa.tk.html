@@ -244,31 +244,26 @@
       }
 
       body > section > nav > button {
+        position: relative;
+        padding: 0;
+        margin: 0;
+        padding-left: 16px;
+        padding-right: 16px;
         flex-shrink: 0;
         font-weight: 600;
-        margin: 0;;
-        border-radius: 0;
         text-align: left;
-        padding-left: 32px;
-        border: none;
+        border: 16px solid var(--nav-bg);
+        border-top: 12px solid var(--nav-bg);
+        border-bottom: 12px solid var(--nav-bg);
+        background: var(--nav-bg);
+        border-radius: 32px;
+        box-sizing: border-box;
         height: <% return opts.header_height %>px;
-      }
-
-      body > section > nav > button::before {
-        position: absolute;
-        height: calc(<% return opts.header_height %>px - 20px);
-        width: calc(<% return opts.nav_width %>px - 28px);
-        top: 10px;
-        left: 14px;
-        content: ' ';
-        border-radius: calc((<% return opts.header_height %>px - 20px) / 2);
         transition: background <% return opts.transition_time %>ms ease;
-        background: rgba(0, 0, 0, 0.0);
-        pointer-events: none;
       }
 
-      body > section > nav > button.is-active::before {
-        background: rgba(0, 0, 0, 0.1);
+      body > section > nav > button.is-active {
+        background: var(--nav-ripple-bg);
       }
 
       body > section > button.fab {
@@ -493,11 +488,11 @@
       }
 
       body > section > nav > button > .ripple-container {
-        height: calc(<% return opts.header_height %>px - 20px);
-        width: calc(<% return opts.nav_width %>px - 28px);
-        top: 10px;
-        left: 14px;
-        border-radius: calc((<% return opts.header_height %>px - 20px) / 2);
+        height: calc(<% return opts.header_height %>px - 24px);
+        width: calc(<% return opts.nav_width %>px - 32px);
+        top: 0;
+        left: 0;
+        border-radius: 20px;
       }
 
       body .ripple-container .ripple-wave {
