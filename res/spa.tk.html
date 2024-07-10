@@ -257,9 +257,9 @@
       body > section > nav > button::before {
         position: absolute;
         height: calc(<% return opts.header_height %>px - 20px);
-        width: calc(<% return opts.nav_width %>px - 20px);
+        width: calc(<% return opts.nav_width %>px - 28px);
         top: 10px;
-        left: 10px;
+        left: 14px;
         content: ' ';
         border-radius: calc((<% return opts.header_height %>px - 20px) / 2);
         transition: background <% return opts.transition_time %>ms ease;
@@ -494,9 +494,9 @@
 
       body > section > nav > button > .ripple-container {
         height: calc(<% return opts.header_height %>px - 20px);
-        width: calc(<% return opts.nav_width %>px - 20px);
+        width: calc(<% return opts.nav_width %>px - 28px);
         top: 10px;
-        left: 10px;
+        left: 14px;
         border-radius: calc((<% return opts.header_height %>px - 20px) / 2);
       }
 
