@@ -8,11 +8,11 @@ return {
   header_height = "64",
   header_bg = "#1f2937",
   header_fg = "#ffffff",
-  header_shadow = "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+  header_border = "1px solid #e5e7eb",
 
   nav_bg = "#ffffff",
-  nav_shadow = "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
   nav_active_bg = "#e5e7eb",
+  nav_border = "1px solid #e5e7eb",
 
   page_bg = "#ffffff",
 

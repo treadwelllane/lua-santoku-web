@@ -61,9 +61,7 @@
       :root {
         --header-bg: <% return opts.header_bg %>;
         --header-fg: <% return opts.header_fg %>;
-        --header-shadow: <% return opts.header_shadow %>;
         --nav-bg: <% return opts.nav_bg %>;
-        --nav-shadow: <% return opts.nav_shadow %>;
         --nav-active-bg: <% return opts.nav_active_bg %>;
         --page-bg: <% return opts.page_bg %>;
         --ripple-bg: <% return opts.ripple_bg %>;
@@ -81,6 +79,7 @@
       }
 
       body {
+        font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
         overscroll-behavior: contain; // NOTE: this disables pull to refresh
         overflow: auto;
         display: flex;
@@ -137,7 +136,6 @@
         background: var(--header-bg);
         min-height: <% return opts.header_height %>px;
         max-height: <% return opts.header_height %>px;
-        box-shadow: var(--header-shadow);
         transition: box-shadow <% return opts.transition_time %>ms ease,
                     transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
@@ -222,8 +220,8 @@
         max-height: calc(100lvh + <% return opts.header_height %>px);
         padding-top: <% return opts.header_height %>px;
         padding-bottom: calc(<% return opts.header_height %>px * 3);
+        border-right: <% return opts.header_border %>;
         background: var(--nav-bg);
-        box-shadow: var(--nav-shadow);
         transition: transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
       }
@@ -247,18 +245,30 @@
 
       body > section > nav > button {
         flex-shrink: 0;
-        font-weight: bold;
+        font-weight: 600;
         margin: 0;;
         border-radius: 0;
         text-align: left;
         padding-left: 32px;
         border: none;
         height: <% return opts.header_height %>px;
-        transition: background <% return opts.transition_time %>ms ease;
       }
 
-      body > section > nav > button.is-active {
-        background: var(--nav-active-bg);
+      body > section > nav > button::before {
+        position: absolute;
+        height: calc(<% return opts.header_height %>px - 20px);
+        width: calc(<% return opts.nav_width %>px - 20px);
+        top: 10px;
+        left: 10px;
+        content: ' ';
+        border-radius: calc((<% return opts.header_height %>px - 20px) / 2);
+        transition: background <% return opts.transition_time %>ms ease;
+        background: rgba(0, 0, 0, 0.0);
+        pointer-events: none;
+      }
+
+      body > section > nav > button.is-active::before {
+        background: rgba(0, 0, 0, 0.1);
       }
 
       body > section > button.fab {
@@ -353,6 +363,7 @@
         overflow: visible;
         min-width: 100%;
         min-height: 100%;
+        box-shadow: var(--main-shadow);
         transition: transform <% return opts.transition_time_main %>ms ease,
                     opacity <% return opts.transition_time_main %>ms ease;
       }
@@ -372,12 +383,12 @@
         padding-right: 1em;
         padding-top: 0.75em;
         padding-bottom: 0.75em;
+        border-bottom: <% return opts.header_border %>;
         background: var(--page-bg);
         overflow-x: auto;
         overscroll-behavior: contain;
         min-height: <% return opts.header_height %>px;
         max-height: <% return opts.header_height %>px;
-        box-shadow: var(--header-shadow);
         transition: box-shadow <% return opts.transition_time %>ms ease,
                     transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
@@ -479,6 +490,14 @@
         bottom: 0.25em;
         right: 0.25em;
         border-radius: 50%;
+      }
+
+      body > section > nav > button > .ripple-container {
+        height: calc(<% return opts.header_height %>px - 20px);
+        width: calc(<% return opts.nav_width %>px - 20px);
+        top: 10px;
+        left: 10px;
+        border-radius: calc((<% return opts.header_height %>px - 20px) / 2);
       }
 
       body .ripple-container .ripple-wave {
