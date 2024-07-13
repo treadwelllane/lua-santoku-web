@@ -232,7 +232,7 @@ M.parse_path = function (url)
   local result = { path = {}, params = {} }
   local path, query
   if url then
-    path, query = str.match(url, "([^?]+)%??(.*)")
+    path, query = str.match(url, "([^?]*)%??(.*)")
   end
   if path then
     for segment in str.gmatch(path, "[^/]+") do

@@ -4,7 +4,6 @@
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
 - Dropdown
 - Icons in buttons
-- Malformed URL handling
 
 # Next
 
