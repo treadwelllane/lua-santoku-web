@@ -15,7 +15,7 @@
 
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=<% return opts.scalable and "yes" or "no" %>,uc-fitscreen=yes,interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
     <meta name="description" content="<% return opts.description %>">
     <meta name="keywords" content="<% return opts.keywords %>">
 
@@ -84,51 +84,64 @@
         overflow: auto;
         display: flex;
         flex-direction: column;
-        height: 100%;
+        height: 100dvh;
         padding: 0;
         margin: 0;
-        min-height: 100%;
-        min-width: 100%;
+        min-height: 100dvh;
+        min-width: 100dvw;
         max-width: 100dvw;
         background: var(--page-bg);
       }
 
-      body > .warn-update-worker {
-        display: inline-block;
+      body > section > aside {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         border-radius: 0;
         border: none;
+        display: flex;
         flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
         margin: 0;
         padding: 0;
-        top: 0;
-        left: 0;
         position: fixed;
-        width: 100dvw;
+        width: 100%;
         z-index: <% return opts.banner_index %>;
-        padding-left: 16px;
-        padding-right: 16px;
-
         height: <% return opts.banner_height %>px;
         top: -<% return opts.banner_height %>px;
+        left: 0;
         color: var(--banner-fg);
         background: var(--banner-bg);
         transition: transform <% return opts.transition_time %>ms ease;
       }
 
-      body.update-worker > .warn-update-worker {
-        transform: translateY(<% return opts.banner_height %>px);
+      body > section > aside > button {
+        max-height: 100%;
+        max-width: 100%;
+        min-height: 100%;
+        min-width: 100%;
+        margin: 0;
+        padding: 0;
+        padding-left: 16px;
+        padding-right: 16px;
+        overflow: hidden;
+        border: none;
+        background: none;
+        outline: none;
+        flex-direction: row;
       }
 
-      body > section {
+      body > section,
+      body > section > main,
+      body > section > main > section {
         position: absolute;
         min-height: 100dvh;
         max-width: 100dvw;
       }
 
-      body > section > header {
+      body > section > main > section > header {
         position: fixed;
         display: flex;
         min-width: 100%;
@@ -136,12 +149,11 @@
         background: var(--header-bg);
         min-height: <% return opts.header_height %>px;
         max-height: <% return opts.header_height %>px;
-        transition: box-shadow <% return opts.transition_time %>ms ease,
-                    transform <% return opts.transition_time %>ms ease,
+        transition: transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
       }
 
-      body > section > header::before {
+      body > section > main > section > header::before {
         content: ' ';
         width: 100dvw;
         height: 8px;
@@ -152,7 +164,7 @@
         pointer-events: none;
       }
 
-      body > section > header > h1 {
+      body > section > main > section > header > h1 {
         margin: 0;
         padding: 0;
         align-self: center;
@@ -166,12 +178,12 @@
         padding-right: 16px;
       }
 
-      body.is-wide > section > header > h1:first-child,
-      body.is-wide > section > header > button.menu:first-child + h1 {
+      body > section.is-wide > section > header > h1:first-child,
+      body > section.is-wide > section > header > button.menu:first-child + h1 {
         padding-left: 32px;
       }
 
-      body > section > header > button {
+      body > section > main > section > header > button {
         background: none;
         border: none;
         border-radius: 0;
@@ -186,15 +198,15 @@
         color: var(--header-fg);
       }
 
-      body > section > header > button > svg {
+      body > section > main > section > header > button > svg {
         transform: scale(1.25);
       }
 
-      body > section > header > *.right {
+      body > section > main > section > header > *.right {
         margin-left: auto;
       }
 
-      body:not(.is-wide) > section > header > h1 {
+      body > section:not(.is-wide) > section > header > h1 {
         position: absolute;
         top: 50%;
         left: 50%;
@@ -202,11 +214,11 @@
         text-align: center;
       }
 
-      body.is-wide > section > header > button.menu {
+      body > section.is-wide > section > header > button.menu {
         display: none;
       }
 
-      body > section > nav {
+      body > section > main > section > nav {
         position: relative;
         display: flex;
         flex-direction: column;
@@ -226,7 +238,7 @@
                     opacity <% return opts.transition_time %>ms ease;
       }
 
-      body > section > .nav-overlay {
+      body > section > main > section > .nav-overlay {
         position: fixed;
         min-width: 100dvw;
         max-width: 100dvw;
@@ -238,12 +250,12 @@
         transition: opacity <% return opts.transition_time %>ms ease;
       }
 
-      body:not(.is-wide) > section.showing-nav > .nav-overlay {
+      body > section:not(.is-wide) > section.showing-nav > .nav-overlay {
         opacity: 0.5;
         pointer-events: all;
       }
 
-      body > section > nav > button {
+      body > section > main > section > nav > button {
         position: relative;
         padding: 0;
         margin: 0;
@@ -262,11 +274,11 @@
         transition: background <% return opts.transition_time %>ms ease;
       }
 
-      body > section > nav > button.is-active {
+      body > section > main > section > nav > button.is-active {
         background: var(--nav-ripple-bg);
       }
 
-      body > section > button.fab {
+      body > section > main > section > button {
         position: fixed;
         flex-shrink: 0;
         border: none;
@@ -275,46 +287,36 @@
         justify-content: center;
         cursor: pointer;
         pointer-events: all;
+        fill: var(--fab-fg);
         color: var(--fab-fg);
         background: var(--fab-bg);
-        top: calc(100% - <% return opts.fab_width_large %>px - 16px);
+        bottom: 16px;
         left: calc(100% - <% return opts.fab_width_large %>px - 16px);
         height: <% return opts.fab_width_large %>px;
         width: <% return opts.fab_width_large %>px;
         border-radius: <% return opts.fab_radius_large %>px;
         box-shadow: var(--fab-shadow);
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
       }
 
-      body > section > button.fab.top {
+      body > section > main > section > button.top {
         top: calc(<% return opts.header_height %>px + 16px);
       }
 
-      body > section > button.fab.small {
+      body > section > main > section > button.small {
         height: <% return opts.fab_width_small %>px;
         width: <% return opts.fab_width_small %>px;
         border-radius: <% return opts.fab_radius_small %>px;
         left: calc(100% - <% return opts.fab_width_small %>px - 24px);
       }
 
-      body > section > button.fab.minmax > svg {
+      body > section > main > section > button > svg {
         transition: transform <% return opts.transition_time %>ms ease;
       }
 
-      body > section.maximized > button.fab.minmax > svg {
-        transform: rotate(180deg);
-      }
-
-      body > section > button.fab.animated {
-        transition: box-shadow <% return opts.transition_time %>ms ease,
-                    transform <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease;
-      }
-
-      body > section > button.fab.animated > svg {
-        transition: transform <% return opts.transition_time %>ms ease;
-      }
-
-      body > section > main {
+      body > section > main > section > main {
         flex-grow: 1;
         display: flex;
         flex-direction: column;
@@ -329,28 +331,28 @@
                     max-width <% return opts.transition_time_main %>ms ease;
       }
 
-      body > section > header ~ main {
+      body > section > main > section > header ~ main {
         top: <% return opts.header_height %>px;
         min-height: calc(100dvh - <% return opts.header_height %>px);
       }
 
-      body:not(.is-wide) > section.showing-nav > main {
+      body > section:not(.is-wide) > section.showing-nav > main {
         user-select: none;
         pointer-events: none;
       }
 
-      body:not(.is-wide) > section.showing-nav > main {
+      body > section:not(.is-wide) > section.showing-nav > main {
         user-select: none;
         pointer-events: none;
       }
 
-      body > section > main > section {
+      body > section > main > section > main > section {
         position: absolute;
         min-width: 100%;
         min-height: 100%;
       }
 
-      body > section > main > section > main {
+      body > section > main > section > main > section > main {
         flex-grow: 1;
         position: absolute;
         display: flex;
@@ -363,12 +365,12 @@
                     opacity <% return opts.transition_time_main %>ms ease;
       }
 
-      body > section > header ~ main > section > main {
+      body > section > main > section > header ~ main > section > main {
         top: <% return opts.header_height %>px;
         min-height: calc(100% - <% return opts.header_height %>px);
       }
 
-      body > section > main > section > header {
+      body > section > main > section > main > section > header {
         max-width: 100%;
         min-width: 100%;
         position: fixed;
@@ -389,16 +391,16 @@
                     opacity <% return opts.transition_time %>ms ease;
       }
 
-      body > section > header ~ main > section > header {
+      body > section > main > section > header ~ main > section > header {
         top: <% return opts.header_height %>px;
       }
 
-      body > section > header ~ main > section > header ~ main {
+      body > section > main > section > header ~ main > section > header ~ main {
         top: <% return opts.header_height %>px;
         min-height: calc(100% - <% return opts.header_height %>px);
       }
 
-      body > section > .snack {
+      body > section > main > section > aside {
         position: fixed;
         display: flex;
         flex-direction: row;
@@ -408,19 +410,16 @@
         text-overflow: ellipsis;
         padding-left: 0.75em;
         padding-right: 0.75em;
-        left: 16px;
         pointer-events: all;
         color: var(--snack-fg);
         background: var(--snack-bg);
         min-height: <% return opts.snack_height %>px;
         max-height: <% return opts.snack_height %>px;
-        max-width: calc(100% - 16px - <% return opts.fab_width_large %>px - 56px);
-        top: calc(100% - <% return opts.snack_height %>px - 16px);
+        max-width: calc(100dvw - 16px - <% return opts.fab_width_large %>px - 56px);
+        bottom: 16px;
+        left: 16px;
         border-radius: <% return opts.snack_radius %>px;
         box-shadow: var(--snack-shadow);
-      }
-
-      body > section > .snack.animated {
         transition: box-shadow <% return opts.transition_time %>ms ease,
                     transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;
@@ -431,14 +430,14 @@
         pointer-events: none;
       }
 
-      body > section > .snack * {
+      body > section > main > section > aside * {
         font-size: 1em;
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
       }
 
-      body > section > .snack > button {
+      body > section > main > section > aside > button {
         border: none;
         background: none;
         flex-shrink: 0;
@@ -451,15 +450,15 @@
         fill: rgba(255, 255, 255, 1);
       }
 
-      body > section > .snack > button:first-child {
+      body > section > main > section > aside > button:first-child {
         margin-right: 0.75em;
       }
 
-      body > section > .snack > button:last-child {
+      body > section > main > section > aside > button:last-child {
         margin-left: 0.75em;
       }
 
-      body > section > .snack > button:first-child:last-child {
+      body > section > main > section > aside > button:first-child:last-child {
         margin: -0.75em;
       }
 
@@ -479,7 +478,7 @@
         pointer-events: none;
       }
 
-      body > section > header > button > .ripple-container {
+      body > section > main > section > header > button > .ripple-container {
         top: 0.25em;
         left: 0.25em;
         bottom: 0.25em;
@@ -487,7 +486,7 @@
         border-radius: 50%;
       }
 
-      body > section > nav > button > .ripple-container {
+      body > section > main > section > nav > button > .ripple-container {
         height: calc(<% return opts.header_height %>px - 24px);
         width: calc(<% return opts.nav_width %>px - 32px);
         top: 0;
@@ -505,7 +504,7 @@
         animation: ripple-wave <% return opts.transition_time_wave %>ms forwards ease;
       }
 
-      body > section > nav > button .ripple-container .ripple-wave {
+      body > section > main > section > nav > button:not(.is-active) .ripple-container .ripple-wave {
         background: var(--nav-ripple-bg);
       }
 
@@ -513,14 +512,18 @@
         background: var(--nav-ripple-bg);
       }
 
-      body button {
-        white-space: nowrap;
+      body button:not(.no-ripple) {
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    background <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease,
+                    transform <% return opts.transition_time %>ms ease;
       }
 
-      body button:not(.no-ripple):not(.warn-update-worker) {
+      body > section > main > section > main button,
+      body > section > main > section > aside button,
+      body > section > main > section > header button {
         position: relative;
-        transition: box-shadow <% return opts.transition_time %>ms ease,
-                    background <% return opts.transition_time %>ms ease;
+        white-space: nowrap;
       }
 
       @keyframes ripple-shadow {
@@ -544,12 +547,6 @@
     <% return opts.prepend_body %>
 
     <script src="<% return opts.index_js %>"></script>
-
-    <% push(opts.service_worker) %>
-      <button class="warn-update-worker">
-        Update available. Click to update!
-      </button>
-    <% pop() %>
 
     <% return opts.append_body %>
 

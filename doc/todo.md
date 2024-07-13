@@ -1,16 +1,10 @@
 # Now
 
-- Dark theme
-- Footer for main and switch
-- Link buttons
+- Modals (using data-show/hide in first-level component)
+- Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
 - Dropdown
-- Typeahead single/multi select
-- Typeahead date picker
-- Typeahead time picker
-- Banners (using show/hide similar to snacks/fabs, user-provided update-worker)
-- Modals (as above)
+- Icons in buttons
 - Malformed URL handling
-- Asset generation
 
 # Next
 
@@ -19,19 +13,35 @@
 
 # Later
 
-- Consider using properties instead of classes when not needed in CSS
+- Dark theme
+- Typeahead single/multi select
+- Footer for main and switch
+- Asset generation
 
-- Generalized banners (like snacks, modals, fabs, etc.)
+- Avoid .right and .top (header buttons after h1 imply right, fabs before main
+  imply top)
 - Dynamically add snacks/fabs/modals, banners
-- Expandable footers and headers
+- Specify active page/switch via classes
+- Expandable footers and headers (swipe-open, scrollable, both first and second
+  levels, overlay on short height, push on long height (maybe?))
 - Nav as header tabs or footer tabs, supporting stacked header/footer
+- Second nav on right side
 - Pull to refresh
 - Restore scroll positions
+- Minimize/maximize snacks dialog
+- Add extra bottom padding when snacks and fabs are shown
+- Desktop site issues: zoom changes on page switch, scales tiny with small
+  windows, etc
 
 - Better error messages
 - Lua coverage
 
 # Eventually
+
+- Consider allowing multiple sub-views in different <main>s
+    - Should they be all reflected in the URL? or just the "main" <main>?
+
+- Consider moving strictly to classes instead of setting style attributes
 
 - Do we need to call stringToNewUTF8 in the proxied get() method? Can we just
   pass the string val ref into Module.get?

@@ -20,10 +20,10 @@ return {
   nav_ripple_bg = "#e5e7eb",
 
   banner_height = "32",
-  banner_bg = "#ef4444",
+  banner_bg = "#374151",
   banner_fg = "#ffffff",
 
-  fab_bg = "#1f2937",
+  fab_bg = "#374151",
   fab_fg = "#ffffff",
   fab_width_large = "56",
   fab_width_small = "40",
