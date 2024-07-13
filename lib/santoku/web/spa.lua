@@ -30,7 +30,7 @@ return function (opts)
   local t_ripple = e_head:querySelector("template.ripple")
   local t_nav_overlay = e_head:querySelector("template.nav-overlay")
 
-  local state = util.parse_path(str.match(location.hash, "^#+(.*)"))
+  local state = util.parse_path(str.match(location.hash, "^#(.*)"))
   local active_view
 
   local M = {}
@@ -1761,10 +1761,15 @@ return function (opts)
     end
     local v = active_view.page.pages[state.path[1]]
     if not v then
-      err.error("Invalid page", state.path[1])
+      M.find_default(active_view.page.pages, state.path, 1)
+      return
     end
-    if v.pages and not state.path[2] then
+    if not v.pages then
+      arr.clear(state.path, 2)
+    elseif v.pages and (not state.path[2] or not v.pages[state.path[2]]) then
       M.find_default(v.pages, state.path, 2)
+    else
+      arr.clear(state.path, 3)
     end
   end
 
@@ -1960,6 +1965,9 @@ return function (opts)
     if ev.state then
       state = ev.state:val():lua(true)
       M.transition("ignore", "backward")
+    else
+      state = util.parse_path(str.match(location.hash, "^#(.*)"))
+      M.transition("replace", "forward")
     end
   end)
 
