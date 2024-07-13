@@ -1,6 +1,7 @@
 # Now
 
-- Modals (using data-show/hide in first-level component)
+- Modals (using data-show/hide in first-level component, allow fixed or sub
+  controller)
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
 - Dropdown
 - Icons in buttons
