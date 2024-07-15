@@ -1,7 +1,6 @@
 # Now
 
-- Modals (using data-show/hide in first-level component, allow fixed or sub
-  controller)
+- Modals (using data-show/hide in first-level component)
 - Dropdowns
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
 - Icons in buttons
@@ -20,7 +19,7 @@
 
 - Avoid .right and .top (header buttons after h1 imply right, fabs before main
   imply top)
-- Dynamically add snacks/fabs/modals, banners
+- Dynamically add snacks/fabs/modals/banners
 - Specify active page/switch via classes
 - Expandable footers and headers (swipe-open, scrollable, both first and second
   levels, overlay on short height, push on long height (maybe?))
