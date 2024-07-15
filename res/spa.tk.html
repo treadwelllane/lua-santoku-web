@@ -178,8 +178,8 @@
         padding-right: 16px;
       }
 
-      body > section.is-wide > section > header > h1:first-child,
-      body > section.is-wide > section > header > button.menu:first-child + h1 {
+      body > section.is-wide > main > section > header > h1:first-child,
+      body > section.is-wide > main > section > header > button.menu:first-child + h1 {
         padding-left: 32px;
       }
 
@@ -206,7 +206,7 @@
         margin-left: auto;
       }
 
-      body > section:not(.is-wide) > section > header > h1 {
+      body > section:not(.is-wide) > main > section > header > h1 {
         position: absolute;
         top: 50%;
         left: 50%;
@@ -214,7 +214,7 @@
         text-align: center;
       }
 
-      body > section.is-wide > section > header > button.menu {
+      body > section.is-wide > main > section > header > button.menu {
         display: none;
       }
 
@@ -240,17 +240,20 @@
 
       body > section > main > section > .nav-overlay {
         position: fixed;
+        top: 0;
+        left: 0;
         min-width: 100dvw;
         max-width: 100dvw;
         min-height: calc(100lvh + <% return opts.header_height %>px);
         max-height: calc(100lvh + <% return opts.header_height %>px);
+        z-index: <% return opts.nav_overlay_index %>;
         opacity: 0;
-        background: #000000;
+        background: black;
         pointer-events: none;
         transition: opacity <% return opts.transition_time %>ms ease;
       }
 
-      body > section:not(.is-wide) > section.showing-nav > .nav-overlay {
+      body > section:not(.is-wide) > main > section.showing-nav > .nav-overlay {
         opacity: 0.5;
         pointer-events: all;
       }
@@ -290,7 +293,7 @@
         fill: var(--fab-fg);
         color: var(--fab-fg);
         background: var(--fab-bg);
-        bottom: 16px;
+        bottom: 0;
         left: calc(100% - <% return opts.fab_width_large %>px - 16px);
         height: <% return opts.fab_width_large %>px;
         width: <% return opts.fab_width_large %>px;
@@ -302,7 +305,7 @@
       }
 
       body > section > main > section > button.top {
-        top: calc(<% return opts.header_height %>px + 16px);
+        top: 0;
       }
 
       body > section > main > section > button.small {
@@ -336,12 +339,12 @@
         min-height: calc(100dvh - <% return opts.header_height %>px);
       }
 
-      body > section:not(.is-wide) > section.showing-nav > main {
+      body > section:not(.is-wide) > main > section.showing-nav > main {
         user-select: none;
         pointer-events: none;
       }
 
-      body > section:not(.is-wide) > section.showing-nav > main {
+      body > section:not(.is-wide) > main > section.showing-nav > main {
         user-select: none;
         pointer-events: none;
       }
@@ -416,7 +419,7 @@
         min-height: <% return opts.snack_height %>px;
         max-height: <% return opts.snack_height %>px;
         max-width: calc(100dvw - 16px - <% return opts.fab_width_large %>px - 56px);
-        bottom: 16px;
+        bottom: 0;
         left: 16px;
         border-radius: <% return opts.snack_radius %>px;
         box-shadow: var(--snack-shadow);
@@ -553,3 +556,5 @@
   </body>
 
 </html>
+
+

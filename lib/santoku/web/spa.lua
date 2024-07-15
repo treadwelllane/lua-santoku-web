@@ -320,8 +320,8 @@ return function (opts)
         next_view.fab_observed_classes[c] = true
       end
 
-      if not el.classList:contains("small") and
-        last_view and last_view.el:querySelectorAll("section > button:not(.small)")
+      if not el.classList:contains("small") and not el.classList:contains("top") and
+        last_view and last_view.el:querySelectorAll("section > button:not(.small):not(.top)")
       then
         arr.push(next_view.e_fabs_shared, el)
       elseif el.classList:contains("top") then
@@ -428,6 +428,14 @@ return function (opts)
 
   end
 
+  M.get_subheader_offset = function (view)
+    local offset = M.get_base_header_offset() + (view.header_offset or 0) + (opts.header_height or 0)
+    if view.active_view and view.active_view.e_main_header then
+      offset = offset + (opts.header_height or 0)
+    end
+    return offset
+  end
+
   M.get_base_header_offset = function ()
     return (active_view.banner_offset_total or 0)
   end
@@ -512,7 +520,9 @@ return function (opts)
       end
     end
 
-    view.e_nav.style.transform = "translate(" .. view.nav_slide .. "px, " .. (M.get_base_header_offset() + view.nav_offset) .. "px)"
+    view.e_nav.style.transform =
+      "translate(" .. view.nav_slide .. "px, " .. (M.get_base_header_offset() + view.nav_offset) .. "px)"
+
     view.e_nav.style.opacity = view.nav_opacity
     view.e_nav.style["z-index"] = view.nav_index
     view.e_nav_overlay.style["z-index"] = view.nav_index - 1
@@ -540,7 +550,9 @@ return function (opts)
     local nav_push = (view.e_nav and active_view.el.classList:contains("is-wide"))
       and opts.nav_width or 0
 
-    view.e_main.style.transform = "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
+    view.e_main.style.transform =
+      "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
+
     view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
@@ -568,7 +580,9 @@ return function (opts)
     local nav_push = (view.parent and view.parent.e_nav and active_view.el.classList:contains("is-wide"))
       and opts.nav_width or 0
 
-    view.e_main_header.style.transform = "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_header_offset) .. "px)"
+    view.e_main_header.style.transform =
+      "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_header_offset) .. "px)"
+
     view.e_main_header.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
     view.e_main_header.style.opacity = view.main_header_opacity
     view.e_main_header.style["z-index"] = view.main_header_index
@@ -596,7 +610,9 @@ return function (opts)
     local nav_push = (view.parent and view.parent.e_nav and active_view.el.classList:contains("is-wide"))
       and opts.nav_width or 0
 
-    view.e_main.style.transform = "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
+    view.e_main.style.transform =
+      "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
+
     view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
@@ -625,10 +641,14 @@ return function (opts)
       end)
     end
 
-    local bottom_offset_total = 0
-    local top_offset_total = 0
+    local subheader_offset = M.get_subheader_offset(view)
+
+    local bottom_offset_total = 16
+    local top_offset_total = 16
 
     arr.each(view.e_fabs_shared, function (el)
+
+      local offset = view.fab_shared_offset
 
       el.style["z-index"] = view.fab_shared_index
 
@@ -638,7 +658,7 @@ return function (opts)
         el.style["pointer-events"] = "none"
         el.style.transform =
           "scale(0.75) " ..
-          "translateY(" .. view.fab_shared_offset .. "px)"
+          "translateY(" .. offset .. "px)"
         return
       end
 
@@ -651,17 +671,12 @@ return function (opts)
 
       el.style.transform =
         "scale(" .. view.fab_shared_scale .. ") " ..
-          "translateY(" .. view.fab_shared_offset .. "px)"
+        "translateY(" .. offset .. "px)"
 
       e_svg.style.transform =
         "translateY(" .. view.fab_shared_svg_offset .. "px)"
 
       if el.classList:contains("top") then
-        top_offset_total = top_offset_total +
-          (el.classList:contains("small") and
-            opts.fab_width_small or
-            opts.fab_width_large)
-      else
         bottom_offset_total = bottom_offset_total +
           (el.classList:contains("small") and
             opts.fab_width_small or
@@ -670,18 +685,28 @@ return function (opts)
 
     end)
 
+    local bottom_cutoff = subheader_offset + 16
+    local last_bottom_top = 0
+
     arr.each(view.e_fabs_bottom, function (el)
 
-      el.style.position = "fixed"
+      local offset = view.fabs_bottom_offset - bottom_offset_total
+
+      local height = el.classList:contains("small") and
+        opts.fab_width_small or
+        opts.fab_width_large
 
       el.style["z-index"] = view.fabs_bottom_index
 
-      if not M.should_show(view, el) then
+      last_bottom_top = (e_body.clientHeight + offset - height - 16)
+
+      if last_bottom_top <= bottom_cutoff or not M.should_show(view, el)
+      then
         el.style.opacity = 0
         el.style["pointer-events"] = "none"
         el.style.transform =
           "scale(0.75) " ..
-          "translateY(" .. view.fabs_bottom_offset - bottom_offset_total .. "px)"
+          "translateY(" .. offset .. "px)"
         return
       end
 
@@ -689,31 +714,29 @@ return function (opts)
       el.style.opacity = view.fabs_bottom_opacity
       el.style.transform =
         "scale(" .. view.fabs_bottom_scale .. ") " ..
-        "translateY(" .. view.fabs_bottom_offset - bottom_offset_total .. "px)"
+        "translateY(" .. offset .. "px)"
 
-      bottom_offset_total = bottom_offset_total +
-        (el.classList:contains("small") and
-          opts.fab_width_small or
-          opts.fab_width_large) + 16
+      bottom_offset_total = bottom_offset_total + height + 16
 
     end)
 
-    local subheader_offset = M.get_base_header_offset() + view.header_offset
-
-    if view.active_view and view.active_view.e_main_header then
-      subheader_offset = subheader_offset + opts.header_height
-    end
-
     arr.each(view.e_fabs_top, function (el)
+
+      local offset = subheader_offset + view.fabs_top_offset + top_offset_total
+
+      local height = el.classList:contains("small") and
+        opts.fab_width_small or
+        opts.fab_width_large
 
       el.style["z-index"] = view.fabs_top_index
 
-      if not M.should_show(view, el) then
+      if (offset + height) >= last_bottom_top or not M.should_show(view, el)
+      then
         el.style.opacity = 0
         el.style["pointer-events"] = "none"
         el.style.transform =
           "scale(0.75) " ..
-          "translateY(" .. (subheader_offset + view.fabs_top_offset - top_offset_total) .. "px)"
+          "translateY(" .. offset .. "px)"
         return
       end
 
@@ -721,12 +744,9 @@ return function (opts)
       el.style.opacity = view.fabs_top_opacity or 0
       el.style.transform =
         "scale(" .. (view.fabs_top_scale or 1) .. ") " ..
-        "translateY(" .. (subheader_offset + view.fabs_top_offset + top_offset_total) .. "px)"
+        "translateY(" .. offset .. "px)"
 
-      top_offset_total = top_offset_total +
-        (el.classList:contains("small") and
-          opts.fab_width_small or
-          opts.fab_width_large) + 16
+      top_offset_total = top_offset_total + height + 16
 
     end)
 
@@ -754,7 +774,8 @@ return function (opts)
       end)
     end
 
-    local bottom_offset_total = 0
+    local bottom_cutoff = M.get_subheader_offset(view) + 16
+    local bottom_offset_total = 16
 
     local nav_push = (view.e_nav and active_view.el.classList:contains("is-wide"))
       and opts.nav_width or 0
@@ -763,16 +784,20 @@ return function (opts)
 
       e_snack.style["z-index"] = view.snack_index
 
-      if not M.should_show(view, e_snack) then
+      local offset = view.snack_offset - bottom_offset_total
+      local snack_top = e_body.clientHeight + offset - opts.snack_height - 16
+
+      if snack_top <= bottom_cutoff or not M.should_show(view, e_snack)
+      then
         e_snack.style.opacity = 0
         e_snack.style["pointer-events"] = "none"
         e_snack.style.transform =
-          "translate(" .. nav_push .. "px," .. (view.snack_offset - bottom_offset_total) .. "px)"
+          "translate(" .. nav_push .. "px," .. offset .. "px)"
       else
         e_snack.style.opacity = view.snack_opacity
         e_snack.style["pointer-events"] = (view.snack_opacity or 0) == 0 and "none" or "all"
         e_snack.style.transform =
-          "translate(" .. nav_push .. "px," .. (view.snack_offset - bottom_offset_total) .. "px)"
+          "translate(" .. nav_push .. "px," .. offset .. "px)"
         bottom_offset_total = bottom_offset_total +
             opts.snack_height + 16
       end
@@ -1276,20 +1301,20 @@ return function (opts)
     elseif transition == "enter" and direction == "backward" then
 
       next_view.fab_shared_index = opts.fab_index - 2
-      next_view.fab_shared_scale = 0.75
+      next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 0
       next_view.fab_shared_shadow = opts.fab_shadow
       next_view.fab_shared_offset = 0
       next_view.fab_shared_svg_offset = 0
 
       next_view.fabs_bottom_index = opts.fab_index - 2
-      next_view.fabs_bottom_scale = 0.75
+      next_view.fabs_bottom_scale = 1
       next_view.fabs_bottom_opacity = 0
       next_view.fabs_bottom_offset = 0
 
       next_view.fabs_top_index = opts.fab_index - 2
-      next_view.fabs_bottom_scale = 0.75
-      next_view.fabs_bottom_opacity = 0
+      next_view.fabs_top_scale = 1
+      next_view.fabs_top_opacity = 0
       next_view.fabs_top_offset = 0
 
       M.style_fabs(next_view)
@@ -1378,14 +1403,14 @@ return function (opts)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.snack_offset = M.get_base_footer_offset() - opts.transition_forward_height
+      last_view.snack_offset = M.get_base_footer_offset()
       last_view.snack_opacity = 0
       last_view.snack_index = opts.snack_index - 1
       M.style_snacks(last_view, true)
 
     elseif transition == "enter" and direction == "backward" then
 
-      next_view.snack_offset = M.get_base_footer_offset()  - opts.transition_forward_height
+      next_view.snack_offset = M.get_base_footer_offset()
       next_view.snack_opacity = 0
       next_view.snack_index = opts.snack_index - 1
       M.style_snacks(next_view)
@@ -1398,7 +1423,7 @@ return function (opts)
 
     elseif transition == "exit" and direction == "backward" then
 
-      last_view.snack_offset = opts.transition_forward_height + M.get_base_footer_offset()
+      last_view.snack_offset = M.get_base_footer_offset() + opts.transition_forward_height
       last_view.snack_opacity = 0
       last_view.snack_index = opts.snack_index + 1
       M.style_snacks(last_view, true)
@@ -1869,6 +1894,7 @@ return function (opts)
       M.setup_header_title_width(active_view.active_view)
       M.style_nav(active_view.active_view, true)
       M.style_snacks(active_view.active_view, true)
+      M.style_fabs(active_view.active_view, true)
       if active_view.active_view.active_view then
         M.style_main_header_switch(active_view.active_view.active_view, true)
         M.style_main_switch(active_view.active_view.active_view, true)

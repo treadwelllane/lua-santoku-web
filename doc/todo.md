@@ -2,8 +2,8 @@
 
 - Modals (using data-show/hide in first-level component, allow fixed or sub
   controller)
+- Dropdowns
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
-- Dropdown
 - Icons in buttons
 
 # Next
@@ -32,6 +32,7 @@
 - Add extra bottom padding when snacks and fabs are shown
 - Desktop site issues: zoom changes on page switch, scales tiny with small
   windows, etc
+- Data-show/hide for headers, nav, etc. Use for maximize
 
 - Better error messages
 - Lua coverage
