@@ -643,12 +643,12 @@ return function (opts)
 
     local subheader_offset = M.get_subheader_offset(view)
 
-    local bottom_offset_total = 16
-    local top_offset_total = 16
+    local bottom_offset_total = opts.padding
+    local top_offset_total = opts.padding
 
     arr.each(view.e_fabs_shared, function (el)
 
-      local offset = view.fab_shared_offset
+      local offset = -view.fab_shared_offset
 
       el.style["z-index"] = view.fab_shared_index
 
@@ -657,7 +657,7 @@ return function (opts)
         el.style["box-shadow"] = view.fab_shared_shadow
         el.style["pointer-events"] = "none"
         el.style.transform =
-          "scale(0.75) " ..
+          "scale(" .. opts.fab_scale .. ") " ..
           "translateY(" .. offset .. "px)"
         return
       end
@@ -676,16 +676,14 @@ return function (opts)
       e_svg.style.transform =
         "translateY(" .. view.fab_shared_svg_offset .. "px)"
 
-      if el.classList:contains("top") then
-        bottom_offset_total = bottom_offset_total +
-          (el.classList:contains("small") and
-            opts.fab_width_small or
-            opts.fab_width_large) + 16
-      end
+      bottom_offset_total = bottom_offset_total +
+        (el.classList:contains("small") and
+          opts.fab_width_small or
+          opts.fab_width_large) + opts.padding
 
     end)
 
-    local bottom_cutoff = subheader_offset + 16
+    local bottom_cutoff = subheader_offset + opts.padding
     local last_bottom_top = 0
 
     arr.each(view.e_fabs_bottom, function (el)
@@ -698,14 +696,14 @@ return function (opts)
 
       el.style["z-index"] = view.fabs_bottom_index
 
-      last_bottom_top = (e_body.clientHeight + offset - height - 16)
+      last_bottom_top = (e_body.clientHeight + offset - height - opts.padding)
 
       if last_bottom_top <= bottom_cutoff or not M.should_show(view, el)
       then
         el.style.opacity = 0
         el.style["pointer-events"] = "none"
         el.style.transform =
-          "scale(0.75) " ..
+          "scale(" .. opts.fab_scale .. ") " ..
           "translateY(" .. offset .. "px)"
         return
       end
@@ -716,7 +714,7 @@ return function (opts)
         "scale(" .. view.fabs_bottom_scale .. ") " ..
         "translateY(" .. offset .. "px)"
 
-      bottom_offset_total = bottom_offset_total + height + 16
+      bottom_offset_total = bottom_offset_total + height + opts.padding
 
     end)
 
@@ -735,7 +733,7 @@ return function (opts)
         el.style.opacity = 0
         el.style["pointer-events"] = "none"
         el.style.transform =
-          "scale(0.75) " ..
+          "scale(" .. opts.fab_scale .. ") " ..
           "translateY(" .. offset .. "px)"
         return
       end
@@ -746,7 +744,7 @@ return function (opts)
         "scale(" .. (view.fabs_top_scale or 1) .. ") " ..
         "translateY(" .. offset .. "px)"
 
-      top_offset_total = top_offset_total + height + 16
+      top_offset_total = top_offset_total + height + opts.padding
 
     end)
 
@@ -774,8 +772,8 @@ return function (opts)
       end)
     end
 
-    local bottom_cutoff = M.get_subheader_offset(view) + 16
-    local bottom_offset_total = 16
+    local bottom_cutoff = M.get_subheader_offset(view) + opts.padding
+    local bottom_offset_total = opts.padding
 
     local nav_push = (view.e_nav and active_view.el.classList:contains("is-wide"))
       and opts.nav_width or 0
@@ -785,7 +783,7 @@ return function (opts)
       e_snack.style["z-index"] = view.snack_index
 
       local offset = view.snack_offset - bottom_offset_total
-      local snack_top = e_body.clientHeight + offset - opts.snack_height - 16
+      local snack_top = e_body.clientHeight + offset - opts.snack_height - opts.padding
 
       if snack_top <= bottom_cutoff or not M.should_show(view, e_snack)
       then
@@ -799,7 +797,7 @@ return function (opts)
         e_snack.style.transform =
           "translate(" .. nav_push .. "px," .. offset .. "px)"
         bottom_offset_total = bottom_offset_total +
-            opts.snack_height + 16
+            opts.snack_height + opts.padding
       end
 
     end)
@@ -1143,7 +1141,7 @@ return function (opts)
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 1
       next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = 0
+      next_view.fab_shared_offset = opts.padding
       next_view.fab_shared_svg_offset = 0
 
       next_view.fabs_bottom_index = opts.fab_index - 1
@@ -1164,16 +1162,16 @@ return function (opts)
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 0
       next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = 0
+      next_view.fab_shared_offset = opts.padding
       next_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
 
       next_view.fabs_bottom_index = opts.fab_index - 1
-      next_view.fabs_bottom_scale = 0.75
+      next_view.fabs_bottom_scale = opts.fab_scale
       next_view.fabs_bottom_opacity = 0
       next_view.fabs_bottom_offset = opts.transition_forward_height
 
       next_view.fabs_top_index = opts.fab_index - 1
-      next_view.fabs_top_scale = 0.75
+      next_view.fabs_top_scale = 1
       next_view.fabs_top_opacity = 0
       next_view.fabs_top_offset = opts.transition_forward_height
 
@@ -1197,7 +1195,7 @@ return function (opts)
       last_view.fab_shared_scale = 1
       last_view.fab_shared_opacity = 1
       last_view.fab_shared_shadow = opts.fab_shadow_transparent
-      last_view.fab_shared_offset = 0
+      last_view.fab_shared_offset = opts.padding
       last_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
 
       last_view.fabs_bottom_index = opts.fab_index - 2
@@ -1218,16 +1216,16 @@ return function (opts)
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 0
       next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = 0
+      next_view.fab_shared_offset = opts.padding
       next_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
 
       next_view.fabs_bottom_index = opts.fab_index - 2
-      next_view.fabs_bottom_scale = 0.75
+      next_view.fabs_bottom_scale = opts.fab_scale
       next_view.fabs_bottom_opacity = 0
       next_view.fabs_bottom_offset = 0
 
       next_view.fabs_top_index = opts.fab_index - 2
-      next_view.fabs_top_scale = 0.75
+      next_view.fabs_top_scale = 1
       next_view.fabs_top_opacity = 0
       next_view.fabs_top_offset = 0
 
@@ -1249,16 +1247,16 @@ return function (opts)
       last_view.fab_shared_scale = 1
       last_view.fab_shared_opacity = 1
       last_view.fab_shared_shadow = opts.fab_shadow_transparent
-      last_view.fab_shared_offset = 0
+      last_view.fab_shared_offset = opts.padding
       last_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
 
       last_view.fabs_bottom_index = opts.fab_index - 1
-      last_view.fabs_bottom_scale = 0.75
+      last_view.fabs_bottom_scale = opts.fab_scale
       last_view.fabs_bottom_opacity = 0
       last_view.fabs_bottom_offset = opts.transition_forward_height
 
       last_view.fabs_top_index = opts.fab_index + 2
-      last_view.fabs_top_scale = 0.75
+      last_view.fabs_top_scale = 1
       last_view.fabs_top_opacity = 0
       last_view.fabs_top_offset = opts.transition_forward_height
 
@@ -1267,20 +1265,20 @@ return function (opts)
     elseif transition == "enter" and direction == "forward" then
 
       next_view.fab_shared_index = opts.fab_index - 1
-      next_view.fab_shared_scale = 0.75
+      next_view.fab_shared_scale = opts.fab_scale
       next_view.fab_shared_opacity = 0
       next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = opts.transition_forward_height
+      next_view.fab_shared_offset = opts.padding + opts.transition_forward_height
       next_view.fab_shared_svg_offset = 0
 
       next_view.fabs_bottom_index = opts.fab_index - 1
-      next_view.fabs_bottom_scale = 0.75
+      next_view.fabs_bottom_scale = opts.fab_scale
       next_view.fabs_bottom_opacity = 0
       next_view.fabs_bottom_offset = opts.transition_forward_height
 
       next_view.fabs_top_index = opts.fab_index - 1
-      next_view.fabs_bottom_scale = 0.75
-      next_view.fabs_bottom_opacity = 0
+      next_view.fabs_top_scale = 1
+      next_view.fabs_top_opacity = 0
       next_view.fabs_top_offset = opts.transition_forward_height
 
       M.style_fabs(next_view)
@@ -1288,7 +1286,7 @@ return function (opts)
       M.after_frame(function ()
         next_view.fab_shared_scale = 1
         next_view.fab_shared_opacity = 1
-        next_view.fab_shared_offset = 0
+        next_view.fab_shared_offset = opts.padding
         next_view.fabs_bottom_scale = 1
         next_view.fabs_bottom_opacity = 1
         next_view.fabs_bottom_offset = 0
@@ -1304,7 +1302,7 @@ return function (opts)
       next_view.fab_shared_scale = 1
       next_view.fab_shared_opacity = 0
       next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = 0
+      next_view.fab_shared_offset = opts.padding
       next_view.fab_shared_svg_offset = 0
 
       next_view.fabs_bottom_index = opts.fab_index - 2
@@ -1335,7 +1333,7 @@ return function (opts)
       last_view.fab_shared_scale = 1
       last_view.fab_shared_opacity = 0
       last_view.fab_shared_shadow = opts.fab_shadow
-      last_view.fab_shared_offset = 0
+      last_view.fab_shared_offset = opts.padding
       last_view.fab_shared_svg_offset = 0
 
       last_view.fabs_bottom_index = opts.fab_index - 2
@@ -1353,19 +1351,19 @@ return function (opts)
     elseif transition == "exit" and direction == "backward" then
 
       last_view.fab_shared_index = opts.fab_index - 1
-      last_view.fab_shared_scale = 0.75
+      last_view.fab_shared_scale = opts.fab_scale
       last_view.fab_shared_opacity = 0
       last_view.fab_shared_shadow = opts.fab_shadow
-      last_view.fab_shared_offset = opts.transition_forward_height
+      last_view.fab_shared_offset = opts.padding + opts.transition_forward_height
       last_view.fab_shared_svg_offset = 0
 
       last_view.fabs_bottom_index = opts.fab_index - 1
-      last_view.fabs_bottom_scale = 0.75
+      last_view.fabs_bottom_scale = opts.fab_scale
       last_view.fabs_bottom_opacity = 0
       last_view.fabs_bottom_offset = opts.transition_forward_height
 
       last_view.fabs_top_index = opts.fab_index - 1
-      last_view.fabs_top_scale = 0.75
+      last_view.fabs_top_scale = opts.fab_scale
       last_view.fabs_top_opacity = 0
       last_view.fabs_top_offset = opts.transition_forward_height
 

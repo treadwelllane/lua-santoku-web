@@ -4,6 +4,7 @@
 - Dropdowns
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
 - Icons in buttons
+- Asset generation
 
 # Next
 
@@ -15,7 +16,8 @@
 - Dark theme
 - Typeahead single/multi select
 - Footer for main and switch
-- Asset generation
+- Right nav
+- Navs as rails
 
 - Avoid .right and .top (header buttons after h1 imply right, fabs before main
   imply top)
