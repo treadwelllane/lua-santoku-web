@@ -29,15 +29,16 @@ return {
   fab_width_small = "40",
   fab_radius_large = "16",
   fab_radius_small = "12",
+  fab_scale = "0.85",
   fab_shared_svg_transition_height = "24",
-  fab_shadow = "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
-  fab_shadow_transparent = "0 10px 15px -3px rgb(0 0 0 / 0.0), 0 4px 6px -4px rgb(0 0 0 / 0.0)",
+  fab_shadow = "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+  fab_shadow_transparent = "0 4px 6px -1px rgb(0 0 0 / 0), 0 2px 4px -2px rgb(0 0 0 / 0)",
 
   snack_height = "40",
   snack_radius = "6",
   snack_bg = "#1f2937df",
   snack_fg = "#ffffff",
-  snack_shadow = "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+  snack_shadow = "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
 
   main_shadow = "0 0 16px 16px #FFFFFF",
 
@@ -66,5 +67,7 @@ return {
   fab_index = "60",
   snack_index = "50",
   main_index = "40",
+
+  padding = "16",
 
 }
