@@ -30,6 +30,7 @@ return function (opts)
   local t_ripple = e_head:querySelector("template.ripple")
   local t_nav_overlay = e_head:querySelector("template.nav-overlay")
 
+  local base_path = location.pathname
   local state = util.parse_path(str.match(location.hash, "^#(.*)"))
   local active_view
 
@@ -1708,7 +1709,7 @@ return function (opts)
 
   M.get_url = function ()
     local p = util.encode_path(state)
-    return "/#" .. p
+    return base_path .. "#" .. p
   end
 
   M.set_route = function (policy)
