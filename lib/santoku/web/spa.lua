@@ -884,6 +884,7 @@ return function (opts)
 
       last_view.nav_offset = opts.transition_forward_height
       last_view.nav_opacity = 0
+      last_view.nav_overlay_opacity = 0
       last_view.nav_index = opts.nav_index + 1
       M.style_nav(last_view, true)
 
