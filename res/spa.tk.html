@@ -403,6 +403,19 @@
         min-height: calc(100% - <% return opts.header_height %>px);
       }
 
+      body > section > main > section > main > section > main > section > main {
+        flex-grow: 1;
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+        min-width: 100%;
+        min-height: 100%;
+        box-shadow: var(--main-shadow);
+        transition: transform <% return opts.transition_time_main %>ms ease,
+                    opacity <% return opts.transition_time_main %>ms ease;
+      }
+
       body > section > main > section > aside {
         position: fixed;
         display: flex;
