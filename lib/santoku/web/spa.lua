@@ -1,6 +1,4 @@
 local err = require("santoku.error")
-local error = err.error
-
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local str = require("santoku.string")
@@ -190,18 +188,24 @@ return function (opts)
 
   end
 
-  M.setup_alt = function (next_view, init)
+  M.setup_panes = function (next_view, init)
+    if not next_view.page.panes then
+      return
+    end
+    for name, pane in pairs(next_view.page.panes) do
+      pane.el = next_view.el:querySelector("[data-pane='" .. name .. "']")
+      M.pane(next_view, name, pane.pages.default, init)
+    end
+  end
 
+  M.setup_alt = function (next_view, init, explicit)
     if not state.path[3] then
       M.find_default(next_view.page, state.path, 3)
     end
-
     if not state.path[3] then
       return
     end
-
-    M.alt(next_view, state.path[3], "ignore", init)
-
+    M.alt(next_view, state.path[3], "ignore", init, explicit)
     if next_view.parent then
       if active_view.el.classList:contains("is-wide") then
         M.toggle_nav_state(next_view.parent, true, false, false)
@@ -209,10 +213,9 @@ return function (opts)
         M.toggle_nav_state(next_view.parent, false, false, false)
       end
     end
-
   end
 
-  M.setup_nav = function (next_view, dir, init)
+  M.setup_nav = function (next_view, dir, init, explicit)
 
     next_view.e_nav = next_view.el:querySelector("section > nav")
 
@@ -295,7 +298,7 @@ return function (opts)
       M.find_default(next_view.page, state.path, 2)
     end
 
-    M.switch(next_view, state.path[2], "ignore", dir, init)
+    M.switch(next_view, state.path[2], "ignore", dir, init, explicit)
 
     if active_view.el.classList:contains("is-wide") then
       M.toggle_nav_state(next_view, true, false, false)
@@ -613,7 +616,6 @@ return function (opts)
       end)
     end
 
-    view.e_main.style.transform = "scale(" .. view.main_scale or 1 .. ")"
     view.e_main.style.opacity = view.main_opacity or 1
     view.e_main.style["z-index"] = view.main_index
 
@@ -1100,27 +1102,23 @@ return function (opts)
     if init and transition == "enter" then
 
       next_view.main_opacity = 1
-      next_view.main_scale = 1
       next_view.main_index = opts.main_index + 1
       M.style_main_alt(next_view)
 
     elseif transition == "enter" then
 
       next_view.main_opacity = 0
-      next_view.main_scale = 0.9625
       next_view.main_index = opts.main_index + 1
       M.style_main_alt(next_view)
 
       M.after_frame(function ()
         next_view.main_opacity = 1
-        next_view.main_scale = 1
         M.style_main_alt(next_view, true)
       end)
 
     elseif transition == "exit" then
 
       last_view.main_opacity = 0
-      last_view.main_scale = 0.9625
       last_view.main_index = opts.main_index - 1
       M.style_main_alt(last_view, true)
 
@@ -1568,6 +1566,11 @@ return function (opts)
     end)
   end
 
+  M.post_enter_pane = function (view, next_view)
+    view.el.classList:remove("transition")
+    M.setup_ripples(next_view.el)
+  end
+
   M.post_enter_alt = function (view, next_view)
     view.el.classList:remove("transition")
     M.setup_ripples(next_view.el)
@@ -1576,6 +1579,13 @@ return function (opts)
   M.post_enter_switch = function (view, next_view)
     view.el.classList:remove("transition")
     M.setup_ripples(next_view.el)
+  end
+
+  M.post_exit_pane = function (last_view)
+    last_view.el:remove()
+    if last_view.page.destroy then
+      last_view.page.destroy(last_view, opts)
+    end
   end
 
   M.post_exit_alt = function (last_view)
@@ -1634,11 +1644,33 @@ return function (opts)
 
   end
 
+  M.enter_pane = function (view_pane, next_view, last_view, init, ...)
+
+    next_view.el = util.clone(next_view.page.template)
+    next_view.e_main = next_view.el:querySelector("section > main")
+
+    M.setup_panes(next_view, init)
+    M.style_main_transition_alt(next_view, "enter", last_view, init)
+
+    if next_view.page.init then
+      next_view.page.init(next_view, ...)
+    end
+
+    view_pane.el.classList:add("transition")
+    view_pane.el:append(next_view.el)
+
+    M.after_transition(function ()
+      return M.post_enter_pane(view_pane, next_view)
+    end)
+
+  end
+
   M.enter_alt = function (view, next_view, last_view, init)
 
     next_view.el = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
 
+    M.setup_panes(next_view, init)
     M.style_main_transition_alt(next_view, "enter", last_view, init)
 
     if next_view.page.init then
@@ -1654,13 +1686,14 @@ return function (opts)
 
   end
 
-  M.enter_switch = function (view, next_view, direction, last_view, init)
+  M.enter_switch = function (view, next_view, direction, last_view, init, explicit)
 
     next_view.el = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
     next_view.e_main_header = next_view.el:querySelector("section > header")
 
-    M.setup_alt(next_view, init)
+    M.setup_alt(next_view, init, explicit)
+    M.setup_panes(next_view, init)
     M.style_main_header_transition_switch(next_view, "enter", direction, last_view, init)
     M.style_main_transition_switch(next_view, "enter", direction, last_view, init)
 
@@ -1677,14 +1710,18 @@ return function (opts)
 
   end
 
-  M.exit_alt = function (view, last_view, next_view)
-
+  M.exit_pane = function (last_view, next_view)
     M.style_main_transition_alt(next_view, "exit", last_view)
+    M.after_transition(function ()
+      return M.post_exit_pane(last_view)
+    end)
+  end
 
+  M.exit_alt = function (last_view, next_view)
+    M.style_main_transition_alt(next_view, "exit", last_view)
     M.after_transition(function ()
       return M.post_exit_alt(last_view)
     end)
-
   end
 
   M.exit_switch = function (view, last_view, direction, next_view)
@@ -1706,17 +1743,18 @@ return function (opts)
 
   end
 
-  M.enter = function (next_view, direction, last_view, init)
+  M.enter = function (next_view, direction, last_view, init, explicit)
 
     next_view.el = util.clone(next_view.page.template)
     next_view.e_header = next_view.el:querySelector("section > header")
     next_view.e_main = next_view.el:querySelector("section > main")
 
     M.setup_observer(next_view)
-    M.setup_nav(next_view, direction, init)
+    M.setup_nav(next_view, direction, init, explicit)
     M.setup_fabs(next_view, last_view)
     M.setup_snacks(next_view)
     M.setup_header_title_width(next_view)
+    M.setup_panes(next_view, init)
     M.style_header_transition(next_view, "enter", direction, last_view)
     M.style_nav_transition(next_view, "enter", direction, last_view)
     M.style_fabs_transition(next_view, "enter", direction, last_view)
@@ -1779,7 +1817,9 @@ return function (opts)
 
   end
 
-  M.init_view = function (name, page, parent)
+  M.init_view = function (name, path_idx, page, parent)
+
+    err.assert(name ~= "default", "view name can't be default")
 
     local view = {
       parent = parent,
@@ -1787,6 +1827,7 @@ return function (opts)
       backward = M.backward,
       replace_forward = M.replace_forward,
       replace_backward = M.replace_backward,
+      path_idx = path_idx,
       page = page,
       name = name,
       state = state
@@ -1794,6 +1835,10 @@ return function (opts)
 
     view.toggle_nav = function ()
       return M.toggle_nav_state(active_view.active_view, not view.el.classList:contains("showing-nav"), true, true)
+    end
+
+    view.pane = function (name, page_name, ...)
+      return M.pane(view, name, page_name, false, ...)
     end
 
     return view
@@ -1827,23 +1872,56 @@ return function (opts)
     end
   end
 
-  M.maybe_redirect = function (page)
+  M.maybe_redirect = function (view, page, explicit)
     if page and page.redirect then
-      return varg.tup(function (redir, ...)
-        if redir then
-          M.replace_forward(...)
+      return varg.tup(function (a, ...)
+        if a == true then
+          M.replace_forward(varg.append(..., arr.spread(state.path, 1, view.path_idx)))
+          return true
+        elseif a then
+          M.replace_forward(a, ...)
           return true
         end
-      end, page.redirect(active_view.active_view, page))
+      end, page.redirect(view, page, explicit))
     end
   end
 
-  M.alt = function (view, name, policy, init)
+  M.resolve_default = function (view, name)
+    if name == "default" then
+      return view.pages.default
+    else
+      return name
+    end
+  end
+
+  M.pane = function (view, name, page_name, init, ...)
+
+    local view_pane = view.page.panes and view.page.panes[name]
+    page_name = M.resolve_default(view_pane, page_name)
+    local pane_page = view_pane.pages and view_pane.pages[page_name]
+    err.assert(pane_page, "no pane found", name, page_name)
+
+    if view_pane.active_view and pane_page == view_pane.active_view.page then
+      return
+    end
+
+    local last_view_pane = view_pane.active_view
+    view_pane.active_view = M.init_view(page_name, nil, pane_page, view_pane)
+
+    M.enter_pane(view_pane, view_pane.active_view, last_view_pane, init, ...)
+
+    if last_view_pane then
+      M.exit_pane(last_view_pane, view_pane.active_view)
+    end
+
+  end
+
+  M.alt = function (view, name, policy, init, explicit)
 
     local page = view.page.pages and view.page.pages[name]
     err.assert(page, "no alt found", name)
 
-    if M.maybe_redirect(page, policy) then
+    if M.maybe_redirect(view, page, explicit) then
       return
     end
 
@@ -1852,36 +1930,36 @@ return function (opts)
     end
 
     local last_view = view.active_view
-    view.active_view = M.init_view(name, page, view)
+    view.active_view = M.init_view(name, 3, page, view)
 
     M.enter_alt(view, view.active_view, last_view, init)
 
     if last_view then
-      M.exit_alt(view, last_view, view.active_view)
+      M.exit_alt(last_view, view.active_view)
     end
 
     M.set_route(policy)
 
   end
 
-  M.switch = function (view, name, policy, dir, init)
+  M.switch = function (view, name, policy, dir, init, explicit)
 
     local page = view.page.pages and view.page.pages[name]
     err.assert(page, "no switch found", name)
 
-    if M.maybe_redirect(page, policy) then
+    if M.maybe_redirect(view, page, explicit) then
       return
     end
 
     if view.active_view and page == view.active_view.page then
       if state.path[3] then
-        return M.alt(view.active_view, state.path[3], policy, init)
+        return M.alt(view.active_view, state.path[3], policy, init, explicit)
       end
       return
     end
 
     local last_view = view.active_view
-    view.active_view = M.init_view(name, page, view)
+    view.active_view = M.init_view(name, 2, page, view)
 
     view.e_nav_buttons:forEach(function (_, el)
       if el.dataset.page == name then
@@ -1893,7 +1971,7 @@ return function (opts)
 
     local dir = M.switch_dir(view, view.active_view, last_view, dir)
 
-    M.enter_switch(view, view.active_view, dir, last_view, init)
+    M.enter_switch(view, view.active_view, dir, last_view, init, explicit)
 
     if last_view then
       M.exit_switch(view, last_view, dir, view.active_view)
@@ -1909,7 +1987,7 @@ return function (opts)
     if not page then
       return path
     end
-    local def = page and page.default_page
+    local def = page and page.pages and page.pages.default
     if not def then
       return path
     else
@@ -1929,7 +2007,8 @@ return function (opts)
       M.find_default(v, state.path, 1)
     else
       for i = 1, #state.path do
-        v = v.pages and v.pages[state.path[i]]
+        local r = M.resolve_default(v, state.path[i])
+        v = r == state.path[i] and v.pages and v.pages[r]
         if not v then
           M.find_default(v, state.path, i)
           break
@@ -1958,7 +2037,7 @@ return function (opts)
     M.transition("replace", "backward")
   end
 
-  M.transition = function (policy, dir, init)
+  M.transition = function (policy, dir, init, explicit)
 
     M.after_frame(function ()
 
@@ -1967,23 +2046,22 @@ return function (opts)
       local page = active_view.page.pages[state.path[1]]
       err.assert(page, "no page found", state.path[1])
 
-      if M.maybe_redirect(page, policy) then
+      if M.maybe_redirect(active_view, page, explicit) then
         return
       end
 
       if not active_view.active_view or page ~= active_view.active_view.page then
         local last_view = active_view.active_view
-        active_view.active_view = M.init_view(state.path[1], page)
-        M.enter(active_view.active_view, dir, last_view, init)
+        active_view.active_view = M.init_view(state.path[1], 1, page)
+        M.enter(active_view.active_view, dir, last_view, init, explicit)
         if last_view then
           M.exit(last_view, dir, active_view.active_view)
         end
-        M.set_route(policy)
       elseif state.path[2] then
-        M.switch(active_view.active_view, state.path[2], policy, nil, init)
-      else
-        M.set_route(policy)
+        M.switch(active_view.active_view, state.path[2], policy, nil, init, explicit)
       end
+
+      M.set_route(policy)
 
     end)
 
@@ -2043,7 +2121,7 @@ return function (opts)
 
   M.setup_active_view = function ()
 
-    active_view = M.init_view(nil, opts.main)
+    active_view = M.init_view(nil, 0, opts.main)
 
     active_view.el = util.clone(opts.main.template)
     active_view.e_main = active_view.el:querySelector("section > main")
@@ -2109,8 +2187,11 @@ return function (opts)
         local reg = err.checkok(...)
 
         if reg.installing then
+          print("Initial service worker installing")
         elseif reg.waiting then
+          print("Initial service worker installed")
         elseif reg.active then
+          print("Initial service worker active")
         end
 
         M.poll_worker_update(reg)
@@ -2124,10 +2205,10 @@ return function (opts)
   window:addEventListener("popstate", function (_, ev)
     if ev.state then
       state = ev.state:val():lua(true)
-      M.transition("ignore", "backward")
+      M.transition("ignore", "backward", nil, true)
     else
       state = util.parse_path(str.match(location.hash, "^#(.*)"))
-      M.transition("replace", "forward")
+      M.transition("replace", "forward", nil, true)
     end
   end)
 
@@ -2140,10 +2221,10 @@ return function (opts)
   M.on_resize()
 
   if #state.path > 0 then
-    M.transition("replace", "forward", true)
+    M.transition("replace", "forward", true, true)
   else
     M.find_default(active_view.page, state.path, 1)
-    M.transition("push", "forward", true)
+    M.transition("push", "forward", true, true)
   end
 
 end

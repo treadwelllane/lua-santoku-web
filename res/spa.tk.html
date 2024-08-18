@@ -398,6 +398,10 @@
         top: <% return opts.header_height %>px;
       }
 
+      body > section > main > section > header ~ main > section > main {
+        top: 0;
+      }
+
       body > section > main > section > header ~ main > section > header ~ main {
         top: <% return opts.header_height %>px;
         min-height: calc(100% - <% return opts.header_height %>px);
@@ -436,6 +440,31 @@
         left: 16px;
         border-radius: <% return opts.snack_radius %>px;
         box-shadow: var(--snack-shadow);
+        transition: box-shadow <% return opts.transition_time %>ms ease,
+                    transform <% return opts.transition_time %>ms ease,
+                    opacity <% return opts.transition_time %>ms ease;
+      }
+
+      body [data-pane] {
+        position: relative;
+      }
+
+      body [data-pane] > section {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-grow: 1;
+        min-width: 100%;
+        top: 0;
+        left: 0;
+      }
+
+      body button[data-pane] > section {
+        min-height: 100%;
+      }
+
+      body [data-pane] > section > main {
         transition: box-shadow <% return opts.transition_time %>ms ease,
                     transform <% return opts.transition_time %>ms ease,
                     opacity <% return opts.transition_time %>ms ease;

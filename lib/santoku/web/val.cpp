@@ -1175,7 +1175,7 @@ static inline int mtv_set (lua_State *L) {
 
 static inline int mto_len (lua_State *L) {
   args_to_vals(L, -1);
-  val v = peek_val(L, -1);
+  val v = peek_val(L, 1);
   lua_pushinteger(L, EM_ASM_INT(({
     var v = Emval.toValue($0);
     return v instanceof Array
