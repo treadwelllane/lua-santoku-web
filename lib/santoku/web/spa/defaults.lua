@@ -18,6 +18,7 @@ return {
 
   ripple_bg = "#ffffff",
   nav_ripple_bg = "#e5e7eb",
+  nav_focus_bg = "#f3f4f6",
 
   banner_height = "32",
   banner_bg = "#374151",

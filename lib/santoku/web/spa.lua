@@ -48,6 +48,7 @@ return function (opts)
       local e_ripple = util.clone(t_ripple)
 
       e_ripple:addEventListener("animationend", function ()
+        el.classList:remove("is-clicked")
         e_ripple:remove()
       end)
 
@@ -70,6 +71,7 @@ return function (opts)
       e_wave.style.left = (x - dia / 2) .. "px"
       e_wave.style.top = (y - dia / 2) .. "px"
 
+      el.classList:add("is-clicked")
       el:append(e_ripple)
 
     end)

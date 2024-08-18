@@ -66,6 +66,7 @@
         --page-bg: <% return opts.page_bg %>;
         --ripple-bg: <% return opts.ripple_bg %>;
         --nav-ripple-bg: <% return opts.nav_ripple_bg %>;
+        --nav-focus-bg: <% return opts.nav_focus_bg %>;
         --banner-bg: <% return opts.banner_bg %>;
         --banner-fg: <% return opts.banner_fg %>;
         --fab-bg: <% return opts.fab_bg %>;
@@ -277,7 +278,12 @@
         transition: background <% return opts.transition_time %>ms ease;
       }
 
+      body > section > main > section > nav > button.is-clicked {
+        background: var(--nav-ripple-bg);
+      }
+
       body > section > main > section > nav > button.is-active {
+        animation: none;
         background: var(--nav-ripple-bg);
       }
 
@@ -546,10 +552,12 @@
         transform: scale(0.7);
         opacity: 0.45;
         background: var(--ripple-bg);
+        transition: background <% return opts.transition_time_wave %>ms ease;
         animation: ripple-wave <% return opts.transition_time_wave %>ms forwards ease;
       }
 
-      body > section > main > section > nav > button:not(.is-active) .ripple-container .ripple-wave {
+      body > section > main > section > nav > button:not(.is-active) .ripple-container .ripple-wave,
+      body > section > main > section > nav > button.is-clicked .ripple-container .ripple-wave {
         background: var(--nav-ripple-bg);
       }
 
