@@ -102,6 +102,26 @@ M.clone = function (tpl, data, parent)
   return el
 end
 
+local function clone_all (tpl, datas, parent, chunksize, wait, s, e)
+  local frag = document:createDocumentFragment()
+  for i = s, e do
+    if i > #datas then
+      return
+    end
+    M.clone(tpl, datas[i], frag)
+  end
+  parent:append(frag)
+  global:setTimeout(function ()
+    return clone_all(tpl, datas, parent, chunksize, wait, e + 1, e + chunksize)
+  end, wait)
+end
+
+M.clone_all = function (tpl, datas, parent, chunksize, wait)
+  chunksize = chunksize == true and #datas or chunksize or 10
+  wait = wait or 10
+  clone_all(tpl, datas, parent, chunksize, wait, 1, chunksize)
+end
+
 local function parse_attr_value (data, attr, attrs)
 
   if attr.value == "" then

@@ -1,0 +1,34 @@
+<svg viewBox="0 0 24 24">
+  <style>
+    @scope {
+      .spinner {
+        stroke-linecap: round;
+        transform-origin: center;
+        animation: shift 1.5s ease-in-out infinite, spin 2s linear infinite;
+      }
+      @keyframes spin {
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes shift {
+        0% {
+          stroke-dasharray: 0 150;
+          stroke-dashoffset: 0;
+        }
+        47.5% {
+          stroke-dasharray: 42 150;
+          stroke-dashoffset: -16;
+        }
+        95%, 100% {
+          stroke-dasharray: 42 150;
+          stroke-dashoffset: -59;
+        }
+      }
+    }
+  </style>
+  <g>
+    <circle class="track" cx="12" cy="12" r="9.5" fill="none" stroke-width="3"/>
+    <circle class="spinner" cx="12" cy="12" r="9.5" fill="none" stroke-width="3"/>
+  </g>
+</svg>
