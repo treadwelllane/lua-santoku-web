@@ -102,24 +102,35 @@ M.clone = function (tpl, data, parent)
   return el
 end
 
-local function clone_all (tpl, datas, parent, chunksize, wait, s, e)
+M.after_frame = function (fn)
+  return global:requestAnimationFrame(function ()
+    global:requestAnimationFrame(fn)
+  end)
+end
+
+local function clone_all (tpl, datas, parent, each, chunksize, wait, s, e)
   local frag = document:createDocumentFragment()
   for i = s, e do
     if i > #datas then
       return
     end
-    M.clone(tpl, datas[i], frag)
+    local r = M.clone(tpl, datas[i])
+    if each(r, datas[i], frag) == false then
+      return
+    end
+    frag:append(r)
   end
   parent:append(frag)
   global:setTimeout(function ()
-    return clone_all(tpl, datas, parent, chunksize, wait, e + 1, e + chunksize)
+    return clone_all(tpl, datas, parent, each, chunksize, wait, e + 1, e + chunksize)
   end, wait)
 end
 
-M.clone_all = function (tpl, datas, parent, chunksize, wait)
+M.clone_all = function (tpl, datas, parent, each, chunksize, wait)
+  each = each or function () end
   chunksize = chunksize == true and #datas or chunksize or 10
   wait = wait or 10
-  clone_all(tpl, datas, parent, chunksize, wait, 1, chunksize)
+  clone_all(tpl, datas, parent, each, chunksize, wait, 1, chunksize)
 end
 
 local function parse_attr_value (data, attr, attrs)
