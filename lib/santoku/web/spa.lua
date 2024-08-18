@@ -288,7 +288,7 @@ return function (opts)
           if not el.classList:contains("is-active") then
             M.forward(next_view.name, n)
           end
-          M.after_frame(function ()
+          util.after_frame(function ()
             M.toggle_nav_state(next_view, false)
           end)
         end)
@@ -888,7 +888,7 @@ return function (opts)
       next_view.nav_index = opts.nav_index + 1
       M.style_nav(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.nav_offset = next_view.nav_offset - opts.transition_forward_height
         next_view.nav_opacity = 1
         M.style_nav(next_view, true)
@@ -908,7 +908,7 @@ return function (opts)
       next_view.nav_index = opts.nav_index - 1
       M.style_nav(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.nav_offset = 0
         next_view.nav_opacity = 1
         M.style_nav(next_view, true)
@@ -953,7 +953,7 @@ return function (opts)
 
       M.style_header(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.header_offset = 0
         next_view.header_opacity = 1
         M.style_header(next_view, true)
@@ -971,7 +971,7 @@ return function (opts)
       next_view.header_index = opts.header_index - 1
       M.style_header(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.header_offset = 0
         next_view.header_opacity = 1
         M.style_header(next_view, true)
@@ -1005,7 +1005,7 @@ return function (opts)
       next_view.main_index = opts.main_index + 1
       M.style_main(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.main_offset = next_view.main_offset - opts.transition_forward_height
         next_view.main_opacity = 1
         M.style_main(next_view, true)
@@ -1025,7 +1025,7 @@ return function (opts)
       next_view.main_index = opts.main_index + 1
       M.style_main(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.main_offset = 0
         next_view.main_opacity = 1
         M.style_main(next_view, true)
@@ -1060,7 +1060,7 @@ return function (opts)
       next_view.main_header_index = opts.main_header_index + 1
       M.style_main_header_switch(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.main_header_offset = 0
         next_view.main_header_opacity = 1
         M.style_main_header_switch(next_view, true)
@@ -1080,7 +1080,7 @@ return function (opts)
       next_view.main_header_index = opts.main_header_index - 1
       M.style_main_header_switch(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.main_header_offset = 0
         next_view.main_header_opacity = 1
         M.style_main_header_switch(next_view, true)
@@ -1113,7 +1113,7 @@ return function (opts)
       next_view.main_index = opts.main_index + 1
       M.style_main_alt(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.main_opacity = 1
         M.style_main_alt(next_view, true)
       end)
@@ -1146,7 +1146,7 @@ return function (opts)
       next_view.main_index = opts.main_index + 1
       M.style_main_switch(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.main_offset = 0
         next_view.main_opacity = 1
         M.style_main_switch(next_view, true)
@@ -1166,7 +1166,7 @@ return function (opts)
       next_view.main_index = opts.main_index - 1
       M.style_main_switch(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.main_offset = 0
         next_view.main_opacity = 1
         M.style_main_switch(next_view, true)
@@ -1233,7 +1233,7 @@ return function (opts)
 
       M.style_fabs(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.fab_shared_svg_offset = 0
         next_view.fab_shared_opacity = 1
         next_view.fabs_bottom_scale = 1
@@ -1287,7 +1287,7 @@ return function (opts)
 
       M.style_fabs(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.fab_shared_svg_offset = 0
         next_view.fab_shared_opacity = 1
         next_view.fabs_bottom_scale = 1
@@ -1339,7 +1339,7 @@ return function (opts)
 
       M.style_fabs(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.fab_shared_scale = 1
         next_view.fab_shared_opacity = 1
         next_view.fab_shared_offset = opts.padding
@@ -1373,7 +1373,7 @@ return function (opts)
 
       M.style_fabs(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.fab_shared_scale = 1
         next_view.fab_shared_opacity = 1
         next_view.fabs_bottom_scale = 1
@@ -1447,7 +1447,7 @@ return function (opts)
       next_view.snack_index = opts.snack_index + 1
       M.style_snacks(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.snack_offset = next_view.snack_offset - opts.transition_forward_height
         next_view.snack_opacity = 1
         M.style_snacks(next_view, true)
@@ -1467,7 +1467,7 @@ return function (opts)
       next_view.snack_index = opts.snack_index - 1
       M.style_snacks(next_view)
 
-      M.after_frame(function ()
+      util.after_frame(function ()
         next_view.snack_offset = M.get_base_footer_offset()
         next_view.snack_opacity = 1
         M.style_snacks(next_view, true)
@@ -1560,12 +1560,6 @@ return function (opts)
     return window:setTimeout(function ()
       window:requestAnimationFrame(fn)
     end, tonumber(opts.transition_time))
-  end
-
-  M.after_frame = function (fn)
-    return window:requestAnimationFrame(function ()
-      window:requestAnimationFrame(fn)
-    end)
   end
 
   M.post_enter_pane = function (view, next_view)
@@ -2041,7 +2035,7 @@ return function (opts)
 
   M.transition = function (policy, dir, init, explicit)
 
-    M.after_frame(function ()
+    util.after_frame(function ()
 
       M.fill_defaults()
 
