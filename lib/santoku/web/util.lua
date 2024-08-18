@@ -2,6 +2,7 @@ local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local str = require("santoku.string")
 local arr = require("santoku.array")
+local fun = require("santoku.functional")
 
 local history = js.history
 local document = js.document
@@ -9,16 +10,59 @@ local Array = js.Array
 local Promise = js.Promise
 local global = js.self or js.global or js.window
 local localStorage = global.localStorage
+local JSON = js.JSON
 
 local M = {}
 
 -- TODO: Implement retry, backoff, etc
-M.fetch = function (... --[[, opts]])
-  -- opts = opts or {}
-  -- retry_times = opts.retry_times or 1
-  -- retry_backoff_ms = opts.retry_backoff_ms or 0
-  -- retry_backoff_multiply = opts.retry_backoff_multiply or 1
-  return global:fetch(... --[[, opts]])
+M.fetch = function (url, opts, retries, backoffs)
+  retries = retries or 3
+  backoffs = backoffs or 1
+  return M.promise(function (complete)
+    return global:fetch(url, opts):await(function (_, ok, resp)
+      if ok and resp and resp.ok then
+        return complete(true, resp)
+      elseif retries <= 0 then
+        return complete(false, resp)
+      else
+        return global:setTimeout(function ()
+          return M.fetch(url, opts, retries - 1, backoffs)
+            :await(fun.sel(complete, 2))
+        end, backoffs * 1000)
+      end
+    end)
+  end)
+end
+
+M.get = function (url, params, done, retries, backoffs)
+  done = done or fun.noop
+  return M.fetch(url .. M.query_string(params), {
+    method = "GET",
+  }, retries, backoffs):await(function (_, ok, resp, ...)
+    if not ok then
+      return done(false, "request error", resp, ...)
+    elseif not resp.ok then
+      return done(false, "bad status", resp.ok, resp.status)
+    else
+      return resp:json():await(fun.sel(done, 2))
+    end
+  end)
+end
+
+M.post = function (url, body, done, retries, backoffs)
+  done = done or fun.noop
+  return M.fetch(url, {
+    method = "POST",
+    body = JSON:stringify(body)
+  }, retries, backoffs):await(function (_, ok, resp, ...)
+    if not ok then
+      return done(false, "request error", url, resp, ...)
+    elseif not resp.ok then
+      return done(false, "bad status", url, resp.ok, resp.status)
+    else
+      return resp:json():await(fun.sel(done, 2))
+    end
+  end)
 end
 
 M.promise = function (fn)
@@ -195,6 +239,10 @@ M.template = function (str)
   return el
 end
 
+M.static = function (str)
+  return { template = M.template("<section><main>" .. str .. "</main></section>") }
+end
+
 -- TODO
 M.throttle = function (--[[  fn, time  ]])
   error("throttle: unimplemented")
@@ -228,6 +276,33 @@ M.component = function (tag, callback)
   return class
 end
 
+M.parse_query = function (query, out)
+  out = out or {}
+  for param, value in str.gmatch(query, "([^&=?]+)=([^&=?]+)") do
+    param = js:decodeURIComponent(param)
+    value = js:decodeURIComponent(value)
+    param = tonumber(param) or param
+    value = tonumber(value) or value
+    out[param] = value
+  end
+  return out
+end
+
+M.query_string = function (data, out)
+  local should_concat = out == nil
+  out = out or {}
+  arr.push(out, "?")
+  for k, v in pairs(data) do
+    arr.push(out, js:encodeURIComponent(k), "=", js:encodeURIComponent(v), "&")
+  end
+  out[#out] = nil
+  if should_concat then
+    return arr.concat(out)
+  else
+    return out
+  end
+end
+
 M.parse_path = function (url)
   local result = { path = {}, params = {} }
   local path, query
@@ -240,13 +315,7 @@ M.parse_path = function (url)
     end
   end
   if query then
-    for param, value in str.gmatch(query, "([^&=?]+)=([^&=?]+)") do
-      param = js:decodeURIComponent(param)
-      value = js:decodeURIComponent(value)
-      param = tonumber(param) or param
-      value = tonumber(value) or value
-      result.params[param] = value
-    end
+    M.parse_query(query, result.params)
   end
   return result
 end
@@ -257,11 +326,7 @@ M.encode_path = function (t)
     arr.push(out, "/", js:decodeURIComponent(t.path[i]))
   end
   if t.params and next(t.params) then
-    arr.push(out, "?")
-    for k, v in pairs(t.params) do
-      arr.push(out, js:encodeURIComponent(k), "=", js:encodeURIComponent(v), "&")
-    end
-    out[#out] = nil
+    M.query_string(t.params, out)
   end
   return arr.concat(out)
 end

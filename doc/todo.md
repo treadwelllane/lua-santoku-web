@@ -1,10 +1,16 @@
 # Now
 
-- Modals (using data-show/hide in first-level component)
+- Modals
 - Dropdowns
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
 - Icons in buttons
 - Asset generation
+
+- Panes
+  - Test with transitions
+  - Replace transition/switch/alt with "routed" panes
+  - Allow "routed" panes based on query params
+  - Fix scroll on transition (marginLeft, marginTop, etc.)
 
 # Next
 
@@ -19,6 +25,8 @@
 - Right nav
 - Navs as rails
 
+- When manually changing the hash results in a redirect, we get an extra history
+  entry for the previous state. This should be cleared.
 - Avoid .right and .top (header buttons after h1 imply right, fabs before main
   imply top)
 - Dynamically add snacks/fabs/modals/banners
