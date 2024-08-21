@@ -2,6 +2,8 @@ local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local str = require("santoku.string")
 local arr = require("santoku.array")
+local tbl = require("santoku.table")
+local it = require("santoku.iter")
 local fun = require("santoku.functional")
 
 local history = js.history
@@ -108,44 +110,58 @@ M.after_frame = function (fn)
   end)
 end
 
-local function clone_all (tpl, datas, parent, each, chunksize, wait, s, e)
+local function clone_all (tpl, datas, parent, post, pre, chunksize, wait, s, e)
   local frag = document:createDocumentFragment()
   for i = s, e do
     if i > #datas then
       return
     end
-    local r = M.clone(tpl, datas[i])
-    if each(r, datas[i], frag) == false then
+    local data = datas[i]
+    if pre(data) == false then
+      return
+    end
+    local r = M.clone(tpl, data)
+    if post(r, data, frag) == false then
       return
     end
     frag:append(r)
   end
   parent:append(frag)
   global:setTimeout(function ()
-    return clone_all(tpl, datas, parent, each, chunksize, wait, e + 1, e + chunksize)
+    return clone_all(tpl, datas, parent, post, pre, chunksize, wait, e + 1, e + chunksize)
   end, wait)
 end
 
-M.clone_all = function (tpl, datas, parent, each, chunksize, wait)
-  each = each or function () end
+M.clone_all = function (tpl, datas, parent, post, pre, chunksize, wait)
+  post = post or function () end
+  pre = pre or function () end
   chunksize = chunksize == true and #datas or chunksize or 10
   wait = wait or 10
-  clone_all(tpl, datas, parent, each, chunksize, wait, 1, chunksize)
+  clone_all(tpl, datas, parent, post, pre, chunksize, wait, 1, chunksize)
 end
 
 local function parse_attr_value (data, attr, attrs)
 
+  if not data then
+    return ""
+  end
+
   if attr.value == "" then
-    return data
+    return data or ""
   end
 
   if attr.value and data[attr.value] and data[attr.value] ~= "" then
     return data[attr.value]
+  elseif data and type(attr.value) == "string" then
+    local v = tbl.get(data, arr.spread(it.collect(str.gmatch(attr.value, "[^.]+"))))
+    if v then
+      return v or ""
+    end
   end
 
-  local def = attrs:getNamedItem(attr.name .. "-default")
+  local def = attrs and attrs:getNamedItem(attr.name .. "-default")
 
-  if def then
+  if def and def.value then
     return def.value
   else
     return ""
@@ -171,9 +187,21 @@ M.populate = function (el, data)
       attr.value = str.interp(attr.value, data)
     end)
 
+    local show = attrs:find(function (_, attr)
+      return attr.name == "data-show"
+    end)
+
     local repeat_ = attrs:find(function (_, attr)
       return attr.name == "data-repeat"
     end)
+
+    if show then
+      local v = parse_attr_value(data, show)
+      if not v or v == "" then
+        el:remove()
+        return
+      end
+    end
 
     if repeat_ then
 
@@ -196,6 +224,12 @@ M.populate = function (el, data)
       attrs:forEach(function (_, attr)
         if attr.name == "data-text" then
           el:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
+          el:removeAttribute(attr.name)
+        elseif attr.name == "data-html" then
+          el.innerHTML = parse_attr_value(data, attr, el.attributes)
+          el:removeAttribute(attr.name)
+        elseif attr.name == "data-href" then
+          el.href = parse_attr_value(data, attr, el.attributes)
           el:removeAttribute(attr.name)
         elseif attr.name == "data-value" then
           el.value = parse_attr_value(data, attr, el.attributes)
@@ -300,10 +334,16 @@ M.fit_image = function (e_img, e_main, image_ratio)
 end
 
 M.component = function (tag, callback)
+  if not callback then
+    callback = tag
+    tag = nil
+  end
   local class = val.class(function (proto)
     proto.connectedCallback = callback
   end, js.window.HTMLElement)
-  js.window.customElements:define(tag, class)
+  if tag then
+    js.window.customElements:define(tag, class)
+  end
   return class
 end
 
