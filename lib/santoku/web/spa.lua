@@ -1582,6 +1582,11 @@ return function (opts)
     if last_view.page.destroy then
       last_view.page.destroy(last_view, opts)
     end
+    if last_view.page.panes then
+      for _, pane in it.pairs(last_view.page.panes) do
+        pane.active_view = nil
+      end
+    end
   end
 
   M.post_exit_alt = function (last_view)
