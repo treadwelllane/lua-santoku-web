@@ -42,7 +42,7 @@ M.get = function (url, params, done, retries, backoffs)
     method = "GET",
   }, retries, backoffs):await(function (_, ok, resp, ...)
     if not ok then
-      return done(false, "request error", resp, ...)
+      return done(false, "request error", resp.ok, resp.status, resp, ...)
     elseif not resp.ok then
       return done(false, "bad status", resp.ok, resp.status)
     else
@@ -93,11 +93,9 @@ M.backward = function ()
   history:back()
 end
 
-M.clone = function (tpl, data, parent)
-  local clone = tpl.content:cloneNode(true)
-  -- TODO: Should we use firstChild or just
-  -- return the whole document fragment?
-  local el =  M.populate(clone.firstElementChild, data)
+M.clone = function (template, data, parent)
+  local clone = template.content:cloneNode(true)
+  local el = M.populate(clone.firstElementChild, data)
   if parent then
     parent:append(el)
   end
@@ -110,34 +108,64 @@ M.after_frame = function (fn)
   end)
 end
 
-local function clone_all (tpl, datas, parent, post, pre, chunksize, wait, s, e)
+local function clone_all (
+    parent, before, template, data, map_data, map_el,
+    s, e, chunk, wait, done)
   local frag = document:createDocumentFragment()
-  for i = s, e do
-    if i > #datas then
-      return
-    end
-    local data = datas[i]
-    if pre(data) == false then
-      return
-    end
-    local r = M.clone(tpl, data)
-    if post(r, data, frag) == false then
-      return
-    end
-    frag:append(r)
+  if s < e then
+    done()
+    return
   end
-  parent:append(frag)
+  for i = s, e do
+    if i > #data then
+      done()
+      return
+    end
+    local data0 = data[i]
+    local m = map_data and map_data(data0, frag, i)
+    if map_data and m == false then
+      done()
+      return
+    end
+    if not map_data or m ~= "skip" then
+      local el = M.clone(template, data0)
+      m = map_el and map_el(el, data0, frag, i)
+      if map_el and m == false then
+        done()
+        return
+      end
+      if not map_el or m ~= "skip" then
+        frag:append(el)
+      end
+    end
+  end
+  if before then
+    parent:insertBefore(frag, before)
+  else
+    parent:append(frag)
+  end
   global:setTimeout(function ()
-    return clone_all(tpl, datas, parent, post, pre, chunksize, wait, e + 1, e + chunksize)
+    return clone_all(
+      parent, before, template, data, map_data, map_el,
+      e + 1, e + chunk, chunk, wait, done)
   end, wait)
 end
 
-M.clone_all = function (tpl, datas, parent, post, pre, chunksize, wait)
-  post = post or function () end
-  pre = pre or function () end
-  chunksize = chunksize == true and #datas or chunksize or 10
-  wait = wait or 10
-  clone_all(tpl, datas, parent, post, pre, chunksize, wait, 1, chunksize)
+M.clone_all = function (opts)
+  opts = opts or {}
+  local chunk = opts.chunk == true and #opts.data or opts.chunk or 10
+  local last = chunk
+  return clone_all(
+    opts.parent, opts.before,
+    opts.template,
+    opts.data,
+    opts.map_data,
+    opts.map_el,
+    1,
+    last,
+    chunk,
+    opts.wait or 10,
+    opts.done or function () end)
 end
 
 local function parse_attr_value (data, attr, attrs)
