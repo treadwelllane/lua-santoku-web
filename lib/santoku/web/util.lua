@@ -93,9 +93,12 @@ M.backward = function ()
   history:back()
 end
 
-M.clone = function (template, data, parent)
+M.clone = function (template, data, parent, pre_append)
   local clone = template.content:cloneNode(true)
   local el = M.populate(clone.firstElementChild, data)
+  if pre_append then
+    pre_append(el)
+  end
   if parent then
     parent:append(el)
   end
@@ -108,63 +111,58 @@ M.after_frame = function (fn)
   end)
 end
 
-local function clone_all (
-    parent, before, template, data, map_data, map_el,
-    s, e, chunk, wait, done)
-  local frag = document:createDocumentFragment()
-  if s < e then
+-- TODO: handle early exit (via return false) during sub-clone_all. Appending
+-- should continue in the parent call.
+local function clone_all (get_item, wait, done)
+  if not get_item then
     done()
     return
   end
-  for i = s, e do
-    if i > #data then
-      done()
-      return
-    end
-    local data0 = data[i]
-    local m = map_data and map_data(data0, frag, i)
-    if map_data and m == false then
-      done()
-      return
-    end
-    if not map_data or m ~= "skip" then
-      local el = M.clone(template, data0)
-      m = map_el and map_el(el, data0, frag, i)
-      if map_el and m == false then
-        done()
+  local parent, before, template, data, map_data, map_el = get_item()
+  if not parent then
+    done()
+    return
+  end
+  if map_data then
+    map_data(data)
+  end
+  local el = M.clone(template, data)
+  if map_el then
+    map_el(el, data, function (opts)
+      get_item = it.chain(it.map(function (data)
         return
-      end
-      if not map_el or m ~= "skip" then
-        frag:append(el)
-      end
-    end
+          opts.parent,
+          opts.before,
+          opts.template,
+          data,
+          opts.map_data,
+          opts.map_el
+      end, it.ivals(opts.data)), get_item)
+    end)
   end
   if before then
-    parent:insertBefore(frag, before)
+    parent:insertBefore(el, before)
   else
-    parent:append(frag)
+    parent:append(el)
   end
   global:setTimeout(function ()
-    return clone_all(
-      parent, before, template, data, map_data, map_el,
-      e + 1, e + chunk, chunk, wait, done)
+    return clone_all(get_item, wait, done)
   end, wait)
 end
 
 M.clone_all = function (opts)
   opts = opts or {}
-  local chunk = opts.chunk == true and #opts.data or opts.chunk or 10
-  local last = chunk
   return clone_all(
-    opts.parent, opts.before,
-    opts.template,
-    opts.data,
-    opts.map_data,
-    opts.map_el,
-    1,
-    last,
-    chunk,
-    opts.wait or 10,
+    it.map(function (data)
+      return
+        opts.parent,
+        opts.before,
+        opts.template,
+        data,
+        opts.map_data,
+        opts.map_el
+    end, it.ivals(opts.data)),
+    opts.wait or 0,
     opts.done or function () end)
 end
 

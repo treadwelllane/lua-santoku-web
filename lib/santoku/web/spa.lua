@@ -190,47 +190,50 @@ return function (opts)
 
   end
 
-  M.setup_panes = function (next_view, init)
-    if not next_view.page.panes then
+  M.setup_panes = function (view, init, el)
+    el = el or view.el
+    if not view.page.panes then
       return
     end
-    for name, pane in pairs(next_view.page.panes) do
-      pane.el = next_view.el:querySelector("[data-pane='" .. name .. "']")
-      M.pane(next_view, name, pane.pages.default, init)
-    end
+    el:querySelectorAll("[data-pane]"):forEach(function (_, el0)
+      local name = el0.dataset.pane
+      local pane = view.page.panes[name]
+      pane.el = el0
+      M.pane(view, name, pane.pages.default, init)
+    end)
   end
 
-  M.setup_alt = function (next_view, init, explicit)
+  M.setup_alt = function (view, init, explicit)
     if not state.path[3] then
-      M.find_default(next_view.page, state.path, 3)
+      M.find_default(view.page, state.path, 3)
     end
     if not state.path[3] then
       return
     end
-    M.alt(next_view, state.path[3], "ignore", init, explicit)
-    if next_view.parent then
+    M.alt(view, state.path[3], "ignore", init, explicit)
+    if view.parent then
       if active_view.el.classList:contains("is-wide") then
-        M.toggle_nav_state(next_view.parent, true, false, false)
+        M.toggle_nav_state(view.parent, true, false, false)
       else
-        M.toggle_nav_state(next_view.parent, false, false, false)
+        M.toggle_nav_state(view.parent, false, false, false)
       end
     end
   end
 
-  M.setup_nav = function (next_view, dir, init, explicit)
+  M.setup_nav = function (view, dir, init, explicit)
 
-    next_view.e_nav = next_view.el:querySelector("section > nav")
+    view.e_nav = view.el:querySelector("section > nav")
 
-    if next_view.e_nav then
+    if view.e_nav then
 
-      next_view.e_nav:addEventListener("scroll", function (_, ev)
+      view.e_nav:addEventListener("scroll", function (_, ev)
         ev:stopPropagation()
       end)
 
-      next_view.e_nav_overlay = util.clone(t_nav_overlay, nil, next_view.el)
+      view.e_nav_overlay = util.clone(t_nav_overlay, nil, view.el)
 
-      next_view.e_nav_overlay:addEventListener("click", function ()
-        M.toggle_nav_state(next_view, false)
+      view.e_nav_overlay:addEventListener("click", function ()
+        M.toggle_nav_state(view, false)
       end)
 
       local triggered_open = false
@@ -255,7 +258,7 @@ return function (opts)
           local x1 = ev.changedTouches[0].pageX
           if (x1 - x0) >= tonumber(opts.nav_pull_threshold) then
             triggered_open = true
-            M.toggle_nav_state(next_view, true)
+            M.toggle_nav_state(view, true)
           end
         end
       end
@@ -273,23 +276,23 @@ return function (opts)
         end)
       end
 
-      next_view.e_main:addEventListener("touchstart", on_touch_start)
-      next_view.e_main:addEventListener("touchmove", on_touch_move)
-      next_view.e_main:addEventListener("touchend", on_touch_end)
-      next_view.e_main:addEventListener("touchcancel", on_touch_end)
+      view.e_main:addEventListener("touchstart", on_touch_start)
+      view.e_main:addEventListener("touchmove", on_touch_move)
+      view.e_main:addEventListener("touchend", on_touch_end)
+      view.e_main:addEventListener("touchcancel", on_touch_end)
 
-      next_view.e_nav_buttons = next_view.e_nav:querySelectorAll("button[data-page]")
-      next_view.nav_order = {}
-      next_view.e_nav_buttons:forEach(function (_, el)
+      view.e_nav_buttons = view.e_nav:querySelectorAll("button[data-page]")
+      view.nav_order = {}
+      view.e_nav_buttons:forEach(function (_, el)
         local n = el.dataset.page
-        arr.push(next_view.nav_order, n)
-        next_view.nav_order[n] = #next_view.nav_order
+        arr.push(view.nav_order, n)
+        view.nav_order[n] = #view.nav_order
         el:addEventListener("click", function ()
           if not el.classList:contains("is-active") then
-            M.forward(next_view.name, n)
+            M.forward(view.name, n)
           end
           util.after_frame(function ()
-            M.toggle_nav_state(next_view, false)
+            M.toggle_nav_state(view, false)
           end)
         end)
       end)
@@ -297,15 +300,15 @@ return function (opts)
     end
 
     if not state.path[2] then
-      M.find_default(next_view.page, state.path, 2)
+      M.find_default(view.page, state.path, 2)
     end
 
-    M.switch(next_view, state.path[2], "ignore", dir, init, explicit)
+    M.switch(view, state.path[2], "ignore", dir, init, explicit)
 
     if active_view.el.classList:contains("is-wide") then
-      M.toggle_nav_state(next_view, true, false, false)
+      M.toggle_nav_state(view, true, false, false)
     else
-      M.toggle_nav_state(next_view, false, false, false)
+      M.toggle_nav_state(view, false, false, false)
     end
 
   end
@@ -1818,6 +1821,11 @@ return function (opts)
 
   end
 
+  M.setup_dynamic = function (view, el)
+    M.setup_ripples(el)
+    M.setup_panes(view, nil, el)
+  end
+
   M.init_view = function (name, path_idx, page, parent)
 
     err.assert(name ~= "default", "view name can't be default")
@@ -1840,6 +1848,33 @@ return function (opts)
 
     view.pane = function (name, page_name, ...)
       return M.pane(view, name, page_name, false, ...)
+    end
+
+    local clone_all_wrap_opts
+    clone_all_wrap_opts = function (view, opts)
+      return setmetatable({
+        map_el = function (el, data, clone_all)
+          M.setup_dynamic(view, el)
+          if opts.map_el then
+            return opts.map_el(el, data, function (opts0)
+              return clone_all(clone_all_wrap_opts(view, opts0))
+            end)
+          end
+        end
+      }, { __index = opts })
+    end
+
+    view.clone_all = function (opts)
+      return util.clone_all(clone_all_wrap_opts(view, opts))
+    end
+
+    view.clone = function (template, data, parent, pre_append)
+      return util.clone(template, data, parent, function (el)
+        M.setup_dynamic(view, el)
+        if pre_append then
+          return pre_append(el)
+        end
+      end)
     end
 
     return view
