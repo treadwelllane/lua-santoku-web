@@ -303,12 +303,16 @@ return function (opts)
       M.find_default(view.page, state.path, 2)
     end
 
-    M.switch(view, state.path[2], "ignore", dir, init, explicit)
+    if state.path[2] then
+      M.switch(view, state.path[2], "ignore", dir, init, explicit)
+    end
 
-    if active_view.el.classList:contains("is-wide") then
-      M.toggle_nav_state(view, true, false, false)
-    else
-      M.toggle_nav_state(view, false, false, false)
+    if view.e_nav then
+      if active_view.el.classList:contains("is-wide") then
+        M.toggle_nav_state(view, true, false, false)
+      else
+        M.toggle_nav_state(view, false, false, false)
+      end
     end
 
   end
@@ -1071,7 +1075,9 @@ return function (opts)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.main_header_offset = -opts.transition_forward_height
+      last_view.main_header_offset =
+        (not next_view) and ((last_view.main_header_offset or 0) - opts.transition_forward_height)
+        or -opts.transition_forward_height
       last_view.main_header_opacity = 0
       last_view.main_header_index = opts.main_header_index - 1
       M.style_main_header_switch(last_view, true)
@@ -1157,7 +1163,7 @@ return function (opts)
 
     elseif transition == "exit" and direction == "forward" then
 
-      last_view.main_offset = -opts.transition_forward_height
+      last_view.main_offset = (last_view.main_offset or 0) - opts.transition_forward_height
       last_view.main_opacity = 0
       last_view.main_index = opts.main_index - 1
       M.style_main_switch(last_view, true)
@@ -1529,6 +1535,11 @@ return function (opts)
         return
       end
 
+      if view.no_scroll then
+        view.no_scroll = false
+        return
+      end
+
       local curr_scroll_top = window.pageYOffset or document.documentElement.scrollTop
       local curr_diff = curr_scroll_top - last_scroll_top
 
@@ -1559,10 +1570,10 @@ return function (opts)
     end
   end
 
-  M.after_transition = function (fn)
-    return window:setTimeout(function ()
-      window:requestAnimationFrame(fn)
-    end, tonumber(opts.transition_time))
+  M.after_transition = function (fn, ...)
+    return window:setTimeout(function (...)
+      util.after_frame(fn, ...)
+    end, tonumber(opts.transition_time), ...)
   end
 
   M.post_enter_pane = function (view, next_view)
@@ -1718,14 +1729,14 @@ return function (opts)
     M.style_main_transition_alt(next_view, "exit", last_view)
     M.after_transition(function ()
       return M.post_exit_pane(last_view)
-    end)
+    end, true)
   end
 
   M.exit_alt = function (last_view, next_view)
     M.style_main_transition_alt(next_view, "exit", last_view)
     M.after_transition(function ()
       return M.post_exit_alt(last_view)
-    end)
+    end, true)
   end
 
   M.exit_switch = function (view, last_view, direction, next_view)
@@ -1743,7 +1754,7 @@ return function (opts)
 
     M.after_transition(function ()
       return M.post_exit_switch(last_view)
-    end)
+    end, true)
 
   end
 
@@ -1817,7 +1828,7 @@ return function (opts)
     last_view.el.classList:add("exit", direction)
     M.after_transition(function ()
       return M.post_exit(last_view, opts)
-    end)
+    end, true)
 
   end
 
@@ -1849,6 +1860,9 @@ return function (opts)
     view.pane = function (name, page_name, ...)
       return M.pane(view, name, page_name, false, ...)
     end
+
+    view.after_transition = M.after_transition
+    view.after_frame = util.after_frame
 
     local clone_all_wrap_opts
     clone_all_wrap_opts = function (view, opts)
