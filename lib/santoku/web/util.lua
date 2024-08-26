@@ -111,14 +111,12 @@ M.after_frame = function (fn)
   end)
 end
 
--- TODO: handle early exit (via return false) during sub-clone_all. Appending
--- should continue in the parent call.
-local function clone_all (get_item, wait, done)
-  if not get_item then
+local function clone_all (items, wait, done, set_timeout)
+  if not items then
     done()
     return
   end
-  local parent, before, template, data, map_data, map_el = get_item()
+  local parent, before, template, data, map_data, map_el = items()
   if not parent then
     done()
     return
@@ -129,7 +127,7 @@ local function clone_all (get_item, wait, done)
   local el = M.clone(template, data)
   if map_el then
     map_el(el, data, function (opts)
-      get_item = it.chain(it.map(function (data)
+      items = it.chain(opts.items or it.map(function (data)
         return
           opts.parent,
           opts.before,
@@ -137,7 +135,7 @@ local function clone_all (get_item, wait, done)
           data,
           opts.map_data,
           opts.map_el
-      end, it.ivals(opts.data)), get_item)
+      end, it.ivals(opts.data)), items)
     end)
   end
   if before then
@@ -145,15 +143,19 @@ local function clone_all (get_item, wait, done)
   else
     parent:append(el)
   end
-  global:setTimeout(function ()
-    return clone_all(get_item, wait, done)
-  end, wait)
+  return set_timeout(global:setTimeout(function ()
+    return clone_all(items, wait, done, set_timeout)
+  end, wait))
 end
 
 M.clone_all = function (opts)
   opts = opts or {}
-  return clone_all(
-    it.map(function (data)
+  local timeout
+  local function set_timeout (t)
+    timeout = t
+  end
+  clone_all(
+    opts.items or it.map(function (data)
       return
         opts.parent,
         opts.before,
@@ -163,7 +165,14 @@ M.clone_all = function (opts)
         opts.map_el
     end, it.ivals(opts.data)),
     opts.wait or 0,
-    opts.done or function () end)
+    opts.done or function () end,
+    set_timeout)
+  return function ()
+    if timeout then
+      global:clearTimeout(timeout)
+      timeout = nil
+    end
+  end
 end
 
 local function parse_attr_value (data, attr, attrs)
