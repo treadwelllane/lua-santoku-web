@@ -93,14 +93,18 @@ M.backward = function ()
   history:back()
 end
 
-M.clone = function (template, data, parent, pre_append)
+M.clone = function (template, data, parent, before, pre_append)
   local clone = template.content:cloneNode(true)
   local el = M.populate(clone.firstElementChild, data)
   if pre_append then
     pre_append(el)
   end
   if parent then
-    parent:append(el)
+    if before then
+      parent:insertBefore(el, before)
+    else
+      parent:append(el)
+    end
   end
   return el
 end

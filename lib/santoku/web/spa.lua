@@ -1868,8 +1868,8 @@ return function (opts)
       return util.clone_all(clone_all_wrap_opts(view, opts))
     end
 
-    view.clone = function (template, data, parent, pre_append)
-      return util.clone(template, data, parent, function (el)
+    view.clone = function (template, data, parent, before, pre_append)
+      return util.clone(template, data, parent, before, function (el)
         M.setup_dynamic(view, el)
         if pre_append then
           return pre_append(el)
