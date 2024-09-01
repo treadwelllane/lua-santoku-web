@@ -1909,7 +1909,9 @@ return function (opts)
   end
 
   M.switch_dir = function (view, next_switch, last_switch, dir)
-    if view.header_offset and view.header_offset < 0 then
+    if not view.e_nav then
+      return "forward"
+    elseif view.header_offset and view.header_offset < 0 then
       return "backward"
     end
     local idx_next, idx_last
@@ -2011,13 +2013,15 @@ return function (opts)
     local last_view = view.active_view
     view.active_view = M.init_view(name, 2, page, view)
 
-    view.e_nav_buttons:forEach(function (_, el)
-      if el.dataset.page == name then
-        el.classList:add("is-active")
-      else
-        el.classList:remove("is-active")
-      end
-    end)
+    if view.e_nav then
+      view.e_nav_buttons:forEach(function (_, el)
+        if el.dataset.page == name then
+          el.classList:add("is-active")
+        else
+          el.classList:remove("is-active")
+        end
+      end)
+    end
 
     local dir = M.switch_dir(view, view.active_view, last_view, dir)
 

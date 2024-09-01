@@ -4,13 +4,15 @@
 
     <% return opts.prepend_head %>
 
-    <% -- Do we really want this as the base href? Should it just be for
-       -- specific thing? %>
-    <base target="_blank" rel="noopener noreferrer">
+    <% push(opts.base_href) %>
+    <base href="<% return opts.base_href %>">
+    <% pop() %>
 
     <title><% return opts.title %></title>
 
-    <link rel="manifest" href="/manifest.webmanifest">
+    <% push(opts.manifest) %>
+    <link rel="manifest" href="manifest.webmanifest">
+    <% pop() %>
     <meta name="theme-color" content="<% return opts.theme_color %>">
 
     <meta charset="utf-8">
@@ -26,13 +28,14 @@
     <meta name="msapplication-navbutton-color" content="<% return opts.theme_color %>">
     <meta name="msapplication-TileColor" content="<% return opts.theme_color %>">
 
-    <% -- TODO
-       -- <meta name="msapplication-config" content="browserconfig.xml">
-       -- <meta name="screen-orientation" content="portrait"> %>
-
     <meta name="application-name" content="<% return opts.title %>">
     <meta name="msapplication-tooltip" content="<% return opts.description %>">
-    <meta name="msapplication-TileImage" content="/icon-180.png">
+    <% push(opts.icon) %>
+    <meta name="msapplication-TileImage" content="icon-180.png">
+    <link rel="apple-touch-icon" href="icon-180.png">
+    <% pop() push(opts.favicon) %>
+    <link rel="icon" type="image/png" sizes="196x196" href="favicon-196.png">
+    <% pop() %>
     <meta name="msapplication-starturl" content="">
     <meta name="msapplication-tap-highlight" content="no">
 
@@ -42,9 +45,7 @@
     <meta name="layoutmode" content="fitscreen">
     <meta name="imagemode" content="force">
 
-    <link rel="icon" type="image/png" sizes="196x196" href="/favicon-196.png">
-    <link rel="apple-touch-icon" href="/icon-180.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
 
     <template class="ripple">
       <div class="ripple-container">
@@ -81,7 +82,7 @@
 
       body {
         font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-        overscroll-behavior: contain; // NOTE: this disables pull to refresh
+        overscroll-behavior: contain;
         overflow: auto;
         display: flex;
         flex-direction: column;
@@ -202,10 +203,6 @@
         width: <% return opts.header_height %>px;
         fill: var(--header-fg);
         color: var(--header-fg);
-      }
-
-      body > section > main > section > header > button > svg {
-        transform: scale(1.25);
       }
 
       body > section > main > section > header > *.right {
