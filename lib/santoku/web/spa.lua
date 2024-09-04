@@ -602,6 +602,7 @@ return function (opts)
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_header_offset) .. "px)"
 
     view.e_main_header.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
+    view.e_main_header.style["max-width"] = "calc(100% - " .. nav_push .. "px)"
     view.e_main_header.style.opacity = view.main_header_opacity
     view.e_main_header.style["z-index"] = view.main_header_index
 
