@@ -46,7 +46,12 @@ M.get = function (url, params, done, retries, backoffs)
     elseif not resp.ok then
       return done(false, "bad status", resp.ok, resp.status)
     else
-      return resp:json():await(fun.sel(done, 2))
+      local ct = resp.headers:get("content-type")
+      if ct and str.find(ct, "application/json") then
+        return resp:json():await(fun.sel(done, 2))
+      else
+        return resp:text():await(fun.sel(done, 2))
+      end
     end
   end)
 end
@@ -62,7 +67,12 @@ M.post = function (url, body, done, retries, backoffs)
     elseif not resp.ok then
       return done(false, "bad status", url, resp.ok, resp.status)
     else
-      return resp:json():await(fun.sel(done, 2))
+      local ct = resp.headers:get("content-type")
+      if ct and str.find(ct, "application/json") then
+        return resp:json():await(fun.sel(done, 2))
+      else
+        return resp:text():await(fun.sel(done, 2))
+      end
     end
   end)
 end
