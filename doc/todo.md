@@ -19,6 +19,9 @@
 
 # Later
 
+- Standardize interpolation of arbitrary attributes and special attributes.
+    - Allow dot syntax in str.interp
+
 - Dark theme
 - Typeahead single/multi select
 - Footer for main and switch
