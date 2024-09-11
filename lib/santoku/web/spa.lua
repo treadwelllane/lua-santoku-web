@@ -1967,7 +1967,9 @@ return function (opts)
     local t = document:createElement("template")
     local s = document:createElement("section")
     local m = document:createElement("main")
-    m:append(el)
+    if el then
+      m:append(el)
+    end
     s:append(m)
     t.content:append(s)
     return t
@@ -1992,7 +1994,7 @@ return function (opts)
 
     local sect = template and template.content and template.content.firstElementChild
     if (not sect) or sect.tagName ~= "SECTION" then
-      page.template = wrap(util.clone(template))
+      page.template = wrap(sect and util.clone(template) or nil)
       return page
     end
 
