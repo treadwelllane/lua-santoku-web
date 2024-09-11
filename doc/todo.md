@@ -19,6 +19,10 @@
 
 # Later
 
+- Allow dynamic pane injection (instead of specificying pane by string, like
+    - Instead of: view.pane("somepane", "somecomponent", ..args),
+    - ..allow: view.pane("somepane", somecomponent, ...args)
+
 - Standardize interpolation of arbitrary attributes and special attributes.
     - Allow dot syntax in str.interp
 
@@ -34,7 +38,7 @@
   imply top)
 - Dynamically add snacks/fabs/modals/banners
 - Specify active page/switch via classes
-- Expandable footers and headers (swipe-open, scrollable, both first and second
+- Expandable footers and headers (swipe-open, scrollable, all header levels)
   levels, overlay on short height, push on long height (maybe?))
 - Nav as header tabs or footer tabs, supporting stacked header/footer
 - Second nav on right side

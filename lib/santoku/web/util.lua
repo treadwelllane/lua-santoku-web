@@ -13,15 +13,18 @@ local Promise = js.Promise
 local global = js.self or js.global or js.window
 local localStorage = global.localStorage
 local JSON = js.JSON
+local AbortController = js.AbortController
 
 local M = {}
 
--- TODO: Implement retry, backoff, etc
 M.fetch = function (url, opts, retries, backoffs)
   retries = retries or 3
   backoffs = backoffs or 1
   return M.promise(function (complete)
     return global:fetch(url, opts):await(function (_, ok, resp)
+      if not ok and resp and resp.name == "AbortError" then
+        return
+      end
       if ok and resp and resp.ok then
         return complete(true, resp)
       elseif retries <= 0 then
@@ -38,8 +41,10 @@ end
 
 M.get = function (url, params, done, retries, backoffs)
   done = done or fun.noop
-  return M.fetch(url .. M.query_string(params), {
+  local ctrl = AbortController:new()
+  M.fetch(url .. M.query_string(params), {
     method = "GET",
+    signal = ctrl.signal,
   }, retries, backoffs):await(function (_, ok, resp, ...)
     if not ok then
       return done(false, "request error", resp.ok, resp.status, resp, ...)
@@ -54,13 +59,19 @@ M.get = function (url, params, done, retries, backoffs)
       end
     end
   end)
+  return function ()
+    return ctrl:abort()
+  end
 end
 
 M.post = function (url, body, done, retries, backoffs)
   done = done or fun.noop
-  return M.fetch(url, {
+  local ctrl = AbortController:new()
+  M.fetch(url, {
     method = "POST",
-    body = JSON:stringify(body)
+    headers = { ["Content-Type"] = "application/json" },
+    body = JSON:stringify(body),
+    signal = ctrl.signal,
   }, retries, backoffs):await(function (_, ok, resp, ...)
     if not ok then
       return done(false, "request error", url, resp, ...)
@@ -75,6 +86,9 @@ M.post = function (url, body, done, retries, backoffs)
       end
     end
   end)
+  return function ()
+    return ctrl:abort()
+  end
 end
 
 M.promise = function (fn)
@@ -240,6 +254,10 @@ M.populate = function (el, data)
       return attr.name == "data-show"
     end)
 
+    local hide = attrs:find(function (_, attr)
+      return attr.name == "data-hide"
+    end)
+
     local repeat_ = attrs:find(function (_, attr)
       return attr.name == "data-repeat"
     end)
@@ -247,6 +265,14 @@ M.populate = function (el, data)
     if show then
       local v = parse_attr_value(data, show)
       if not v or v == "" then
+        el:remove()
+        return
+      end
+    end
+
+    if hide then
+      local v = parse_attr_value(data, hide)
+      if v and v ~= "" then
         el:remove()
         return
       end
