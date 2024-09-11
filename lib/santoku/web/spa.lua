@@ -210,7 +210,7 @@ return function (opts)
     if not state.path[3] then
       return
     end
-    M.alt(view, state.path[3], "ignore", init, explicit)
+    M.alt(view, state.path[3], init, explicit)
     if view.parent then
       if active_view.el.classList:contains("is-wide") then
         M.toggle_nav_state(view.parent, true, false, false)
@@ -304,7 +304,7 @@ return function (opts)
     end
 
     if state.path[2] then
-      M.switch(view, state.path[2], "ignore", dir, init, explicit)
+      M.switch(view, state.path[2], dir, init, explicit)
     end
 
     if view.e_nav then
@@ -1577,6 +1577,17 @@ return function (opts)
     end, tonumber(opts.transition_time), ...)
   end
 
+  M.clear_panes = function (view)
+    if view.page and view.page.panes then
+      for _, pane in it.pairs(view.page.panes) do
+        if pane.active_view then
+          M.post_exit_pane(pane.active_view)
+          pane.active_view = nil
+        end
+      end
+    end
+  end
+
   M.post_enter_pane = function (view, next_view)
     view.el.classList:remove("transition")
     M.setup_ripples(next_view.el)
@@ -1597,11 +1608,7 @@ return function (opts)
     if last_view.page.destroy then
       last_view.page.destroy(last_view, opts)
     end
-    if last_view.page.panes then
-      for _, pane in it.pairs(last_view.page.panes) do
-        pane.active_view = nil
-      end
-    end
+    M.clear_panes(last_view)
   end
 
   M.post_exit_alt = function (last_view)
@@ -1609,20 +1616,29 @@ return function (opts)
     if last_view.page.destroy then
       last_view.page.destroy(last_view, opts)
     end
+    M.clear_panes(last_view)
   end
 
   M.post_exit_switch = function (last_view)
+    if last_view.active_view then
+      M.post_exit_alt(last_view.active_view)
+    end
     last_view.el:remove()
     if last_view.page.destroy then
       last_view.page.destroy(last_view, opts)
     end
+    M.clear_panes(last_view)
   end
 
   M.post_exit = function (last_view)
+    if last_view.active_view then
+      M.post_exit_switch(last_view.active_view)
+    end
     last_view.el:remove()
     if last_view.page.destroy then
       last_view.page.destroy(last_view, opts)
     end
+    M.clear_panes(last_view)
   end
 
   M.post_enter = function (next_view)
@@ -1947,18 +1963,66 @@ return function (opts)
     end
   end
 
+  local function wrap (el)
+    local t = document:createElement("template")
+    local s = document:createElement("section")
+    local m = document:createElement("main")
+    m:append(el)
+    s:append(m)
+    t.content:append(s)
+    return t
+  end
+
+  local function maybe_wrap (page, name, parent_name)
+
+    local template
+
+    if page.tagName == "TEMPLATE" then
+      template = page
+      page = {
+        init = function (view, data)
+          if data then
+            util.populate(view.el, data)
+          end
+        end
+      }
+    else
+      template = page.template
+    end
+
+    local sect = template and template.content and template.content.firstElementChild
+    if (not sect) or sect.tagName ~= "SECTION" then
+      page.template = wrap(util.clone(template))
+      return page
+    end
+
+    page.template = template
+    return page
+
+  end
+
+  M.get_page = function (pages, name, parent_name)
+    if pages then
+      local page = pages[name]
+      if page then
+        return maybe_wrap(page, parent_name, name)
+      end
+    end
+    err.error("no page found", parent_name or "(none)", name or "(none)")
+  end
+
   M.pane = function (view, name, page_name, init, ...)
 
     local view_pane = view.page.panes and view.page.panes[name]
     page_name = M.resolve_default(view_pane, page_name)
-    local pane_page = view_pane.pages and view_pane.pages[page_name]
-    err.assert(pane_page, "no pane found", name, page_name)
+    local pane_page = M.get_page(view_pane.pages, page_name, name)
 
     if view_pane.active_view and pane_page == view_pane.active_view.page then
       return
     end
 
     local last_view_pane = view_pane.active_view
+
     view_pane.active_view = M.init_view(page_name, nil, pane_page, view_pane)
 
     M.enter_pane(view_pane, view_pane.active_view, last_view_pane, init, ...)
@@ -1969,10 +2033,9 @@ return function (opts)
 
   end
 
-  M.alt = function (view, name, policy, init, explicit)
+  M.alt = function (view, name, init, explicit)
 
-    local page = view.page.pages and view.page.pages[name]
-    err.assert(page, "no alt found", name)
+    local page = M.get_page(view.page.pages, name, "(alt)")
 
     if M.maybe_redirect(view, page, explicit) then
       return
@@ -1991,14 +2054,11 @@ return function (opts)
       M.exit_alt(last_view, view.active_view)
     end
 
-    M.set_route(policy)
-
   end
 
-  M.switch = function (view, name, policy, dir, init, explicit)
+  M.switch = function (view, name, dir, init, explicit)
 
-    local page = view.page.pages and view.page.pages[name]
-    err.assert(page, "no switch found", name)
+    local page = M.get_page(view.page.pages, name, "(switch)")
 
     if M.maybe_redirect(view, page, explicit) then
       return
@@ -2006,7 +2066,7 @@ return function (opts)
 
     if view.active_view and page == view.active_view.page then
       if state.path[3] then
-        return M.alt(view.active_view, state.path[3], policy, init, explicit)
+        return M.alt(view.active_view, state.path[3], init, explicit)
       end
       return
     end
@@ -2031,8 +2091,6 @@ return function (opts)
     if last_view then
       M.exit_switch(view, last_view, dir, view.active_view)
     end
-
-    M.set_route(policy)
 
   end
 
@@ -2098,8 +2156,7 @@ return function (opts)
 
       M.fill_defaults()
 
-      local page = active_view.page.pages[state.path[1]]
-      err.assert(page, "no page found", state.path[1])
+      local page = M.get_page(active_view.page.pages, state.path[1], "(main)")
 
       if M.maybe_redirect(active_view, page, explicit) then
         return
@@ -2113,7 +2170,7 @@ return function (opts)
           M.exit(last_view, dir, active_view.active_view)
         end
       elseif state.path[2] then
-        M.switch(active_view.active_view, state.path[2], policy, nil, init, explicit)
+        M.switch(active_view.active_view, state.path[2], nil, init, explicit)
       end
 
       M.set_route(policy)
