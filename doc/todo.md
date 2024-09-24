@@ -6,11 +6,17 @@
 - Icons in buttons
 - Asset generation
 
-- Panes
-  - Test with transitions
+- Allow state preservation on back
+
+- Generalized panes
   - Replace transition/switch/alt with "routed" panes
-  - Allow "routed" panes based on query params
-  - Fix scroll on transition (marginLeft, marginTop, etc.)
+  - Panes can be based on path segments or query params
+
+- Bugs
+  - dvw causing vert scrollbar to trigger horiz scrollbar
+  - On mobile, button tap while focused on input causes the keyboard to appear.
+    It should deselect input instead. Likely due to stopPropagation or
+    preventDefault
 
 # Next
 
