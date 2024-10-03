@@ -438,7 +438,10 @@ M.query_string = function (data, out)
   local should_concat = out == nil
   out = out or {}
   arr.push(out, "?")
-  for k, v in pairs(data) do
+  local ks = it.collect(it.keys(data))
+  arr.sort(ks)
+  for k in it.vals(ks) do
+    local v = data[k]
     arr.push(out, js:encodeURIComponent(k), "=", js:encodeURIComponent(v), "&")
   end
   out[#out] = nil
