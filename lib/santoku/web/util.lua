@@ -496,4 +496,109 @@ M.get_local = function (k)
   end
 end
 
+local function pane_default (pages, name)
+  if name == "default" then
+    return pages.default
+  else
+    return name
+  end
+end
+
+local function pane_wrap (page, name)
+  local template
+  if page.tagName == "TEMPLATE" then
+    template = page
+    page = {
+      init = function (view, data)
+        if data then
+          util.populate(view.el, data)
+        end
+      end
+    }
+  else
+    template = page.template
+  end
+  local sect = template and template.content and template.content.firstElementChild
+  if (not sect) or sect.tagName ~= "SECTION" then
+    page.template = wrap(sect and util.clone(template) or nil)
+    return page
+  end
+  page.template = template
+  return page
+end
+
+local function pane_page (pages, name)
+  local page = pages[name]
+  if page then
+    return pane_wrap(page, name)
+  end
+end
+
+local function init_pane (page, name)
+  local pane = {
+    page = page,
+    name = name,
+    state = state
+  }
+
+  view.toggle_nav = function ()
+    return M.toggle_nav_state(active_view.active_view, not view.el.classList:contains("showing-nav"), true, true)
+  end
+
+  view.pane = function (name, page_name, ...)
+    return M.pane(view, name, page_name, false, ...)
+  end
+
+  view.after_transition = M.after_transition
+  view.after_frame = util.after_frame
+
+  local clone_all_wrap_opts
+  clone_all_wrap_opts = function (view, opts)
+    return setmetatable({
+      map_el = function (el, data, clone_all)
+        M.setup_dynamic(view, el)
+        if opts.map_el then
+          return opts.map_el(el, data, function (opts0)
+            return clone_all(clone_all_wrap_opts(view, opts0))
+          end)
+        end
+      end
+    }, { __index = opts })
+  end
+
+  view.clone_all = function (opts)
+    return util.clone_all(clone_all_wrap_opts(view, opts))
+  end
+
+  view.clone = function (template, data, parent, before, pre_append)
+    return util.clone(template, data, parent, before, function (el)
+      M.setup_dynamic(view, el)
+      if pre_append then
+        return pre_append(el)
+      end
+    end)
+  end
+
+  return view
+
+end
+
+M.pane = function (el, pages, init, ...)
+  local active
+  local function switch (name, ...)
+    local page = pane_page(pages, name)
+    if active and page == active.page then
+      return
+    end
+    local last = active
+    active = { page = page, name = name }
+    enter_pane(pane, active, last, true, ...)
+    if last then
+      exit_pane(last, active)
+    end
+  end
+  switch(pane_default(pages, init), ...)
+  return switch
+end
+
 return M
