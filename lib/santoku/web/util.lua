@@ -388,9 +388,12 @@ M.throttle = function (--[[  fn, time  ]])
   error("throttle: unimplemented")
 end
 
--- TODO
-M.debounce = function (--[[  fn, time  ]])
-  error("throttle: unimplemented")
+M.debounce = function (fn, time)
+  local timer
+  return function ()
+    global:clearTimeout(timer)
+    timer = global:setTimeout(fn, time)
+  end
 end
 
 M.fit_image = function (e_img, e_main, image_ratio)
