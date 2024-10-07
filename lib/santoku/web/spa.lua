@@ -543,6 +543,7 @@ return function (opts)
 
     view.e_nav.style.opacity = view.nav_opacity
     view.e_nav.style["z-index"] = view.nav_index
+    view.e_nav_overlay.style.opacity = view.nav_overlay_opacity
     view.e_nav_overlay.style["z-index"] = view.nav_index - 1
 
   end
@@ -906,6 +907,7 @@ return function (opts)
 
       last_view.nav_offset = last_view.nav_offset - opts.transition_forward_height
       last_view.nav_opacity = 0
+      last_view.nav_overlay_opacity = 0
       last_view.nav_index = opts.nav_index - 1
       M.style_nav(last_view, true)
 
