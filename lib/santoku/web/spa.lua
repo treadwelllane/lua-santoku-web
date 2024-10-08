@@ -2102,24 +2102,41 @@ return function (opts)
     end
   end
 
-  M.fill_defaults = function ()
+  M.assign_persisted = function (path, params)
     local v = active_view.page
-    if #state.path < 1 then
-      M.find_default(v, state.path, 1)
+    local i = 1
+    while v do
+      local params0 = v and v.params
+      if params0 then
+        for j = 1, #params0 do
+          local param = params0[j]
+          params[param] = params[param] or state.params[param]
+        end
+      end
+      v = v and path[i] and v.pages[path[i]]
+      i = i + 1
+    end
+  end
+
+  M.fill_defaults = function (path, params)
+    local v = active_view.page
+    if #path < 1 then
+      M.find_default(v, path, 1)
     else
       local last
-      for i = 1, #state.path do
-        local r = M.resolve_default(v, state.path[i])
-        v = r == state.path[i] and v.pages and v.pages[r]
+      for i = 1, #path do
+        local r = M.resolve_default(v, path[i])
+        v = r == path[i] and v.pages and v.pages[r]
         if not v then
-          M.find_default(v, state.path, i)
+          M.find_default(v, path, i)
           return
         else
           last = v
         end
       end
-      M.find_default(last, state.path, #state.path + 1)
+      M.find_default(last, path, #path + 1)
     end
+    M.assign_persisted(path, params)
   end
 
   M.transition = function (dir, init, explicit)
@@ -2282,15 +2299,24 @@ return function (opts)
 
   end
 
-  M.get_url = function ()
-    local p = util.encode_path(state)
+  M.get_url = function (...)
+    local n = varg.len(...)
+    local params = varg.sel(n, ...)
+    local path
+    if type(params) == "table" then
+      n = n - 1
+      path = { varg.take(n, ...) }
+    else
+      params = {}
+      path = { varg.take(n, ...) }
+    end
+    M.fill_defaults(path, params)
+    local p = util.encode_path({ path = path, params = params })
     return base_path .. "#" .. p
   end
 
   M.forward = function (...)
-    arr.overlay(state.path, 1, ...)
-    M.fill_defaults()
-    navigation:navigate(M.get_url(), {
+    navigation:navigate(M.get_url(...), {
       scroll = "manual",
       focusReset = "manual",
       history = "push",
@@ -2299,9 +2325,7 @@ return function (opts)
   end
 
   M.backward = function (...)
-    arr.overlay(state.path, 1, ...)
-    M.fill_defaults()
-    navigation:navigate(M.get_url(), {
+    navigation:navigate(M.get_url(...), {
       scroll = "manual",
       focusReset = "manual",
       history = "push",
@@ -2310,9 +2334,7 @@ return function (opts)
   end
 
   M.replace_forward = function (...)
-    arr.overlay(state.path, 1, ...)
-    M.fill_defaults()
-    navigation:navigate(M.get_url(), {
+    navigation:navigate(M.get_url(...), {
       scroll = "manual",
       focusReset = "manual",
       history = "replace",
@@ -2321,9 +2343,7 @@ return function (opts)
   end
 
   M.replace_backward = function (...)
-    arr.overlay(state.path, 1, ...)
-    M.fill_defaults()
-    navigation:navigate(M.get_url(), {
+    navigation:navigate(M.get_url(...), {
       scroll = "manual",
       focusReset = "manual",
       history = "replace",
@@ -2336,9 +2356,7 @@ return function (opts)
       ev:intercept({
         handler = function ()
           local url = URL:new(ev.destination.url)
-          local state0 = util.parse_path(str.match(url.hash, "^#(.*)"))
-          state.path = state0.path
-          state.params = state0.params
+          util.parse_path(str.match(url.hash, "^#(.*)"), state.path, state.params)
           M.transition(ev.info and ev.info.direction or "forward", nil, true)
         end
       })
