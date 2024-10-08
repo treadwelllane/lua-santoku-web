@@ -1,6 +1,5 @@
 local err = require("santoku.error")
 local js = require("santoku.web.js")
-local val = require("santoku.web.val")
 local str = require("santoku.string")
 local fun = require("santoku.functional")
 local op = require("santoku.op")
@@ -17,10 +16,11 @@ return function (opts)
   opts = tbl.merge({}, opts, defaults)
 
   local Array = js.Array
+  local URL = js.URL
   local MutationObserver = js.MutationObserver
   local window = js.window
+  local navigation = window.navigation
   local document = window.document
-  local history = window.history
   local location = window.location
 
   local e_head = document.head
@@ -1655,7 +1655,7 @@ return function (opts)
 
     if e_back then
       e_back:addEventListener("click", function ()
-        history:back()
+        navigation:back()
       end)
     end
 
@@ -1914,19 +1914,6 @@ return function (opts)
 
   end
 
-  M.get_url = function ()
-    local p = util.encode_path(state)
-    return base_path .. "#" .. p
-  end
-
-  M.set_route = function (policy)
-    if policy == "replace" then
-      history:replaceState(val(state, true), nil, M.get_url())
-    elseif policy == "push" then
-      history:pushState(val(state, true), nil, M.get_url())
-    end
-  end
-
   M.switch_dir = function (view, next_switch, last_switch, dir)
     if not view.e_nav then
       return "forward"
@@ -1945,12 +1932,9 @@ return function (opts)
 
   M.maybe_redirect = function (view, page, explicit)
     if page and page.redirect then
-      return varg.tup(function (a, ...)
-        if a == true then
-          M.replace_forward(varg.append(..., arr.spread(state.path, 1, view.path_idx)))
-          return true
-        elseif a then
-          M.replace_forward(a, ...)
+      return varg.tup(function (...)
+        if ... then
+          M.replace_forward( ...)
           return true
         end
       end, page.redirect(view, page, explicit))
@@ -1977,7 +1961,7 @@ return function (opts)
     return t
   end
 
-  local function maybe_wrap (page, name, parent_name)
+  local function maybe_wrap (page)
 
     local template
 
@@ -2009,7 +1993,7 @@ return function (opts)
     if pages then
       local page = pages[name]
       if page then
-        return maybe_wrap(page, parent_name, name)
+        return maybe_wrap(page)
       end
     end
     err.error("no page found", parent_name or "(none)", name or "(none)")
@@ -2123,42 +2107,24 @@ return function (opts)
     if #state.path < 1 then
       M.find_default(v, state.path, 1)
     else
+      local last
       for i = 1, #state.path do
         local r = M.resolve_default(v, state.path[i])
         v = r == state.path[i] and v.pages and v.pages[r]
         if not v then
           M.find_default(v, state.path, i)
-          break
+          return
+        else
+          last = v
         end
       end
+      M.find_default(last, state.path, #state.path + 1)
     end
   end
 
-  M.forward = function (...)
-    arr.overlay(state.path, 1, ...)
-    M.transition("push", "forward")
-  end
-
-  M.backward = function (...)
-    arr.overlay(state.path, 1, ...)
-    M.transition("push", "backward")
-  end
-
-  M.replace_forward = function (...)
-    arr.overlay(state.path, 1, ...)
-    M.transition("replace", "forward")
-  end
-
-  M.replace_backward = function (...)
-    arr.overlay(state.path, 1, ...)
-    M.transition("replace", "backward")
-  end
-
-  M.transition = function (policy, dir, init, explicit)
+  M.transition = function (dir, init, explicit)
 
     util.after_frame(function ()
-
-      M.fill_defaults()
 
       local page = M.get_page(active_view.page.pages, state.path[1], "(main)")
 
@@ -2176,8 +2142,6 @@ return function (opts)
       elseif state.path[2] then
         M.switch(active_view.active_view, state.path[2], nil, init, explicit)
       end
-
-      M.set_route(policy)
 
     end)
 
@@ -2318,13 +2282,66 @@ return function (opts)
 
   end
 
-  window:addEventListener("popstate", function (_, ev)
-    if ev.state then
-      state = ev.state:val():lua(true)
-      M.transition("ignore", "backward", nil, true)
-    else
-      state = util.parse_path(str.match(location.hash, "^#(.*)"))
-      M.transition("replace", "forward", nil, true)
+  M.get_url = function ()
+    local p = util.encode_path(state)
+    return base_path .. "#" .. p
+  end
+
+  M.forward = function (...)
+    arr.overlay(state.path, 1, ...)
+    M.fill_defaults()
+    navigation:navigate(M.get_url(), {
+      scroll = "manual",
+      focusReset = "manual",
+      history = "push",
+      info = { direction = "forward" },
+    })
+  end
+
+  M.backward = function (...)
+    arr.overlay(state.path, 1, ...)
+    M.fill_defaults()
+    navigation:navigate(M.get_url(), {
+      scroll = "manual",
+      focusReset = "manual",
+      history = "push",
+      info = { direction = "backward" },
+    })
+  end
+
+  M.replace_forward = function (...)
+    arr.overlay(state.path, 1, ...)
+    M.fill_defaults()
+    navigation:navigate(M.get_url(), {
+      scroll = "manual",
+      focusReset = "manual",
+      history = "replace",
+      info = { direction = "forward" },
+    })
+  end
+
+  M.replace_backward = function (...)
+    arr.overlay(state.path, 1, ...)
+    M.fill_defaults()
+    navigation:navigate(M.get_url(), {
+      scroll = "manual",
+      focusReset = "manual",
+      history = "replace",
+      info = { direction = "backward" },
+    })
+  end
+
+  navigation:addEventListener("navigate", function (_, ev)
+    if ev.canIntercept and ev.hashChange then
+      ev:intercept({
+        handler = function ()
+          local url = URL:new(ev.destination.url)
+          local state0 = util.parse_path(str.match(url.hash, "^#(.*)"))
+          state.path = state0.path
+          state.params = state0.params
+          M.transition(ev.info and ev.info.direction or "forward", nil, true)
+        end
+      })
     end
   end)
 
@@ -2333,14 +2350,13 @@ return function (opts)
   end)
 
   M.setup_active_view()
-  history.scrollRestoration = "manual"
   M.on_resize()
 
   if #state.path > 0 then
-    M.transition("replace", "forward", true, true)
+    M.transition("forward", true, true)
   else
     M.find_default(active_view.page, state.path, 1)
-    M.transition("push", "forward", true, true)
+    M.transition("forward", true, true)
   end
 
 end
