@@ -1,5 +1,8 @@
 # Now
 
+- Components can "claim" query parameters such that they're removed on component
+  destroy
+
 - Modals
 - Dropdowns
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
