@@ -2113,7 +2113,7 @@ return function (opts)
           params[param] = params[param] or state.params[param]
         end
       end
-      v = v and path[i] and v.pages[path[i]]
+      v = v and path[i] and v.pages and v.pages[path[i]]
       i = i + 1
     end
   end
@@ -2317,8 +2317,6 @@ return function (opts)
 
   M.forward = function (...)
     navigation:navigate(M.get_url(...), {
-      scroll = "manual",
-      focusReset = "manual",
       history = "push",
       info = { direction = "forward" },
     })
@@ -2326,8 +2324,6 @@ return function (opts)
 
   M.backward = function (...)
     navigation:navigate(M.get_url(...), {
-      scroll = "manual",
-      focusReset = "manual",
       history = "push",
       info = { direction = "backward" },
     })
@@ -2335,8 +2331,6 @@ return function (opts)
 
   M.replace_forward = function (...)
     navigation:navigate(M.get_url(...), {
-      scroll = "manual",
-      focusReset = "manual",
       history = "replace",
       info = { direction = "forward" },
     })
@@ -2344,8 +2338,6 @@ return function (opts)
 
   M.replace_backward = function (...)
     navigation:navigate(M.get_url(...), {
-      scroll = "manual",
-      focusReset = "manual",
       history = "replace",
       info = { direction = "backward" },
     })
@@ -2354,6 +2346,8 @@ return function (opts)
   navigation:addEventListener("navigate", function (_, ev)
     if ev.canIntercept and ev.hashChange then
       ev:intercept({
+        scroll = "manual",
+        focusReset = "manual",
         handler = function ()
           local url = URL:new(ev.destination.url)
           util.parse_path(str.match(url.hash, "^#(.*)"), state.path, state.params)
