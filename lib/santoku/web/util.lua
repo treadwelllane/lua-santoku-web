@@ -455,8 +455,10 @@ M.query_string = function (data, out)
   end
 end
 
-M.parse_path = function (url)
-  local result = { path = {}, params = {} }
+M.parse_path = function (url, path, params)
+  local result = { path = path or {}, params = params or {} }
+  tbl.clear(result.path)
+  tbl.clear(result.params)
   local path, query
   if url then
     path, query = str.match(url, "([^?]*)%??(.*)")
