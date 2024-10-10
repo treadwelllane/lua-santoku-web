@@ -213,9 +213,9 @@ return function (opts)
     M.alt(view, state.path[3], init, explicit)
     if view.parent then
       if active_view.el.classList:contains("is-wide") then
-        M.toggle_nav_state(view.parent, true, false, false)
+        M.toggle_nav_state(true, false, false)
       else
-        M.toggle_nav_state(view.parent, false, false, false)
+        M.toggle_nav_state(false, false, false)
       end
     end
   end
@@ -233,7 +233,7 @@ return function (opts)
       view.e_nav_overlay = util.clone(t_nav_overlay, nil, view.el)
 
       view.e_nav_overlay:addEventListener("click", function ()
-        M.toggle_nav_state(view, false)
+        M.toggle_nav_state(false)
       end)
 
       local triggered_open = false
@@ -258,7 +258,7 @@ return function (opts)
           local x1 = ev.changedTouches[0].pageX
           if (x1 - x0) >= tonumber(opts.nav_pull_threshold) then
             triggered_open = true
-            M.toggle_nav_state(view, true)
+            M.toggle_nav_state(true)
           end
         end
       end
@@ -292,7 +292,7 @@ return function (opts)
             M.forward(view.name, n)
           end
           util.after_frame(function ()
-            M.toggle_nav_state(view, false)
+            M.toggle_nav_state(false)
           end)
         end)
       end)
@@ -309,9 +309,9 @@ return function (opts)
 
     if view.e_nav then
       if active_view.el.classList:contains("is-wide") then
-        M.toggle_nav_state(view, true, false, false)
+        M.toggle_nav_state(true, false, false)
       else
-        M.toggle_nav_state(view, false, false, false)
+        M.toggle_nav_state(false, false, false)
       end
     end
 
@@ -1561,7 +1561,7 @@ return function (opts)
       end
 
       if not active_view.el.classList:contains("is-wide") and view.el.classList:contains("showing-nav") then
-        M.toggle_nav_state(view, false)
+        M.toggle_nav_state()
       end
 
       last_scroll_top = curr_scroll_top <= 0 and 0 or curr_scroll_top
@@ -1663,7 +1663,7 @@ return function (opts)
 
     if e_menu then
       e_menu:addEventListener("click", function ()
-        M.toggle_nav_state(next_view)
+        M.toggle_nav_state()
       end)
     end
 
@@ -1765,7 +1765,7 @@ return function (opts)
 
     last_view.el.style.marginLeft = -window.scrollX .. "px"
     last_view.el.style.marginTop = -window.scrollY .. "px"
-    last_view.no_scroll = true
+    active_view.active_view.no_scroll = true
     window:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.style_main_header_transition_switch(next_view, "exit", direction, last_view)
@@ -1856,6 +1856,15 @@ return function (opts)
     M.setup_panes(view, nil, el)
   end
 
+  M.at_bottom = function ()
+    return (window.innerHeight + window.pageYOffset) >= e_body.offsetHeight
+  end
+
+  M.scroll_bottom = function ()
+    active_view.active_view.no_scroll = true
+    window:scrollTo({ top = e_body.scrollHeight, left = 0, behavior = "instant" })
+  end
+
   M.init_view = function (name, path_idx, page, parent)
 
     err.assert(name ~= "default", "view name can't be default")
@@ -1866,14 +1875,19 @@ return function (opts)
       backward = M.backward,
       replace_forward = M.replace_forward,
       replace_backward = M.replace_backward,
+      at_bottom = M.at_bottom,
       path_idx = path_idx,
       page = page,
       name = name,
       state = state
     }
 
+    view.scroll_bottom = function ()
+      return M.scroll_bottom()
+    end
+
     view.toggle_nav = function ()
-      return M.toggle_nav_state(active_view.active_view, not view.el.classList:contains("showing-nav"), true, true)
+      return M.toggle_nav_state(not view.el.classList:contains("showing-nav"), true, true)
     end
 
     view.pane = function (name, page_name, ...)
@@ -2164,7 +2178,8 @@ return function (opts)
 
   end
 
-  M.toggle_nav_state = function (view, open, animate, restyle)
+  M.toggle_nav_state = function (open, animate, restyle)
+    local view = active_view.active_view
     if active_view.el.classList:contains("is-wide") then
       open = true
     end
@@ -2199,9 +2214,9 @@ return function (opts)
     end
     if active_view.active_view then
       if active_view.el.classList:contains("is-wide") then
-        M.toggle_nav_state(active_view.active_view, true)
+        M.toggle_nav_state(true)
       elseif was_wide then
-        M.toggle_nav_state(active_view.active_view, false)
+        M.toggle_nav_state(false)
       end
       M.setup_header_title_width(active_view.active_view)
       M.style_nav(active_view.active_view, true)
