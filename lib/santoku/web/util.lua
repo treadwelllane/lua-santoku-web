@@ -1,5 +1,7 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
+local varg = require("santoku.varg")
+local err = require("santoku.error")
 local str = require("santoku.string")
 local arr = require("santoku.array")
 local tbl = require("santoku.table")
@@ -13,6 +15,7 @@ local Promise = js.Promise
 local global = js.self or js.global or js.window
 local localStorage = global.localStorage
 local JSON = js.JSON
+local WebSocket = js.WebSocket
 local AbortController = js.AbortController
 
 local M = {}
@@ -37,6 +40,33 @@ M.fetch = function (url, opts, retries, backoffs)
       end
     end)
   end)
+end
+
+-- TODO: retry/backoff on connection dropped
+M.ws = function (url, params, each, retries, backoffs)
+  each = each or fun.noop
+  local ws = WebSocket:new(url .. M.query_string(params))
+  ws:addEventListener("message", function (_, ev)
+    each("message", ev.data, ev)
+  end)
+  ws:addEventListener("close", function (_, ev)
+    ws = nil
+    each("close", ev.code, ev.reason, ev)
+  end)
+  ws:addEventListener("error", function (_, ev)
+    each("error", ev)
+  end)
+  return function (data)
+    if not ws then
+      return err.error("websocket already closed")
+    end
+    return ws:send(data)
+  end, function ()
+    if ws then
+      ws:close()
+      ws = nil
+    end
+  end
 end
 
 M.get = function (url, params, done, retries, backoffs)

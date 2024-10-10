@@ -13,6 +13,7 @@
   - Panes can be based on path segments or query params
 
 - Bugs
+  - Redirect back to same view seems to cause error. Is init skipped here?
   - Overlay flash on small screen back from open nav
   - dvw causing vert scrollbar to trigger horiz scrollbar
   - On mobile, button tap while focused on input causes the keyboard to appear.
