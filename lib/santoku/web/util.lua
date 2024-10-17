@@ -1,6 +1,5 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
-local varg = require("santoku.varg")
 local err = require("santoku.error")
 local str = require("santoku.string")
 local arr = require("santoku.array")
@@ -262,6 +261,47 @@ local function parse_attr_value (data, attr, attrs)
 
 end
 
+local function check_attr_match (data, key, val)
+  if key == nil then
+    return
+  end
+  if type(val) == "table" then
+    return arr.find(val, function (val)
+      return check_attr_match(data, key, val)
+    end) ~= nil
+  end
+  data = data[key]
+  return
+    (val == "true" and data == true) or
+    (val == "false" and data == false) or
+    (val == "nil" and data == nil) or
+    (val == nil and (data and data ~= "")) or
+    (val ~= nil and val == data)
+end
+
+-- data-show:ok
+-- data-show:ok:true
+-- data-show:ok:nil
+-- data-show.class:ok:true
+-- data-show.class:ok:nil
+local function parse_attr_show_hide (attr)
+  local show_hide, show_spec = str.match(attr.name, "^data%-([^:]+)(.*)$")
+  if show_hide ~= "show" and show_hide ~= "hide" then
+    return
+  end
+  local show_key, show_val, show_attr = it.spread(str.gmatch(show_spec, ":([^:]+)"))
+  if show_val and str.match(show_val, "^%b[]$") then
+    show_val = it.collect(str.gmatch(str.sub(show_val, 2, #show_val - 1), "[^,]+"))
+  elseif show_val then
+    show_val = { show_val }
+  end
+  if attr.value and attr.value ~= "" then
+    return show_hide, show_key, show_val, show_attr, attr.value
+  else
+    return show_hide, show_key, show_val
+  end
+end
+
 M.populate = function (el, data)
 
   if not data then
@@ -272,41 +312,54 @@ M.populate = function (el, data)
 
   if el.hasAttributes and el:hasAttributes() then
 
-    local attrs = Array:from(el.attributes)
+    local add_attrs = {}
+    local remove, repeat_
 
-    attrs:forEach(function (_, attr)
-      -- TODO: This may cause some trouble for things that shouldn't be
-      -- interpolated, like hrefs.
-      attr.value = str.interp(attr.value, data)
-    end)
-
-    local show = attrs:find(function (_, attr)
-      return attr.name == "data-show"
-    end)
-
-    local hide = attrs:find(function (_, attr)
-      return attr.name == "data-hide"
-    end)
-
-    local repeat_ = attrs:find(function (_, attr)
-      return attr.name == "data-repeat"
-    end)
-
-    if show then
-      local v = parse_attr_value(data, show)
-      if not v or v == "" then
-        el:remove()
+    Array:from(el.attributes):forEach(function (_, attr)
+      if attr.name == "data-repeat" then
+        el:removeAttribute(attr.name)
+        repeat_ = attr
         return
+      end
+      local show_hide, show_key, show_val, show_attr, show_exp =
+        parse_attr_show_hide(attr)
+      if show_hide == nil then
+        return
+      end
+      -- TODO: safe to remove this ahead of time?
+      el:removeAttribute(attr.name)
+      if show_attr == nil then
+        remove =
+          (show_hide == "show" and not check_attr_match(data, show_key, show_val)) or
+          (show_hide == "hide" and check_attr_match(data, show_key, show_val))
+        return
+      elseif
+        (show_hide == "show" and check_attr_match(data, show_key, show_val)) or
+        (show_hide == "hide" and not check_attr_match(data, show_key, show_val))
+      then
+        arr.push(add_attrs, { name = show_attr, value = show_exp })
+        return
+      end
+    end)
+
+    if remove then
+      el:remove()
+      return
+    end
+
+    for i = 1, #add_attrs do
+      local a = add_attrs[i]
+      local a0 = el:getAttribute(a.name)
+      if a0 then
+        el:setAttribute(a.name, arr.concat({ a0, a.value }, " "))
+      else
+        el:setAttribute(a.name, a.value)
       end
     end
 
-    if hide then
-      local v = parse_attr_value(data, hide)
-      if v and v ~= "" then
-        el:remove()
-        return
-      end
-    end
+    Array:from(el.attributes):forEach(function (_, attr)
+      el:setAttribute(attr.name, str.interp(attr.value, data))
+    end)
 
     if repeat_ then
 
@@ -316,7 +369,6 @@ M.populate = function (el, data)
 
       for i = 1, #data[repeat_.value] do
         local r0 = el:cloneNode(true)
-        r0:removeAttribute("data-repeat")
         M.populate(r0, data[repeat_.value][i])
         el.parentNode:insertBefore(r0, el_before)
         el_before = r0
@@ -326,7 +378,7 @@ M.populate = function (el, data)
 
     else
 
-      attrs:forEach(function (_, attr)
+      Array:from(el.attributes):forEach(function (_, attr)
         if attr.name == "data-text" then
           el:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
           el:removeAttribute(attr.name)
