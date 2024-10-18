@@ -43,8 +43,16 @@ end
 
 -- TODO: retry/backoff on connection dropped
 M.ws = function (url, params, each, retries, backoffs)
+  if type(url) ~= "string" then
+    params = url.params
+    each = url.each
+    retries = url.retries
+    backoffs = url.backoffs
+    url = url.url
+  end
+  local qstr = params and M.query_string(params) or ""
   each = each or fun.noop
-  local ws = WebSocket:new(url .. M.query_string(params))
+  local ws = WebSocket:new(url .. qstr)
   ws:addEventListener("message", function (_, ev)
     each("message", ev.data, ev)
   end)
@@ -69,10 +77,21 @@ M.ws = function (url, params, each, retries, backoffs)
 end
 
 M.get = function (url, params, done, retries, backoffs)
+  local headers = nil
+  if type(url) ~= "string" then
+    params = url.params
+    headers = url.headers
+    done = url.done
+    retries = url.retries
+    backoffs = url.backoffs
+    url = url.url
+  end
+  local qstr = params and M.query_string(params) or ""
   done = done or fun.noop
   local ctrl = AbortController:new()
-  M.fetch(url .. M.query_string(params), {
+  M.fetch(url .. qstr, {
     method = "GET",
+    headers = headers,
     signal = ctrl.signal,
   }, retries, backoffs):await(function (_, ok, resp, ...)
     if not ok then
@@ -94,12 +113,23 @@ M.get = function (url, params, done, retries, backoffs)
 end
 
 M.post = function (url, body, done, retries, backoffs)
+  local headers = nil
+  if type(url) ~= "string" then
+    body = url.body
+    headers = url.headers
+    done = url.done
+    retries = url.retries
+    backoffs = url.backoffs
+    url = url.url
+  end
   done = done or fun.noop
+  headers = headers or {}
+  headers["Content-Type"] = headers["Content-Type"] or "application/json"
   local ctrl = AbortController:new()
   M.fetch(url, {
     method = "POST",
-    headers = { ["Content-Type"] = "application/json" },
-    body = JSON:stringify(body),
+    headers = headers,
+    body = body and JSON:stringify(body) or nil,
     signal = ctrl.signal,
   }, retries, backoffs):await(function (_, ok, resp, ...)
     if not ok then
