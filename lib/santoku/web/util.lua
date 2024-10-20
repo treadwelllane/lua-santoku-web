@@ -23,7 +23,7 @@ M.fetch = function (url, opts, retries, backoffs)
   retries = retries or 3
   backoffs = backoffs or 1
   return M.promise(function (complete)
-    return global:fetch(url, opts):await(function (_, ok, resp)
+    return global:fetch(url, val(opts, true)):await(function (_, ok, resp)
       if not ok and resp and resp.name == "AbortError" then
         return
       end
@@ -42,42 +42,84 @@ M.fetch = function (url, opts, retries, backoffs)
 end
 
 -- TODO: retry/backoff on connection dropped
-M.ws = function (url, params, each, retries, backoffs)
+M.ws = function (url, opts, each, retries, backoffs)
+  local data
   if type(url) ~= "string" then
-    params = url.params
+    data = url.data
     each = url.each
     retries = url.retries
     backoffs = url.backoffs
     url = url.url
+  elseif opts then
+    data = opts
+    retries = retries or opts.retries
+    backoffs = backoffs or opts.backoffs
   end
-  local qstr = params and M.query_string(params) or ""
   each = each or fun.noop
-  local ws = WebSocket:new(url .. qstr)
-  ws:addEventListener("message", function (_, ev)
-    each("message", ev.data, ev)
-  end)
-  ws:addEventListener("close", function (_, ev)
-    ws = nil
-    each("close", ev.code, ev.reason, ev)
-  end)
-  ws:addEventListener("error", function (_, ev)
-    each("error", ev)
-  end)
+  local finalized = false
+  local ws = nil
+  local retry = 1
+  local buffer = {}
+  local function reconnect (url)
+    local ws0 = WebSocket:new(url)
+    ws0:addEventListener("open", function ()
+      if finalized then
+        return
+      end
+      ws = ws0
+      if data then
+        ws0:send(JSON:stringify(data))
+      end
+      for i = 1, #buffer do
+        ws0:send(JSON:stringify(buffer[i]))
+      end
+      arr.clear(buffer)
+    end)
+    ws0:addEventListener("close", function (_, ev)
+      if finalized then
+        return
+      end
+      ws = nil
+      retry = retry + 1
+      if retry > retries then
+        each("close", ev.code, ev.reason, ev)
+        finalized = true
+        buffer = nil
+      else
+        each("reconnect", ev.code, ev.reason, ev)
+        global:setTimeout(function ()
+          return reconnect(url)
+        end, backoffs * 1000)
+      end
+    end)
+    ws0:addEventListener("error", function (_, ev)
+      if finalized then
+        return
+      end
+      each("error", ev.code, ev.reason, ev)
+    end)
+  end
+  reconnect(url)
   return function (data)
-    if not ws then
+    if finalized then
       return err.error("websocket already closed")
+    elseif not ws then
+      arr.push(buffer, data)
+    else
+      ws:send(data)
     end
-    return ws:send(data)
   end, function ()
     if ws then
-      ws:close()
+      -- TODO: Does this prevent final close events from triggering? Should it?
+      finalized = true
       ws = nil
+      ws:close()
     end
   end
 end
 
-M.get = function (url, params, done, retries, backoffs)
-  local headers = nil
+M.get = function (url, opts, done, retries, backoffs)
+  local params, headers
   if type(url) ~= "string" then
     params = url.params
     headers = url.headers
@@ -85,6 +127,11 @@ M.get = function (url, params, done, retries, backoffs)
     retries = url.retries
     backoffs = url.backoffs
     url = url.url
+  elseif opts then
+    params = opts.params
+    headers = opts.headers
+    retries = retries or opts.retries
+    backoffs = backoffs or opts.backoffs
   end
   local qstr = params and M.query_string(params) or ""
   done = done or fun.noop
@@ -112,8 +159,8 @@ M.get = function (url, params, done, retries, backoffs)
   end
 end
 
-M.post = function (url, body, done, retries, backoffs)
-  local headers = nil
+M.post = function (url, opts, done, retries, backoffs)
+  local body, headers = nil
   if type(url) ~= "string" then
     body = url.body
     headers = url.headers
@@ -121,6 +168,11 @@ M.post = function (url, body, done, retries, backoffs)
     retries = url.retries
     backoffs = url.backoffs
     url = url.url
+  elseif opts then
+    body = opts.body
+    headers = opts.headers
+    retries = retries or opts.retries
+    backoffs = backoffs or opts.backoffs
   end
   done = done or fun.noop
   headers = headers or {}
