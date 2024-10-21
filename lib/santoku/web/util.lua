@@ -41,7 +41,6 @@ M.fetch = function (url, opts, retries, backoffs)
   end)
 end
 
--- TODO: retry/backoff on connection dropped
 M.ws = function (url, opts, each, retries, backoffs)
   local data
   if type(url) ~= "string" then
@@ -55,6 +54,8 @@ M.ws = function (url, opts, each, retries, backoffs)
     retries = retries or opts.retries
     backoffs = backoffs or opts.backoffs
   end
+  retries = retries or 3
+  backoffs = backoffs or 1
   each = each or fun.noop
   local finalized = false
   local ws = nil
@@ -74,6 +75,9 @@ M.ws = function (url, opts, each, retries, backoffs)
         ws0:send(JSON:stringify(buffer[i]))
       end
       arr.clear(buffer)
+    end)
+    ws0:addEventListener("message", function (_, ev)
+      each("message", ev.data)
     end)
     ws0:addEventListener("close", function (_, ev)
       if finalized then
@@ -96,7 +100,10 @@ M.ws = function (url, opts, each, retries, backoffs)
       if finalized then
         return
       end
-      each("error", ev.code, ev.reason, ev)
+      -- Does it make sense to hide these errors?
+      if ev.code or ev.reason then
+        each("error", ev.code, ev.reason, ev)
+      end
     end)
   end
   reconnect(url)
@@ -112,8 +119,8 @@ M.ws = function (url, opts, each, retries, backoffs)
     if ws then
       -- TODO: Does this prevent final close events from triggering? Should it?
       finalized = true
-      ws = nil
       ws:close()
+      ws = nil
     end
   end
 end
