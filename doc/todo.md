@@ -1,5 +1,9 @@
 # Now
 
+- Standardized mechanism for client/server API agreement (require reload)
+- Smooth append helper (insert hidden, translate following elements back, unide
+  inserted, translate following elements forward)
+
 - Modals
 - Dropdowns
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
