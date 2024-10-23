@@ -2366,6 +2366,7 @@ return function (opts)
         handler = function ()
           local url = URL:new(ev.destination.url)
           util.parse_path(str.match(url.hash, "^#(.*)"), state.path, state.params)
+          M.fill_defaults(state.path, state.params)
           M.transition(ev.info and ev.info.direction or "forward", nil, true)
         end
       })
