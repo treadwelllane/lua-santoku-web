@@ -34,6 +34,43 @@ return function (opts)
 
   local M = {}
 
+  local handlers = {}
+
+  M.add_listener = function (ev, handler)
+    if not ev or not handler then
+      return
+    end
+    handlers[ev] = handlers[ev] or {}
+    handlers[ev][handler] = true
+  end
+
+  M.remove_listener = function (ev, handler)
+    if not ev or not handler then
+      return
+    end
+    local hs = handlers[ev]
+    if not hs then
+      return
+    end
+    hs[handler] = nil
+    if not next(hs) then
+      handlers[ev] = nil
+    end
+  end
+
+  M.emit = function (ev, ...)
+    if not ev then
+      return
+    end
+    local hs = handlers[ev]
+    if not hs then
+      return
+    end
+    for h in pairs(hs) do
+      h(...)
+    end
+  end
+
   M.setup_ripple = function (el)
 
     el:addEventListener("mousedown", function (_, ev)
@@ -1877,6 +1914,9 @@ return function (opts)
       replace_backward = M.replace_backward,
       at_bottom = M.at_bottom,
       path_idx = path_idx,
+      add_listener = M.add_listener,
+      remove_listener = M.remove_listener,
+      emit = M.emit,
       page = page,
       name = name,
       state = state
