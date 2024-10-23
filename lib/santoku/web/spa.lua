@@ -2316,14 +2316,19 @@ return function (opts)
 
   M.get_url = function (...)
     local n = varg.len(...)
-    local params = varg.sel(n, ...)
-    local path
-    if type(params) == "table" then
-      n = n - 1
-      path = { varg.take(n, ...) }
-    else
+    local path, params
+    if n == 0 then
+      path = {}
       params = {}
-      path = { varg.take(n, ...) }
+    else
+      params = varg.sel(n, ...)
+      if type(params) == "table" then
+        n = n - 1
+        path = { varg.take(n, ...) }
+      else
+        params = {}
+        path = { varg.take(n, ...) }
+      end
     end
     M.fill_defaults(path, params)
     local p = util.encode_path({ path = path, params = params })
@@ -2359,7 +2364,7 @@ return function (opts)
   end
 
   navigation:addEventListener("navigate", function (_, ev)
-    if ev.canIntercept and ev.hashChange then
+    if ev.canIntercept and (ev.hashChange or (ev.info and ev.info.init)) then
       ev:intercept({
         scroll = "manual",
         focusReset = "manual",
@@ -2367,7 +2372,10 @@ return function (opts)
           local url = URL:new(ev.destination.url)
           util.parse_path(str.match(url.hash, "^#(.*)"), state.path, state.params)
           M.fill_defaults(state.path, state.params)
-          M.transition(ev.info and ev.info.direction or "forward", nil, true)
+          M.transition(
+            ev.info and ev.info.direction or "forward",
+            ev.info and ev.info.init,
+            ev.info and ev.info.explicit or true)
         end
       })
     end
@@ -2380,11 +2388,14 @@ return function (opts)
   M.setup_active_view()
   M.on_resize()
 
-  if #state.path > 0 then
-    M.transition("forward", true, true)
-  else
-    M.find_default(active_view.page, state.path, 1)
-    M.transition("forward", true, true)
-  end
+  M.fill_defaults(state.path, state.params)
+  navigation:navigate(M.get_url(), {
+    history = "replace",
+    info = {
+      direction = "forward",
+      init = true,
+      explicit = true
+    },
+  })
 
 end
