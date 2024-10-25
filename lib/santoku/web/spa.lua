@@ -235,8 +235,10 @@ return function (opts)
     el:querySelectorAll("[data-pane]"):forEach(function (_, el0)
       local name = el0.dataset.pane
       local pane = view.page.panes[name]
-      pane.el = el0
-      M.pane(view, name, pane.pages.default, init)
+      if not pane then
+        pane.el = el0
+        M.pane(view, name, pane.pages.default, init)
+      end
     end)
   end
 
