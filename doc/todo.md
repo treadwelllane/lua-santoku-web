@@ -1,5 +1,10 @@
 # Now
 
+- Dynamically add height to account for snacks
+- Use a different property than data-show/hide for banner/snack class-based
+  show/hide
+- Dynamically add snacks and banners
+
 - Standardized mechanism for client/server API agreement (require reload)
 - Smooth append helper (insert hidden, translate following elements back, unide
   inserted, translate following elements forward)
