@@ -19,7 +19,7 @@ return function (opts)
   local URL = js.URL
   local MutationObserver = js.MutationObserver
   local window = js.window
-  local navigation = window.navigation
+  local history = window.history
   local document = window.document
   local location = window.location
 
@@ -31,6 +31,8 @@ return function (opts)
   local base_path = location.pathname
   local state = util.parse_path(str.match(location.hash, "^#(.*)"))
   local active_view
+  state.next_id = 1
+  state.current_id = 0
 
   local M = {}
 
@@ -1694,7 +1696,7 @@ return function (opts)
 
     if e_back then
       e_back:addEventListener("click", function ()
-        navigation:back()
+        history:back()
       end)
     end
 
@@ -1986,11 +1988,12 @@ return function (opts)
     end
   end
 
-  M.maybe_redirect = function (view, page, explicit)
+  M.maybe_redirect = function (view, page, init, explicit)
     if page and page.redirect then
       return varg.tup(function (...)
         if ... then
-          M.replace_forward( ...)
+          M.set_route("replace", ...)
+          M.transition("forward", init, explicit)
           return true
         end
       end, page.redirect(view, page, explicit))
@@ -2081,7 +2084,7 @@ return function (opts)
 
     local page = M.get_page(view.page.pages, name, "(alt)")
 
-    if M.maybe_redirect(view, page, explicit) then
+    if M.maybe_redirect(view, page, init, explicit) then
       return
     end
 
@@ -2104,7 +2107,7 @@ return function (opts)
 
     local page = M.get_page(view.page.pages, name, "(switch)")
 
-    if M.maybe_redirect(view, page, explicit) then
+    if M.maybe_redirect(view, page, init, explicit) then
       return
     end
 
@@ -2201,7 +2204,7 @@ return function (opts)
 
       local page = M.get_page(active_view.page.pages, state.path[1], "(main)")
 
-      if M.maybe_redirect(active_view, page, explicit) then
+      if M.maybe_redirect(active_view, page, init, explicit) then
         return
       end
 
@@ -2356,7 +2359,21 @@ return function (opts)
 
   end
 
-  M.get_url = function (...)
+  M.get_route = function (s)
+    s = s or state
+    local path = {}
+    local params = {}
+    if s and s.path then
+      arr.copy(path, s.path)
+    end
+    if s and s.params then
+      tbl.assign(params, s.params)
+    end
+    arr.push(path, params)
+    return arr.spread(path)
+  end
+
+  M.set_route = function (policy, ...)
     local n = varg.len(...)
     local path, params
     if n == 0 then
@@ -2373,54 +2390,48 @@ return function (opts)
       end
     end
     M.fill_defaults(path, params)
-    local p = util.encode_path({ path = path, params = params })
-    return base_path .. "#" .. p
+    state.path = path
+    state.params = params
+    local url = base_path .. "#" ..
+      util.encode_path(state)
+    if policy == "push" then
+      state.current_id = state.next_id
+      history:pushState(state.current_id, "", url)
+      state.next_id = state.next_id + 1
+    elseif policy == "replace" then
+      history:replaceState(state.current_id, "", url)
+    else
+      err.error("Invalid history setting", opts.history)
+    end
   end
 
   M.forward = function (...)
-    navigation:navigate(M.get_url(...), {
-      history = "push",
-      info = { direction = "forward" },
-    })
+    M.set_route("push", ...)
+    M.transition("forward")
   end
 
   M.backward = function (...)
-    navigation:navigate(M.get_url(...), {
-      history = "push",
-      info = { direction = "backward" },
-    })
+    M.set_route("push", ...)
+    M.transition("backward")
   end
 
   M.replace_forward = function (...)
-    navigation:navigate(M.get_url(...), {
-      history = "replace",
-      info = { direction = "forward" },
-    })
+    M.set_route("replace", ...)
+    M.transition("forward")
   end
 
   M.replace_backward = function (...)
-    navigation:navigate(M.get_url(...), {
-      history = "replace",
-      info = { direction = "backward" },
-    })
+    M.set_route("replace", ...)
+    M.transition("backward")
   end
 
-  navigation:addEventListener("navigate", function (_, ev)
-    if ev.canIntercept and (ev.hashChange or (ev.info and ev.info.init)) then
-      ev:intercept({
-        scroll = "manual",
-        focusReset = "manual",
-        handler = function ()
-          local url = URL:new(ev.destination.url)
-          util.parse_path(str.match(url.hash, "^#(.*)"), state.path, state.params)
-          M.fill_defaults(state.path, state.params)
-          M.transition(
-            ev.info and ev.info.direction or "forward",
-            ev.info and ev.info.init,
-            ev.info and ev.info.explicit or true)
-        end
-      })
-    end
+  window:addEventListener("popstate", function (_, ev)
+    local state0 = util.parse_path(str.match(location.hash, "^#(.*)"))
+    local id = ev.state and tonumber(ev.state)
+    local dir = (id and id < state.current_id) and "backward" or "forward"
+    state.current_id = id
+    M.set_route("replace", M.get_route(state0))
+    M.transition(dir)
   end)
 
   window:addEventListener("resize", function ()
@@ -2429,15 +2440,7 @@ return function (opts)
 
   M.setup_active_view()
   M.on_resize()
-
-  M.fill_defaults(state.path, state.params)
-  navigation:navigate(M.get_url(), {
-    history = "replace",
-    info = {
-      direction = "forward",
-      init = true,
-      explicit = true
-    },
-  })
+  M.set_route("replace", M.get_route())
+  M.transition("forward", true, true)
 
 end
