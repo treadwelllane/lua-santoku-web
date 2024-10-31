@@ -1,15 +1,15 @@
 # Now
 
+- Fix ugly scrollbars in desktop chrome browsers
+
 - Dynamically add height to account for snacks
 - Use a different property than data-show/hide for banner/snack class-based
   show/hide
-- Dynamically add snacks and banners
 
 - Standardized mechanism for client/server API agreement (require reload)
 - Smooth append helper (insert hidden, translate following elements back, unide
   inserted, translate following elements forward)
 
-- Modals
 - Dropdowns
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
 - Icons in buttons
@@ -49,11 +49,20 @@
 - Right nav
 - Navs as rails
 
+- Smarter snack/fab/banner data-show/hide functionality, similar to
+  data-show/hide for cloning templates
+
+- Dynamically add snacks/fabs/banners: can be added from any view, but injected
+  into active_view (for banners) and active_view.active_view for fabs/snacks.
+  When the view the snack/fab/banner was added from is removed, the item is
+  also removed
+
+- Scrollable/expandable snack, fab, banner UX when too many added
+
 - When manually changing the hash results in a redirect, we get an extra history
   entry for the previous state. This should be cleared.
 - Avoid .right and .top (header buttons after h1 imply right, fabs before main
   imply top)
-- Dynamically add snacks/fabs/modals/banners
 - Specify active page/switch via classes
 - Expandable footers and headers (swipe-open, scrollable, all header levels)
   levels, overlay on short height, push on long height (maybe?))

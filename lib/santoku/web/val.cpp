@@ -287,7 +287,7 @@ static inline int mtv_tostring (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = val::take_ownership((EM_VAL) EM_ASM_PTR(({
     var v0 = Emval.toValue($0);
-    v0 = v0 instanceof Error ? v0.stack : String(v0);
+    v0 = v0 instanceof Error ? v0.stack : v0.toString();
     return Emval.toHandle(v0);
   }), v0.as_handle()));
   lua_pushstring(L, v1.as<string>().c_str());
@@ -615,9 +615,17 @@ static inline void table_to_val (lua_State *L, int i, bool recurse) {
       return Emval.toHandle(new Proxy(obj, {
 
         get(o, k, r) {
+          if (k == Module.isProxy)
+            return true;
           var isnumber;
           try { isnumber = !isNaN(+k); }
           catch (_) { isnumber = false; }
+          if (r[Module.isProxy] && k == "toString") {
+            return () => Emval.toValue(Module["tostring"]($0, $1));
+          }
+          if (r[Module.isProxy] && k == "valueOf") {
+            return () => Emval.toValue(Module["valueof"]($0, $1));
+          }
           if (o instanceof Array && k == "length") {
             var l = Module["len"]($0, $1);
             return l;
@@ -936,6 +944,24 @@ static inline int j_len (int Lp, int i) {
   return len;
 }
 
+static inline int j_tostring (int Lp, int i) {
+  lua_State *L = (lua_State *) Lp;
+  lua_getglobal(L, "tostring"); // ts
+  assert(val_unref(L, i)); // ts val
+  lua_call(L, 1, 1); // s
+  const char *str = lua_tostring(L, -1); // s
+  lua_pop(L, 1); //
+  push_val(L, val(str), INT_MIN);
+  return (int) peek_val(L, -1).as_handle();
+}
+
+static inline int j_valueof (int Lp, int i) {
+  lua_State *L = (lua_State *) Lp;
+  assert(val_unref(L, i)); // ts val
+  lua_to_val(L, -1, true); // ts val val
+  return (int) peek_val(L, -1).as_handle();
+}
+
 static inline void j_val_ref_delete (int Lp, int ref) {
   lua_State *L = (lua_State *) Lp;
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL);
@@ -952,6 +978,8 @@ EMSCRIPTEN_BINDINGS(santoku_web_val) {
   emscripten::function("set", &j_set, allow_raw_pointers());
   emscripten::function("call", &j_call, allow_raw_pointers());
   emscripten::function("own_keys", &j_own_keys, allow_raw_pointers());
+  emscripten::function("tostring", &j_tostring, allow_raw_pointers());
+  emscripten::function("valueof", &j_valueof, allow_raw_pointers());
   emscripten::function("len", &j_len, allow_raw_pointers());
   emscripten::function("val_ref_delete", &j_val_ref_delete, allow_raw_pointers());
 }
@@ -1373,6 +1401,10 @@ int luaopen_santoku_web_val (lua_State *L)
   IDX_REF_TBL = luaL_ref(L, LUA_REGISTRYINDEX);
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL);
   lua_setfield(L, -2, "IDX_REF_TBL");
+
+  EM_ASM(({
+    Module.isProxy = Symbol("isProxy");
+  }));
 
   EM_ASM(({
     Module["FINALIZERS"] = new FinalizationRegistry(ref => {

@@ -16,7 +16,6 @@ return function (opts)
   opts = tbl.merge({}, opts, defaults)
 
   local Array = js.Array
-  local URL = js.URL
   local MutationObserver = js.MutationObserver
   local window = js.window
   local history = window.history
