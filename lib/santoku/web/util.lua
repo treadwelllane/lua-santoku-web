@@ -19,24 +19,91 @@ local AbortController = js.AbortController
 
 local M = {}
 
-M.fetch = function (url, opts, retries, backoffs)
+local reqs = setmetatable({}, { __mode = "k" })
+
+-- TODO: metatable on headers that lowercases keys
+M.request = function (url, opts, done, retries, backoffs, retry_until)
+  if url and reqs[url] then
+    return url
+  end
+  local req = {}
+  reqs[req] = true
+  if type(url) ~= "string" then
+    req.url = url.url
+    req.body = url.body
+    req.params = url.params
+    req.headers = url.headers
+    req.done = done or url.done
+    req.retries = retries or url.retries
+    req.backoffs = backoffs or url.backoffs
+    req.retry_until = retry_until or url.retry_until
+  elseif opts then
+    req.url = url
+    req.body = opts.body
+    req.params = opts.params
+    req.headers = opts.headers
+    req.done = done or url.done
+    req.retries = retries or opts.retries
+    req.backoffs = backoffs or opts.backoffs
+    req.retry_until = retry_until or opts.retry_until
+  end
+  req.qstr = req.params and M.query_string(req.params) or ""
+  req.done = req.done or done or fun.noop
+  return req
+end
+
+M.response = function (done, ok, resp, ...)
+  local result = { ok = ok and resp.ok, status = resp.status }
+  if resp.headers then
+    result.headers = {}
+    resp.headers:forEach(function (_, v, k)
+      result.headers[str.lower(k)] = v
+    end)
+  end
+  local ct = result.headers and result.headers["content-type"]
+  if ct and str.find(ct, "application/json") then
+    return resp:json():await(function (_, ok0, data, ...)
+      if ok0 then
+        result.body = data
+        return done(ok, result)
+      else
+        return done(ok0, data, ...)
+      end
+    end)
+  elseif resp and resp.text then
+    return resp:text():await(function (_, ok0, data, ...)
+      if ok0 then
+        result.body = data
+        return done(ok, result)
+      else
+        return done(ok0, data, ...)
+      end
+    end)
+  else
+    return done(ok, result, ...)
+  end
+end
+
+M.fetch = function (url, opts, retries, backoffs, retry_until)
   retries = retries or 3
   backoffs = backoffs or 1
   return M.promise(function (complete)
-    return global:fetch(url, val(opts, true)):await(function (_, ok, resp)
+    return global:fetch(url, val(opts, true)):await(function (_, ok, resp, ...)
       if not ok and resp and resp.name == "AbortError" then
         return
       end
-      if ok and resp and resp.ok then
-        return complete(true, resp)
-      elseif retries <= 0 then
-        return complete(false, resp)
-      else
-        return global:setTimeout(function ()
-          return M.fetch(url, opts, retries - 1, backoffs)
-            :await(fun.sel(complete, 2))
-        end, backoffs * 1000)
-      end
+      return M.response(function (ok, resp, ...)
+        if ok and resp and resp.ok then
+          return complete(true, resp, ...)
+        elseif retries <= 0 or (retry_until and retry_until(resp)) then
+          return complete(false, resp, ...)
+        else
+          return global:setTimeout(function ()
+            return M.fetch(url, opts, retries - 1, backoffs)
+              :await(fun.sel(complete, 2))
+          end, backoffs * 1000)
+        end
+      end, ok, resp, ...)
     end)
   end)
 end
@@ -125,88 +192,73 @@ M.ws = function (url, opts, each, retries, backoffs)
   end
 end
 
-M.get = function (url, opts, done, retries, backoffs)
-  local params, headers
-  if type(url) ~= "string" then
-    params = url.params
-    headers = url.headers
-    done = url.done
-    retries = url.retries
-    backoffs = url.backoffs
-    url = url.url
-  elseif opts then
-    params = opts.params
-    headers = opts.headers
-    retries = retries or opts.retries
-    backoffs = backoffs or opts.backoffs
-  end
-  local qstr = params and M.query_string(params) or ""
-  done = done or fun.noop
+M.get = function (...)
+  local req = M.request(...)
   local ctrl = AbortController:new()
-  M.fetch(url .. qstr, {
+  M.fetch(req.url .. req.qstr, {
     method = "GET",
-    headers = headers,
+    headers = req.headers,
     signal = ctrl.signal,
-  }, retries, backoffs):await(function (_, ok, resp, ...)
-    if not ok then
-      return done(false, "request error", resp.ok, resp.status, resp, ...)
-    elseif not resp.ok then
-      return done(false, "bad status", resp.ok, resp.status)
-    else
-      local ct = resp.headers:get("content-type")
-      if ct and str.find(ct, "application/json") then
-        return resp:json():await(fun.sel(done, 2))
-      else
-        return resp:text():await(fun.sel(done, 2))
-      end
-    end
-  end)
+  }, req.retries, req.backoffs, req.retry_until):await(fun.sel(req.done, 2))
   return function ()
     return ctrl:abort()
   end
 end
 
-M.post = function (url, opts, done, retries, backoffs)
-  local body, headers = nil
-  if type(url) ~= "string" then
-    body = url.body
-    headers = url.headers
-    done = url.done
-    retries = url.retries
-    backoffs = url.backoffs
-    url = url.url
-  elseif opts then
-    body = opts.body
-    headers = opts.headers
-    retries = retries or opts.retries
-    backoffs = backoffs or opts.backoffs
-  end
-  done = done or fun.noop
-  headers = headers or {}
-  headers["Content-Type"] = headers["Content-Type"] or "application/json"
+M.post = function (...)
+  local req = M.request(...)
+  req.headers = req.headers or {}
+  req.headers["content-type"] = req.headers["content-type"] or "application/json"
   local ctrl = AbortController:new()
-  M.fetch(url, {
+  M.fetch(req.url, {
     method = "POST",
-    headers = headers,
-    body = body and JSON:stringify(body) or nil,
+    headers = req.headers,
+    body = req.body and JSON:stringify(req.body) or nil,
     signal = ctrl.signal,
-  }, retries, backoffs):await(function (_, ok, resp, ...)
-    if not ok then
-      return done(false, "request error", url, resp, ...)
-    elseif not resp.ok then
-      return done(false, "bad status", url, resp.ok, resp.status)
-    else
-      local ct = resp.headers:get("content-type")
-      if ct and str.find(ct, "application/json") then
-        return resp:json():await(fun.sel(done, 2))
-      else
-        return resp:text():await(fun.sel(done, 2))
-      end
-    end
-  end)
+  }, req.retries, req.backoffs, req.retry_until):await(fun.sel(req.done, 2))
   return function ()
     return ctrl:abort()
   end
+end
+
+local intercept = function (fn, opts)
+  return function (...)
+    if not opts.on_response then
+      return fn(...)
+    end
+    local req = M.request(...)
+    local retry_until = req.retry_until
+    local done = req.done
+    if opts.match_response then
+      req.retry_until = function (resp, ...)
+        return opts.match_response(false, req, resp, ...)
+      end
+    end
+    req.done = function (ok, resp, ...)
+      if opts.match_response and not opts.match_response(ok, req, resp, ...) then
+        return done(ok, resp, ...)
+      end
+      return opts.on_response(function (result, ...)
+        if result == "retry" then
+          req.retry_until = retry_until
+          req.done = done
+          return M.get(req)
+        else
+          return done(ok, result, resp, ...)
+        end
+      end, ok, req, resp, ...)
+    end
+    return fn(req)
+  end
+end
+
+-- TODO: extend to support ws
+-- TODO: allow match/on_request for intercepting pre-request
+M.http_client = function (opts)
+  return {
+    get = intercept(M.get, opts),
+    post = intercept(M.post, opts)
+  }
 end
 
 M.promise = function (fn)
