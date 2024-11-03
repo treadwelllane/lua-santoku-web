@@ -228,6 +228,26 @@ return function (opts)
 
   end
 
+  M.setup_dropdowns = function (view, init, el)
+    el = el or view.el
+    view.e_dropdowns = el:querySelectorAll(".tk-dropdown")
+    view.e_dropdowns:forEach(function (_, e_dropdown)
+      local e_trigger = e_dropdown:querySelector(":scope > button")
+      local e_buttons = e_dropdown:querySelectorAll(":scope > div > button")
+      document:addEventListener("click", function (_, ev)
+        if ev.e_dropdown ~= e_dropdown then
+          e_dropdown.classList:remove("tk-open")
+        end
+      end)
+      e_dropdown:addEventListener("click", function (_, ev)
+        ev.e_dropdown = e_dropdown
+      end)
+      e_trigger:addEventListener("click", function ()
+        e_dropdown.classList:add("tk-open")
+      end)
+    end)
+  end
+
   M.setup_panes = function (view, init, el)
     el = el or view.el
     if not view.page.panes then
@@ -1619,8 +1639,16 @@ return function (opts)
     end, tonumber(opts.transition_time), ...)
   end
 
+  M.close_dropdowns = function (view)
+    if view and view.e_dropdowns then
+      view.e_dropdowns:forEach(function (_, e_dropdown)
+        e_dropdown.classList:remove("tk-open")
+      end)
+    end
+  end
+
   M.clear_panes = function (view)
-    if view.page and view.page.panes then
+    if view and view.page and view.page.panes then
       for _, pane in it.pairs(view.page.panes) do
         if pane.active_view then
           M.post_exit_pane(pane.active_view)
@@ -1720,10 +1748,13 @@ return function (opts)
 
   M.enter_pane = function (view_pane, next_view, last_view, init, ...)
 
+    M.close_dropdowns(last_view)
+
     next_view.el = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
 
     M.setup_panes(next_view, init)
+    M.setup_dropdowns(next_view, init)
     M.style_main_transition_alt(next_view, "enter", last_view, init)
 
     if next_view.page.init then
@@ -1741,10 +1772,13 @@ return function (opts)
 
   M.enter_alt = function (view, next_view, last_view, init)
 
+    M.close_dropdowns(last_view)
+
     next_view.el = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
 
     M.setup_panes(next_view, init)
+    M.setup_dropdowns(next_view, init)
     M.style_main_transition_alt(next_view, "enter", last_view, init)
 
     if next_view.page.init then
@@ -1762,12 +1796,15 @@ return function (opts)
 
   M.enter_switch = function (view, next_view, direction, last_view, init, explicit)
 
+    M.close_dropdowns(last_view)
+
     next_view.el = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
     next_view.e_main_header = next_view.el:querySelector("section > header")
 
     M.setup_alt(next_view, init, explicit)
     M.setup_panes(next_view, init)
+    M.setup_dropdowns(next_view, init)
     M.style_main_header_transition_switch(next_view, "enter", direction, last_view, init)
     M.style_main_transition_switch(next_view, "enter", direction, last_view, init)
 
@@ -1819,6 +1856,8 @@ return function (opts)
 
   M.enter = function (next_view, direction, last_view, init, explicit)
 
+    M.close_dropdowns(last_view)
+
     next_view.el = util.clone(next_view.page.template)
     next_view.e_header = next_view.el:querySelector("section > header")
     next_view.e_main = next_view.el:querySelector("section > main")
@@ -1829,6 +1868,7 @@ return function (opts)
     M.setup_snacks(next_view)
     M.setup_header_title_width(next_view)
     M.setup_panes(next_view, init)
+    M.setup_dropdowns(next_view, init)
     M.style_header_transition(next_view, "enter", direction, last_view)
     M.style_nav_transition(next_view, "enter", direction, last_view)
     M.style_fabs_transition(next_view, "enter", direction, last_view)
@@ -1894,6 +1934,7 @@ return function (opts)
   M.setup_dynamic = function (view, el)
     M.setup_ripples(el)
     M.setup_panes(view, nil, el)
+    M.setup_dropdowns(view, nil, el)
   end
 
   M.at_bottom = function ()
