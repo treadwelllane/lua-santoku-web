@@ -1,5 +1,8 @@
 # Now
 
+- Spa dynamic snack height based on content
+- Spa prevent tab select of hidden buttons/etc (or make them visible when
+  focused)
 - Fix ugly scrollbars in desktop chrome browsers
 
 - Dynamically add height to account for snacks
@@ -10,7 +13,6 @@
 - Smooth append helper (insert hidden, translate following elements back, unide
   inserted, translate following elements forward)
 
-- Dropdowns
 - Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
 - Icons in buttons
 - Asset generation
