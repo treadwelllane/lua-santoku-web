@@ -1946,6 +1946,15 @@ return function (opts)
     window:scrollTo({ top = e_body.scrollHeight, left = 0, behavior = "instant" })
   end
 
+  M.checkpoint = function ()
+    return state.current_id
+  end
+
+  M.replace_checkpoint = function (id, ...)
+    history:back(state.current_id - id)
+    M.replace_forward(...)
+  end
+
   M.init_view = function (name, path_idx, page, parent)
 
     err.assert(name ~= "default", "view name can't be default")
@@ -1954,8 +1963,10 @@ return function (opts)
       parent = parent,
       forward = M.forward,
       backward = M.backward,
+      checkpoint = M.checkpoint,
       replace_forward = M.replace_forward,
       replace_backward = M.replace_backward,
+      replace_checkpoint = M.replace_checkpoint,
       at_bottom = M.at_bottom,
       path_idx = path_idx,
       add_listener = M.add_listener,
