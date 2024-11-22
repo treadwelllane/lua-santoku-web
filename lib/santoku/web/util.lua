@@ -454,12 +454,17 @@ M.populate = function (el, data)
   if el.hasAttributes and el:hasAttributes() then
 
     local add_attrs = {}
-    local remove, repeat_
+    local shadow, remove, repeat_
 
     Array:from(el.attributes):forEach(function (_, attr)
       if attr.name == "data-repeat" then
         el:removeAttribute(attr.name)
         repeat_ = attr
+        return
+      end
+      if attr.name == "data-shadow" then
+        el:removeAttribute(attr.name)
+        shadow = (attr.value and attr.value ~= "") and attr.value or "closed"
         return
       end
       local show_hide, show_key, show_val, show_attr, show_exp =
@@ -519,12 +524,14 @@ M.populate = function (el, data)
 
     else
 
+      local target = shadow and el:attachShadow({ mode = shadow }) or el
+
       Array:from(el.attributes):forEach(function (_, attr)
         if attr.name == "data-text" then
-          el:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
+          target:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
           el:removeAttribute(attr.name)
         elseif attr.name == "data-html" then
-          el.innerHTML = parse_attr_value(data, attr, el.attributes)
+          target.innerHTML = parse_attr_value(data, attr, el.attributes)
           el:removeAttribute(attr.name)
         elseif attr.name == "data-href" then
           el.href = parse_attr_value(data, attr, el.attributes)
