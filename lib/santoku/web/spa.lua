@@ -2489,6 +2489,7 @@ return function (opts)
     M.on_resize()
   end)
 
+  history.scrollRestoration = "manual"
   M.setup_active_view()
   M.on_resize()
   M.set_route("replace", M.get_route())
