@@ -185,9 +185,9 @@ M.ws = function (url, opts, each, retries, backoffs)
       ws:send(val.bytes(data))
     end
   end, function ()
+    -- TODO: Does this prevent final close events from triggering? Should it?
+    finalized = true
     if ws then
-      -- TODO: Does this prevent final close events from triggering? Should it?
-      finalized = true
       ws:close()
       ws = nil
     end
