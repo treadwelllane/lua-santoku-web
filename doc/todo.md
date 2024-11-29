@@ -1,5 +1,8 @@
 # Now
 
+- Provide explicit funtions for val::u8string, val::string, etc. Currently,
+  LUA_TSTRING is converted via val::u8string. Will this cause problems?
+
 - Spa dynamic snack height based on content
 - Spa prevent tab select of hidden buttons/etc (or make them visible when
   focused)
