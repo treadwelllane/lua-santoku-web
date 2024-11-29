@@ -754,7 +754,7 @@ static inline int lua_to_val (lua_State *L, int i, bool recurse) {
   int type = lua_type(L, i);
 
   if (type == LUA_TSTRING) {
-    push_val(L, val(lua_tostring(L, i)), INT_MIN);
+    push_val(L, val::u8string(lua_tostring(L, i)), INT_MIN);
 
   } else if (type == LUA_TNUMBER) {
     push_val(L, val(lua_tonumber(L, i)), INT_MIN);
