@@ -136,15 +136,17 @@ M.ws = function (url, opts, each, retries, backoffs)
       end
       ws = ws0
       if data then
-        ws0:send(JSON:stringify(data))
+        ws0:send(val.bytes(data))
       end
       for i = 1, #buffer do
-        ws0:send(JSON:stringify(buffer[i]))
+        ws0:send(val.bytes(buffer[i]))
       end
       arr.clear(buffer)
     end)
     ws0:addEventListener("message", function (_, ev)
-      each("message", ev.data)
+      ev.data:text():await(function (_, ...)
+        each("message", err.checkok(...))
+      end)
     end)
     ws0:addEventListener("close", function (_, ev)
       if finalized then
@@ -180,7 +182,7 @@ M.ws = function (url, opts, each, retries, backoffs)
     elseif not ws then
       arr.push(buffer, data)
     else
-      ws:send(data)
+      ws:send(val.bytes(data))
     end
   end, function ()
     if ws then

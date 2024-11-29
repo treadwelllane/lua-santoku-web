@@ -228,12 +228,11 @@ return function (opts)
 
   end
 
-  M.setup_dropdowns = function (view, init, el)
+  M.setup_dropdowns = function (view, _, el)
     el = el or view.el
     view.e_dropdowns = el:querySelectorAll(".tk-dropdown")
     view.e_dropdowns:forEach(function (_, e_dropdown)
       local e_trigger = e_dropdown:querySelector(":scope > button")
-      local e_buttons = e_dropdown:querySelectorAll(":scope > div > button")
       document:addEventListener("click", function (_, ev)
         if ev.e_dropdown ~= e_dropdown then
           e_dropdown.classList:remove("tk-open")
