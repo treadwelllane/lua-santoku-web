@@ -885,7 +885,8 @@ return function (opts)
       e_snack.style["z-index"] = view.snack_index
 
       local offset = view.snack_offset - bottom_offset_total
-      local snack_top = e_body.clientHeight + offset - opts.snack_height - opts.padding
+      local height = e_snack:getBoundingClientRect().height
+      local snack_top = e_body.clientHeight + offset - height - opts.padding
 
       if snack_top <= bottom_cutoff or not M.should_show(view, e_snack)
       then
@@ -899,7 +900,7 @@ return function (opts)
         e_snack.style.transform =
           "translate(" .. nav_push .. "px," .. offset .. "px)"
         bottom_offset_total = bottom_offset_total +
-            opts.snack_height + opts.padding
+            height + opts.padding
       end
 
     end)
