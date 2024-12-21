@@ -1,5 +1,12 @@
 # Now
 
+- data-inherit=".template-selector", to replace element tag and attributes with
+  template
+    - add data-inherit-attrs (default) to inherit all attrs
+    - add data-inherit-class (or other attr) to inherit specific attrs
+    - add data-inherit-class+ (or orther attr, maybe not +) to append inherited
+      attributes to existing
+
 - Provide explicit funtions for val::u8string, val::string, etc. Currently,
   LUA_TSTRING is converted via val::u8string. Will this cause problems?
 
