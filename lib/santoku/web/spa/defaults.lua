@@ -41,8 +41,6 @@ return {
   snack_fg = "#ffffff",
   snack_shadow = "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
 
-  main_shadow = "0 0 16px 16px #FFFFFF",
-
   splash_background = "#1f2937",
 
   cache_fetch_retry_backoff_ms = "1000",

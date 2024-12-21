@@ -77,7 +77,6 @@
         --snack-bg: <% return opts.snack_bg %>;
         --snack-fg: <% return opts.snack_fg %>;
         --snack-shadow: <% return opts.snack_shadow %>;
-        --main-shadow: <% return opts.main_shadow %>;
       }
 
       body {
@@ -141,6 +140,11 @@
         position: absolute;
         min-height: 100dvh;
         max-width: 100dvw;
+      }
+
+      body > section > main {
+        width: 100dvw;
+        height: 100dvh;
       }
 
       body > section > main > section > header {
@@ -409,7 +413,6 @@
         flex-direction: column;
         position: absolute;
         overflow: visible;
-        box-shadow: var(--main-shadow);
         min-height: 100dvh;
         min-width: 100dvw;
         transition: transform <% return opts.transition_time_main %>ms ease,
@@ -447,7 +450,6 @@
         overflow: visible;
         min-width: 100%;
         min-height: 100%;
-        box-shadow: var(--main-shadow);
         transition: transform <% return opts.transition_time_main %>ms ease,
                     opacity <% return opts.transition_time_main %>ms ease;
       }
@@ -499,7 +501,6 @@
         overflow: visible;
         min-width: 100%;
         min-height: 100%;
-        box-shadow: var(--main-shadow);
         transition: transform <% return opts.transition_time_main %>ms ease,
                     opacity <% return opts.transition_time_main %>ms ease;
       }
