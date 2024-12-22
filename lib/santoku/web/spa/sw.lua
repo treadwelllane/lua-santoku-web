@@ -25,7 +25,9 @@ return function (opts)
       end, it.ivals(opts.public_files or {})))), "/")
 
   Module.on_install = function ()
-    print("Installing service worker")
+    if opts.verbose then
+      print("Installing service worker")
+    end
     return util.promise(function (complete)
       return async.pipe(function (done)
         return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
@@ -44,19 +46,20 @@ return function (opts)
           end, function (done, res)
             return cache:put(file, res):await(fun.sel(done, 2))
           end, function (ok, err, ...)
-            if not ok then
+            if not ok and opts.verbose then
               print("Failed caching", file, err and err.message)
+            elseif opts.verbose then
+              print("Cached", file)
             end
-            print("Cached", file)
             return each_done(ok, ...)
           end)
         end, done)
       end, function (done)
         return global:skipWaiting():await(fun.sel(done, 2))
       end, function (ok, ...)
-        if ok then
+        if ok and opts.verbose then
           print("Installed service worker")
-        else
+        elseif not ok and opts.verbose then
           print("Error installing service worker", (...) and (...).message or (...))
         end
         return complete(ok, ...)
@@ -65,7 +68,9 @@ return function (opts)
   end
 
   Module.on_activate = function ()
-    print("Activating service worker")
+    if opts.verbose then
+      print("Activating service worker")
+    end
     return util.promise(function (complete)
       return async.pipe(function (done)
         return caches:keys():await(fun.sel(done, 2))
@@ -78,9 +83,9 @@ return function (opts)
       end, function (done)
         return clients:claim():await(fun.sel(done, 2))
       end, function (ok, ...)
-        if ok then
+        if ok and opts.verbose then
           print("Activated service worker")
-        else
+        elseif not ok and opts.verbose then
           print("Error activating service worker")
         end
         return complete(ok, ...)
@@ -106,6 +111,9 @@ return function (opts)
         }):await(fun.sel(done, 2))
       end, function (done, resp)
         if not resp then
+          if opts.verbose then
+            print("Cache miss", request.url)
+          end
           return util.fetch(request, nil, 0, 0, 0, true):await(fun.sel(done, 2))
         else
           return done(true, resp:clone())
