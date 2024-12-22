@@ -1,4 +1,7 @@
-const buffers = { fetch: [], activate: [], install: [], message: [] }
+const buffers = {
+  fetch: [], activate: [], install: [], message: [],
+  error: [], uncaught_exception: [], unhandled_rejection: []
+}
 
 function push_buffer (name, item) {
   if (!buffers[name])
@@ -9,6 +12,33 @@ function push_buffer (name, item) {
 }
 
 Module.start = function () {
+
+  if (Module.on_error) {
+    buffers.error.forEach(([ ev, resolve, reject ]) => {
+      Module.on_error(ev)
+        .then(resolve)
+        .catch(reject)
+    })
+    buffers.error.length = 0
+  }
+
+  if (Module.on_uncaught_exception) {
+    buffers.uncaught_exception.forEach(([ ev, resolve, reject ]) => {
+      Module.on_uncaught_exception(ev)
+        .then(resolve)
+        .catch(reject)
+    })
+    buffers.uncaught_exception.length = 0
+  }
+
+  if (Module.on_unhandled_rejection) {
+    buffers.unhandled_rejection.forEach(([ ev, resolve, reject ]) => {
+      Module.on_unhandled_rejection(ev)
+        .then(resolve)
+        .catch(reject)
+    })
+    buffers.unhandled_rejection.length = 0
+  }
 
   if (Module.on_fetch) {
     buffers.fetch.forEach(([ ev, resolve, reject ]) => {
@@ -45,6 +75,42 @@ Module.start = function () {
   }
 
 }
+
+self.addEventListener("error", ev => {
+  ev.respondWith(new Promise((resolve, reject) => {
+    if (Module.on_error) {
+      Module.on_error(ev)
+        .then(resolve)
+        .catch(reject)
+    } else {
+      push_buffer("error", [ ev, resolve, reject ])
+    }
+  }))
+})
+
+self.addEventListener("uncaught_exception", ev => {
+  ev.respondWith(new Promise((resolve, reject) => {
+    if (Module.on_uncaught_exception) {
+      Module.on_uncaught_exception(ev)
+        .then(resolve)
+        .catch(reject)
+    } else {
+      push_buffer("uncaught_exception", [ ev, resolve, reject ])
+    }
+  }))
+})
+
+self.addEventListener("unhandled_rejection", ev => {
+  ev.respondWith(new Promise((resolve, reject) => {
+    if (Module.on_unhandled_rejection) {
+      Module.on_unhandled_rejection(ev)
+        .then(resolve)
+        .catch(reject)
+    } else {
+      push_buffer("unhandled_rejection", [ ev, resolve, reject ])
+    }
+  }))
+})
 
 self.addEventListener("fetch", ev => {
   ev.respondWith(new Promise((resolve, reject) => {
