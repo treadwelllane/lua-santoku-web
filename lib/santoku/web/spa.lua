@@ -2368,18 +2368,26 @@ return function (opts)
           polling = false
 
           if not ok then
-            print("Service worker update error", reg and reg.message or reg)
+            if opts.verbose then
+              print("Service worker update error", reg and reg.message or reg)
+            end
           elseif reg.installing then
             installing = true
-            print("Updated service worker installing")
+            if opts.verbose then
+              print("Updated service worker installing")
+            end
           elseif reg.waiting then
-            print("Updated service worker installed")
+            if opts.verbose then
+              print("Updated service worker installed")
+            end
           elseif reg.active then
             if installing then
               installing = false
               active_view.el.classList:add("update-worker")
             end
-            print("Updated service worker active")
+            if opts.verbose then
+              print("Updated service worker active")
+            end
           end
 
         end)
@@ -2395,11 +2403,17 @@ return function (opts)
         local reg = err.checkok(...)
 
         if reg.installing then
-          print("Initial service worker installing")
+          if opts.verbose then
+            print("Initial service worker installing")
+          end
         elseif reg.waiting then
-          print("Initial service worker installed")
+          if opts.verbose then
+            print("Initial service worker installed")
+          end
         elseif reg.active then
-          print("Initial service worker active")
+          if opts.verbose then
+            print("Initial service worker active")
+          end
         end
 
         M.poll_worker_update(reg)
