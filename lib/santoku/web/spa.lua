@@ -431,60 +431,6 @@ return function (opts)
 
   end
 
-  -- TODO: Currently this figures out how many buttons are on either side of the
-  -- title, and sets the title width such that it doesn't overlap the side with
-  -- the most buttons. The problem is that if one side has a button and the
-  -- other doesnt, and the title is long enough to overlap, it confusingly gets
-  -- cut off on the side without buttons, when ideally it should only be getting
-  -- cut off by the buttons. We need some sort of adaptive centering as the user
-  -- types into the title input or based on the actual displayed length.
-  M.setup_header_title_width = function (view)
-
-    if not view.e_header then
-      return
-    end
-
-    local e_title = view.e_header:querySelector("h1")
-
-    if not e_title then
-      return
-    end
-
-    if active_view.el.classList:contains("is-wide") then
-      e_title.style.maxWidth = nil
-      return
-    end
-
-    local offset_left = 0
-    local offset_right = 0
-
-    local lefting = true
-
-    Array:from(view.e_header.children):forEach(function (_, el)
-
-      if el.tagName == "H1" then
-        return
-      end
-
-      if lefting and el.classList:contains("right") then
-        lefting = false
-      end
-
-      if lefting then
-        offset_left = offset_left + opts.header_height
-      else
-        offset_right = offset_right + opts.header_height
-      end
-
-    end)
-
-    local shrink = num.max(offset_left, offset_right) * 2
-    local maxWidth = "calc(100dvw - " .. shrink .. "px)"
-
-    e_title.style.maxWidth = maxWidth
-
-  end
-
   M.setup_ripples = function (el)
 
     el:querySelectorAll("button:not(.no-ripple)"):forEach(function (_, el)
@@ -1866,7 +1812,6 @@ return function (opts)
     M.setup_nav(next_view, direction, init, explicit)
     M.setup_fabs(next_view, last_view)
     M.setup_snacks(next_view)
-    M.setup_header_title_width(next_view)
     M.setup_panes(next_view, init)
     M.setup_dropdowns(next_view, init)
     M.style_header_transition(next_view, "enter", direction, last_view)
@@ -2314,7 +2259,6 @@ return function (opts)
       elseif was_wide then
         M.toggle_nav_state(false)
       end
-      M.setup_header_title_width(active_view.active_view)
       M.style_nav(active_view.active_view, true)
       M.style_snacks(active_view.active_view, true)
       M.style_fabs(active_view.active_view, true)
