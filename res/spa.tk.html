@@ -151,6 +151,8 @@
       body > section > main > section > header {
         position: fixed;
         display: flex;
+        flex-direction: row;
+        align-items: center;
         min-width: 100%;
         color: var(--header-fg);
         background: var(--header-bg);
@@ -174,9 +176,7 @@
       body > section > main > section > header > h1 {
         margin: 0;
         padding: 0;
-        align-self: center;
         font-size: 1.375em;
-        display: inline-block;
         text-align: left;
         white-space: nowrap;
         overflow: hidden;
@@ -208,18 +208,6 @@
         width: <% return opts.header_height %>px;
         fill: var(--header-fg);
         color: var(--header-fg);
-      }
-
-      body > section > main > section > header > *.right {
-        margin-left: auto;
-      }
-
-      body > section:not(.is-wide) > main > section > header > h1 {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
       }
 
       body > section.is-wide > main > section > header > button.menu {
