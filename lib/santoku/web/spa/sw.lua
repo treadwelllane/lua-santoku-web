@@ -32,12 +32,15 @@ return function (opts)
       end, function (done, cache)
         return async.each(it.ivals(opts.cached_files), function (each_done, file)
           return async.pipe(function (done)
-            return util.fetch(file, {
-              -- TODO: This is not currently implemented
-              retry_times = opts.cache_fetch_retry_times,
-              backoff_ms = opts.cache_fetch_retry_backoff_ms,
-              backoff_multiply = opts.cache_fetch_retry_backoff_multiply,
-            }):await(fun.sel(done, 2))
+            return util.get({
+              url = file,
+              raw = true,
+              done = done,
+              retries = opts.cache_fetch_retry_times,
+              backoffs = opts.cache_fetch_retry_backoff_ms
+                and (opts.cache_fetch_retry_backoff_ms * 1000)
+                or nil,
+            })
           end, function (done, res)
             return cache:put(file, res):await(fun.sel(done, 2))
           end, function (ok, err, ...)
@@ -104,7 +107,7 @@ return function (opts)
       end, function (done, resp)
         if not resp then
           print("Cache miss", request.url)
-          return util.fetch(request):await(fun.sel(done, 2))
+          return util.fetch(request, nil, 0, 0, 0, true):await(fun.sel(done, 2))
         else
           return done(true, resp:clone())
         end

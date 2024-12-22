@@ -37,6 +37,7 @@ M.request = function (url, opts, done, retries, backoffs, retry_until)
     req.retries = retries or url.retries
     req.backoffs = backoffs or url.backoffs
     req.retry_until = retry_until or url.retry_until
+    req.raw = raw or url.raw
   elseif opts then
     req.url = url
     req.body = opts.body
@@ -46,6 +47,7 @@ M.request = function (url, opts, done, retries, backoffs, retry_until)
     req.retries = retries or opts.retries
     req.backoffs = backoffs or opts.backoffs
     req.retry_until = retry_until or opts.retry_until
+    req.raw = raw or opts.raw
   end
   req.qstr = req.params and M.query_string(req.params) or ""
   req.done = req.done or done or fun.noop
@@ -84,13 +86,16 @@ M.response = function (done, ok, resp, ...)
   end
 end
 
-M.fetch = function (url, opts, retries, backoffs, retry_until)
+M.fetch = function (url, opts, retries, backoffs, retry_until, raw)
   retries = retries or 3
   backoffs = backoffs or 1
   return M.promise(function (complete)
     return global:fetch(url, val(opts, true)):await(function (_, ok, resp, ...)
       if not ok and resp and resp.name == "AbortError" then
         return
+      end
+      if raw then
+        return complete(true, resp, ...)
       end
       return M.response(function (ok, resp, ...)
         if ok and resp and resp.ok then
@@ -99,7 +104,7 @@ M.fetch = function (url, opts, retries, backoffs, retry_until)
           return complete(false, resp, ...)
         else
           return global:setTimeout(function ()
-            return M.fetch(url, opts, retries - 1, backoffs)
+            return M.fetch(url, opts, retries - 1, backoffs, retry_until, raw)
               :await(fun.sel(complete, 2))
           end, backoffs * 1000)
         end
@@ -201,7 +206,7 @@ M.get = function (...)
     method = "GET",
     headers = req.headers,
     signal = ctrl.signal,
-  }, req.retries, req.backoffs, req.retry_until):await(fun.sel(req.done, 2))
+  }, req.retries, req.backoffs, req.retry_until, req.raw):await(fun.sel(req.done, 2))
   return function ()
     return ctrl:abort()
   end
@@ -217,7 +222,7 @@ M.post = function (...)
     headers = req.headers,
     body = req.body and JSON:stringify(req.body) or nil,
     signal = ctrl.signal,
-  }, req.retries, req.backoffs, req.retry_until):await(fun.sel(req.done, 2))
+  }, req.retries, req.backoffs, req.retry_until, req.raw):await(fun.sel(req.done, 2))
   return function ()
     return ctrl:abort()
   end
