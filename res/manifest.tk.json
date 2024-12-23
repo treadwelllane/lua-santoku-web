@@ -1,3 +1,4 @@
+<% json = require("cjson") %>
 {
   "name": "<% return opts.title %>",
   "description": "<% return opts.description %>",
@@ -15,30 +16,5 @@
   "screenshots": [],
   "categories": [],
   "shortcuts": [],
-  "icons": [
-    {
-      "src": "/icon-192.maskable.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.maskable.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icon-512.maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ]
+  "icons": <% return json.encode(opts.icons or {}) %>
 }
