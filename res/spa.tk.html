@@ -8,44 +8,43 @@
     <base href="<% return opts.base_href %>">
     <% pop() %>
 
+    <meta charset="utf-8">
     <title><% return opts.title %></title>
 
     <% push(opts.manifest) %>
-    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="manifest" href="<% return opts.manifest %>">
     <% pop() %>
-    <meta name="theme-color" content="<% return opts.theme_color %>">
 
-    <meta charset="utf-8">
+    <meta name="theme-color" content="<% return opts.theme_color %>">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
     <meta name="description" content="<% return opts.description %>">
     <meta name="keywords" content="<% return opts.keywords %>">
-
     <meta name="apple-mobile-web-app-title" content="<% return opts.title %>">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="<% return opts.theme_color %>">
-
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="msapplication-navbutton-color" content="<% return opts.theme_color %>">
     <meta name="msapplication-TileColor" content="<% return opts.theme_color %>">
-
     <meta name="application-name" content="<% return opts.title %>">
     <meta name="msapplication-tooltip" content="<% return opts.description %>">
-    <% push(opts.icon) %>
-    <meta name="msapplication-TileImage" content="icon-180.png">
-    <link rel="apple-touch-icon" href="icon-180.png">
-    <% pop() push(opts.favicon) %>
-    <link rel="icon" type="image/png" sizes="196x196" href="favicon-196.png">
+
+    <% push(opts.basic_icon) %>
+    <meta name="msapplication-TileImage" content="<% return opts.basic_icon %>">
+    <link rel="apple-touch-icon" href="<% return opts.basic_icon %>">
+    <% pop() push(opts.favicon_ico) %>
+    <link rel="icon" href="<% return opts.favicon_ico %>" sizes="any">
+    <% pop() push(opts.favicon_svg) %>
+    <link rel="icon" href="<% return opts.favicon_svg %>" type="image/svg+xml">
     <% pop() %>
+
     <meta name="msapplication-starturl" content="">
     <meta name="msapplication-tap-highlight" content="no">
-
     <meta name="full-screen" content="yes">
     <meta name="browsermode" content="application">
     <meta name="nightmode" content="enable">
     <meta name="layoutmode" content="fitscreen">
     <meta name="imagemode" content="force">
-
-    <meta name="mobile-web-app-capable" content="yes">
 
     <template class="ripple">
       <div class="ripple-container">
@@ -662,14 +661,10 @@
 
   </head>
 
-  <body>
-
+  <body <% return opts.body_attrs %>>
     <% return opts.prepend_body %>
-
     <script src="<% return opts.index_js %>"></script>
-
     <% return opts.append_body %>
-
   </body>
 
 </html>

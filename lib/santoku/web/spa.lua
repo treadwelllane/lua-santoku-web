@@ -2293,13 +2293,19 @@ return function (opts)
 
     local navigator = window.navigator
     local serviceWorker = navigator.serviceWorker
+    local poll_worker_interval
 
     M.poll_worker_update = function (reg)
+
+      if poll_worker_interval then
+        window:clearInterval(poll_worker_interval)
+        poll_worker_interval = nil
+      end
 
       local polling = false
       local installing = false
 
-      window:setInterval(function ()
+      poll_worker_interval = window:setInterval(function ()
 
         if polling then
           return
