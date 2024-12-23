@@ -345,10 +345,10 @@
         border-radius: 32px;
         box-sizing: border-box;
         height: <% return opts.header_height %>px;
-        transition: background <% return opts.transition_time %>ms ease;
       }
 
       body > section > main > section > nav > button.is-clicked {
+        transition: background <% return opts.transition_time %>ms ease;
         background: var(--nav-ripple-bg);
       }
 
@@ -631,13 +631,6 @@
         background: var(--nav-ripple-bg);
       }
 
-      body button:not(.no-ripple) {
-        transition: box-shadow <% return opts.transition_time %>ms ease,
-                    background <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease,
-                    transform <% return opts.transition_time %>ms ease;
-      }
-
       body > section > main > section > main button,
       body > section > main > section > aside button,
       body > section > main > section > header button {
@@ -668,5 +661,3 @@
   </body>
 
 </html>
-
-
