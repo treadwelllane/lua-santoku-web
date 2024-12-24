@@ -418,7 +418,7 @@ local function check_attr_match (data, key, val)
       return check_attr_match(data, key, val)
     end) ~= nil
   end
-  data = data[key]
+  data = tbl.get(data, arr.spread(key))
   return
     (val == "true" and data == true) or
     (val == "false" and data == false) or
@@ -438,6 +438,7 @@ local function parse_attr_show_hide (attr)
     return
   end
   local show_key, show_val, show_attr = it.spread(str.gmatch(show_spec, ":([^:]+)"))
+  show_key = it.collect(str.gmatch(show_key, "[^%.]+"))
   if show_val and str.match(show_val, "^%b[]$") then
     show_val = it.collect(str.gmatch(str.sub(show_val, 2, #show_val - 1), "[^,]+"))
   elseif show_val then

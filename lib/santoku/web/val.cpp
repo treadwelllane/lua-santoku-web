@@ -498,8 +498,7 @@ static inline void number_to_lua (lua_State *L, val v) {
 
   if (isInteger) {
 
-    // TODO: Should be int64_t?
-    long x = v.as<long>();
+    int64_t x = v.as<int64_t>();
     lua_pushinteger(L, x);
 
   } else {
