@@ -13,33 +13,6 @@ function push_buffer (name, item) {
 
 Module.start = function () {
 
-  if (Module.on_error) {
-    buffers.error.forEach(([ ev, resolve, reject ]) => {
-      Module.on_error(ev)
-        .then(resolve)
-        .catch(reject)
-    })
-    buffers.error.length = 0
-  }
-
-  if (Module.on_uncaught_exception) {
-    buffers.uncaught_exception.forEach(([ ev, resolve, reject ]) => {
-      Module.on_uncaught_exception(ev)
-        .then(resolve)
-        .catch(reject)
-    })
-    buffers.uncaught_exception.length = 0
-  }
-
-  if (Module.on_unhandled_rejection) {
-    buffers.unhandled_rejection.forEach(([ ev, resolve, reject ]) => {
-      Module.on_unhandled_rejection(ev)
-        .then(resolve)
-        .catch(reject)
-    })
-    buffers.unhandled_rejection.length = 0
-  }
-
   if (Module.on_fetch) {
     buffers.fetch.forEach(([ ev, resolve, reject ]) => {
       Module.on_fetch(ev.request, ev.clientId)
@@ -74,43 +47,28 @@ Module.start = function () {
     buffers.message.length = 0
   }
 
-}
-
-self.addEventListener("error", ev => {
-  ev.respondWith(new Promise((resolve, reject) => {
-    if (Module.on_error) {
+  if (Module.on_error) {
+    buffers.error.forEach(([ ev ]) => {
       Module.on_error(ev)
-        .then(resolve)
-        .catch(reject)
-    } else {
-      push_buffer("error", [ ev, resolve, reject ])
-    }
-  }))
-})
+    })
+    buffers.error.length = 0
+  }
 
-self.addEventListener("uncaught_exception", ev => {
-  ev.respondWith(new Promise((resolve, reject) => {
-    if (Module.on_uncaught_exception) {
+  if (Module.on_uncaught_exception) {
+    buffers.uncaught_exception.forEach(([ ev ]) => {
       Module.on_uncaught_exception(ev)
-        .then(resolve)
-        .catch(reject)
-    } else {
-      push_buffer("uncaught_exception", [ ev, resolve, reject ])
-    }
-  }))
-})
+    })
+    buffers.uncaught_exception.length = 0
+  }
 
-self.addEventListener("unhandled_rejection", ev => {
-  ev.respondWith(new Promise((resolve, reject) => {
-    if (Module.on_unhandled_rejection) {
+  if (Module.on_unhandled_rejection) {
+    buffers.unhandled_rejection.forEach(([ ev ]) => {
       Module.on_unhandled_rejection(ev)
-        .then(resolve)
-        .catch(reject)
-    } else {
-      push_buffer("unhandled_rejection", [ ev, resolve, reject ])
-    }
-  }))
-})
+    })
+    buffers.unhandled_rejection.length = 0
+  }
+
+}
 
 self.addEventListener("fetch", ev => {
   ev.respondWith(new Promise((resolve, reject) => {
@@ -153,5 +111,29 @@ self.addEventListener("message", ev => {
     Module.on_message(ev)
   } else {
     push_buffer("message", ev)
+  }
+})
+
+self.addEventListener("error", ev => {
+  if (Module.on_error) {
+    Module.on_error(ev)
+  } else {
+    push_buffer("error", [ ev ])
+  }
+})
+
+self.addEventListener("uncaught_exception", ev => {
+  if (Module.on_uncaught_exception) {
+    Module.on_uncaught_exception(ev)
+  } else {
+    push_buffer("uncaught_exception", [ ev ])
+  }
+})
+
+self.addEventListener("unhandled_rejection", ev => {
+  if (Module.on_unhandled_rejection) {
+    Module.on_unhandled_rejection(ev)
+  } else {
+    push_buffer("unhandled_rejection", [ ev ])
   }
 })
