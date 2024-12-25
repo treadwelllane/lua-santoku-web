@@ -457,8 +457,8 @@ static inline void object_to_lua (lua_State *L, val v, int iv, bool recurse) {
     }), v.as_handle());
     if (isArray) {
       lua_newtable(L); // t
-      long m = v["length"].as<long>();
-      for (long i = 0; i < m; i ++) {
+      int64_t m = v["length"].as<int64_t>();
+      for (int64_t i = 0; i < m; i ++) {
         lua_pushinteger(L, i + 1); // t i
         push_val(L, v[i], INT_MIN); // t i v
         val_to_lua(L, -1, true, false); // t i v l
@@ -468,8 +468,8 @@ static inline void object_to_lua (lua_State *L, val v, int iv, bool recurse) {
     } else if (isPlainObject) {
       lua_newtable(L); // t
       val ks = val::global("Object").call<val>("keys", v);
-      long m = ks["length"].as<long>();
-      for (long i = 0; i < m; i ++) {
+      int64_t m = ks["length"].as<int64_t>();
+      for (int64_t i = 0; i < m; i ++) {
         val k = ks[i];
         push_val(L, k, INT_MIN); // t kv
         val_to_lua(L, -1, true, false); // t kv kl
