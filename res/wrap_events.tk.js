@@ -122,7 +122,7 @@ self.addEventListener("error", ev => {
   }
 })
 
-self.addEventListener("uncaught_exception", ev => {
+self.addEventListener("uncaughtException", ev => {
   if (Module.on_uncaught_exception) {
     Module.on_uncaught_exception(ev)
   } else {
@@ -130,7 +130,7 @@ self.addEventListener("uncaught_exception", ev => {
   }
 })
 
-self.addEventListener("unhandled_rejection", ev => {
+self.addEventListener("unhandledRejection", ev => {
   if (Module.on_unhandled_rejection) {
     Module.on_unhandled_rejection(ev)
   } else {
