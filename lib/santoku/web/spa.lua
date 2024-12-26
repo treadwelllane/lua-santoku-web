@@ -2066,7 +2066,7 @@ return function (opts)
 
     local last_view_pane = view_pane.active_view
 
-    view_pane.active_view = M.init_view(page_name, nil, pane_page, view_pane)
+    view_pane.active_view = M.init_view(page_name, nil, pane_page, view)
 
     M.enter_pane(view_pane, view_pane.active_view, last_view_pane, init, ...)
 
