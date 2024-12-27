@@ -2163,7 +2163,7 @@ return function (opts)
 
   M.on_resize = function ()
     local was_wide = active_view.el.classList:contains("is-wide")
-    if window.innerWidth > 961 then
+    if window.innerWidth > (opts.wide_threshold or 961) then
       active_view.el.classList:add("is-wide")
     else
       active_view.el.classList:remove("is-wide")
