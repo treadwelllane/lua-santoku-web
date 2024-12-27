@@ -262,23 +262,6 @@ return function (opts)
     end)
   end
 
-  M.setup_alt = function (view, init, explicit)
-    if not state.path[3] then
-      M.find_default(view.page, state.path, 3)
-    end
-    if not state.path[3] then
-      return
-    end
-    M.alt(view, state.path[3], init, explicit)
-    if view.parent then
-      if active_view.el.classList:contains("is-wide") then
-        M.toggle_nav_state(true, false, false)
-      else
-        M.toggle_nav_state(false, false, false)
-      end
-    end
-  end
-
   M.setup_nav = function (view, dir, init, explicit)
 
     view.e_nav = view.el:querySelector("section > nav")
@@ -614,7 +597,7 @@ return function (opts)
 
   end
 
-  M.style_main_alt = function (view, animate)
+  M.style_main_pane = function (view, animate)
 
     if not view.e_main then
       return
@@ -1117,30 +1100,30 @@ return function (opts)
 
   end
 
-  M.style_main_transition_alt = function (next_view, transition, last_view, init)
+  M.style_main_transition_pane = function (next_view, transition, last_view, init)
 
     if init and transition == "enter" then
 
       next_view.main_opacity = 1
       next_view.main_index = opts.main_index + 1
-      M.style_main_alt(next_view)
+      M.style_main_pane(next_view)
 
     elseif transition == "enter" then
 
       next_view.main_opacity = 0
       next_view.main_index = opts.main_index + 1
-      M.style_main_alt(next_view)
+      M.style_main_pane(next_view)
 
       util.after_frame(function ()
         next_view.main_opacity = 1
-        M.style_main_alt(next_view, true)
+        M.style_main_pane(next_view, true)
       end)
 
     elseif transition == "exit" then
 
       last_view.main_opacity = 0
       last_view.main_index = opts.main_index - 1
-      M.style_main_alt(last_view, true)
+      M.style_main_pane(last_view, true)
 
     else
       err.error("invalid state", "main transition")
@@ -1609,11 +1592,6 @@ return function (opts)
     M.setup_ripples(next_view.el)
   end
 
-  M.post_enter_alt = function (view, next_view)
-    view.el.classList:remove("transition")
-    M.setup_ripples(next_view.el)
-  end
-
   M.post_enter_switch = function (view, next_view)
     view.el.classList:remove("transition")
     M.setup_ripples(next_view.el)
@@ -1627,18 +1605,7 @@ return function (opts)
     M.clear_panes(last_view)
   end
 
-  M.post_exit_alt = function (last_view)
-    last_view.el:remove()
-    if last_view.page.destroy then
-      last_view.page.destroy(last_view, opts)
-    end
-    M.clear_panes(last_view)
-  end
-
   M.post_exit_switch = function (last_view)
-    if last_view.active_view then
-      M.post_exit_alt(last_view.active_view)
-    end
     last_view.el:remove()
     if last_view.page.destroy then
       last_view.page.destroy(last_view, opts)
@@ -1701,7 +1668,7 @@ return function (opts)
 
     M.setup_panes(next_view, init)
     M.setup_dropdowns(next_view, init)
-    M.style_main_transition_alt(next_view, "enter", last_view, init)
+    M.style_main_transition_pane(next_view, "enter", last_view, init)
 
     if next_view.page.init then
       next_view.page.init(next_view, ...)
@@ -1716,31 +1683,7 @@ return function (opts)
 
   end
 
-  M.enter_alt = function (view, next_view, last_view, init)
-
-    M.close_dropdowns(last_view)
-
-    next_view.el = util.clone(next_view.page.template)
-    next_view.e_main = next_view.el:querySelector("section > main")
-
-    M.setup_panes(next_view, init)
-    M.setup_dropdowns(next_view, init)
-    M.style_main_transition_alt(next_view, "enter", last_view, init)
-
-    if next_view.page.init then
-      next_view.page.init(next_view, opts)
-    end
-
-    view.el.classList:add("transition")
-    view.e_main:append(next_view.el)
-
-    M.after_transition(function ()
-      return M.post_enter_alt(view, next_view)
-    end)
-
-  end
-
-  M.enter_switch = function (view, next_view, direction, last_view, init, explicit)
+  M.enter_switch = function (view, next_view, direction, last_view, init)
 
     M.close_dropdowns(last_view)
 
@@ -1748,7 +1691,6 @@ return function (opts)
     next_view.e_main = next_view.el:querySelector("section > main")
     next_view.e_main_header = next_view.el:querySelector("section > header")
 
-    M.setup_alt(next_view, init, explicit)
     M.setup_panes(next_view, init)
     M.setup_dropdowns(next_view, init)
     M.style_main_header_transition_switch(next_view, "enter", direction, last_view, init)
@@ -1768,16 +1710,9 @@ return function (opts)
   end
 
   M.exit_pane = function (last_view, next_view)
-    M.style_main_transition_alt(next_view, "exit", last_view)
+    M.style_main_transition_pane(next_view, "exit", last_view)
     M.after_transition(function ()
       return M.post_exit_pane(last_view)
-    end, true)
-  end
-
-  M.exit_alt = function (last_view, next_view)
-    M.style_main_transition_alt(next_view, "exit", last_view)
-    M.after_transition(function ()
-      return M.post_exit_alt(last_view)
     end, true)
   end
 
@@ -1807,6 +1742,10 @@ return function (opts)
     next_view.el = util.clone(next_view.page.template)
     next_view.e_header = next_view.el:querySelector("section > header")
     next_view.e_main = next_view.el:querySelector("section > main")
+
+    if next_view.e_main.firstElementChild and next_view.e_main.firstElementChild.tagName == "SECTION" then
+      next_view.el.classList:add("direct-switch")
+    end
 
     M.setup_observer(next_view)
     M.setup_nav(next_view, direction, init, explicit)
@@ -2076,41 +2015,17 @@ return function (opts)
 
   end
 
-  M.alt = function (view, name, init, explicit)
-
-    local page = M.get_page(view.page.pages, name, "(alt)")
-
-    if M.maybe_redirect(view, page, init, explicit) then
-      return
-    end
-
-    if view.active_view and page == view.active_view.page then
-      return
-    end
-
-    local last_view = view.active_view
-    view.active_view = M.init_view(name, 3, page, view)
-
-    M.enter_alt(view, view.active_view, last_view, init)
-
-    if last_view then
-      M.exit_alt(last_view, view.active_view)
-    end
-
-  end
-
   M.switch = function (view, name, dir, init, explicit)
 
-    local page = M.get_page(view.page.pages, name, "(switch)")
+    local page = type(name) == "table"
+      and name
+      or M.get_page(view.page.pages, name, "(switch)")
 
     if M.maybe_redirect(view, page, init, explicit) then
       return
     end
 
     if view.active_view and page == view.active_view.page then
-      if state.path[3] then
-        return M.alt(view.active_view, state.path[3], init, explicit)
-      end
       return
     end
 
@@ -2129,7 +2044,7 @@ return function (opts)
 
     local dir = M.switch_dir(view, view.active_view, last_view, dir)
 
-    M.enter_switch(view, view.active_view, dir, last_view, init, explicit)
+    M.enter_switch(view, view.active_view, dir, last_view, init)
 
     if last_view then
       M.exit_switch(view, last_view, dir, view.active_view)

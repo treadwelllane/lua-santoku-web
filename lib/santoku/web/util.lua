@@ -611,9 +611,13 @@ M.clear = function (el)
   end)
 end
 
-M.template = function (str)
+M.template = function (from)
   local el = document:createElement("template")
-  el.innerHTML = str
+  if type(from) == "string" then
+    el.innerHTML = from
+  else
+    el:append(from)
+  end
   return el
 end
 
@@ -715,6 +719,9 @@ end
 M.encode_path = function (t)
   local out = {}
   for i = 1, #t.path do
+    if type(t.path[i]) == "table" then
+      break
+    end
     arr.push(out, "/", js:decodeURIComponent(t.path[i]))
   end
   if t.params and next(t.params) then
