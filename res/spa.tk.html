@@ -2,42 +2,76 @@
 <html>
   <head>
 
-    <% return opts.prepend_head %>
+    <% push(not opts.charset) %>
+    <meta charset="utf-8">
+    <% pop() push(opts.charset) %>
+    <meta charset="<% return opts.charset %>">
+    <% pop() %>
 
     <% push(opts.base_href) %>
     <base href="<% return opts.base_href %>">
     <% pop() %>
 
-    <meta charset="utf-8">
+    <% push(opts.title) %>
     <title><% return opts.title %></title>
+    <meta name="apple-mobile-web-app-title" content="<% return opts.title %>">
+    <meta name="application-name" content="<% return opts.title %>">
+    <% pop() %>
+
+    <% push(opts.description) %>
+    <meta name="description" content="<% return opts.description %>">
+    <meta name="msapplication-tooltip" content="<% return opts.description %>">
+    <% pop() %>
+
+    <% push(opts.keywords) %>
+    <meta name="keywords" content="<% return opts.keywords %>">
+    <% pop() %>
 
     <% push(opts.manifest) %>
     <link rel="manifest" href="<% return opts.manifest %>">
     <% pop() %>
 
+    <% push(opts.theme_color) %>
     <meta name="theme-color" content="<% return opts.theme_color %>">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
-    <meta name="description" content="<% return opts.description %>">
-    <meta name="keywords" content="<% return opts.keywords %>">
-    <meta name="apple-mobile-web-app-title" content="<% return opts.title %>">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="<% return opts.theme_color %>">
-    <meta name="mobile-web-app-capable" content="yes">
     <meta name="msapplication-navbutton-color" content="<% return opts.theme_color %>">
     <meta name="msapplication-TileColor" content="<% return opts.theme_color %>">
-    <meta name="application-name" content="<% return opts.title %>">
-    <meta name="msapplication-tooltip" content="<% return opts.description %>">
+    <% pop() %>
 
-    <% push(opts.basic_icon) %>
-    <meta name="msapplication-TileImage" content="<% return opts.basic_icon %>">
-    <link rel="apple-touch-icon" href="<% return opts.basic_icon %>">
+    <% push(opts.ios_icon) %>
+    <link rel="apple-touch-icon" href="<% return opts.ios_icon %>">
+    <% pop() %>
+
+    <% push(opts.ms_icon) %>
+    <meta name="msapplication-TileImage" content="<% return opts.ms_icon %>">
+    <% pop() %>
+
     <% pop() push(opts.favicon_ico) %>
     <link rel="icon" href="<% return opts.favicon_ico %>" sizes="any">
     <% pop() push(opts.favicon_svg) %>
     <link rel="icon" href="<% return opts.favicon_svg %>" type="image/svg+xml">
     <% pop() %>
 
+    <% pop() push(opts.splash_screens) %>
+    <% if showing() then
+      local r = {}
+      for i = 1, #opts.splash_screens do
+        local sc = opts.splash_screens[i]
+        r[i] = string.format(
+          "<link rel=\"apple-touch-startup-image\" media=\"(device-width: %dpx) and (device-height: %dpx) and (-webkit-device-pixel-ratio: %d)\" href=\"%s\">",
+          sc.width,
+          sc.height,
+          sc.dpr or 3,
+          sc.src)
+      end
+      return table.concat(r, "\n")
+    end %>
+    <% pop() %>
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="msapplication-starturl" content="">
     <meta name="msapplication-tap-highlight" content="no">
     <meta name="full-screen" content="yes">
@@ -76,6 +110,33 @@
         --snack-bg: <% return opts.snack_bg %>;
         --snack-fg: <% return opts.snack_fg %>;
         --snack-shadow: <% return opts.snack_shadow %>;
+        --banner-height: <% return opts.banner_height %>;
+        --banner-height-px: <% return opts.banner_height %>px;
+        --banner-index: <% return opts.banner_index %>;
+        --fab-radius-large: <% return opts.fab_radius_large %>;
+        --fab-radius-large-px: <% return opts.fab_radius_large %>px;
+        --fab-radius-small: <% return opts.fab_radius_small %>;
+        --fab-radius-small-px: <% return opts.fab_radius_small %>px;
+        --fab-width-large: <% return opts.fab_width_large %>;
+        --fab-width-large-px: <% return opts.fab_width_large %>px;
+        --fab-width-small: <% return opts.fab_width_small %>;
+        --fab-width-small-px: <% return opts.fab_width_small %>px;
+        --header-border: <% return opts.header_border %>;
+        --header-height: <% return opts.header_height %>;
+        --header-height-px: <% return opts.header_height %>px;
+        --nav-overlay-index: <% return opts.nav_overlay_index %>;
+        --nav-width: <% return opts.nav_width %>;
+        --nav-width-px: <% return opts.nav_width %>px;
+        --snack-height: <% return opts.snack_height %>;
+        --snack-height-px: <% return opts.snack_height %>px;
+        --snack-radius: <% return opts.snack_radius %>;
+        --snack-radius-px: <% return opts.snack_radius %>px;
+        --transition-time: <% return opts.transition_time %>;
+        --transition-time-ms: <% return opts.transition_time %>ms;
+        --transition-time-main: <% return opts.transition_time_main %>;
+        --transition-time-main-ms: <% return opts.transition_time_main %>ms;
+        --transition-time-wave: <% return opts.transition_time_wave %>;
+        --transition-time-wave-ms: <% return opts.transition_time_wave %>ms;
       }
 
       body {
@@ -108,13 +169,13 @@
         padding: 0;
         position: fixed;
         width: 100dvw;
-        z-index: <% return opts.banner_index %>;
-        height: <% return opts.banner_height %>px;
-        top: -<% return opts.banner_height %>px;
+        z-index: var(--banner-index);
+        height: var(--banner-height-px);
+        top: calc(var(--banner-height-px) * -1);
         left: 0;
         color: var(--banner-fg);
         background: var(--banner-bg);
-        transition: transform <% return opts.transition_time %>ms ease;
+        transition: transform var(--transition-time-ms) ease;
       }
 
       body > section > aside > button {
@@ -149,10 +210,10 @@
         min-width: 100%;
         color: var(--header-fg);
         background: var(--header-bg);
-        min-height: <% return opts.header_height %>px;
-        max-height: <% return opts.header_height %>px;
-        transition: transform <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease;
+        min-height: var(--header-height-px);
+        max-height: var(--header-height-px);
+        transition: transform var(--transition-time-ms) ease,
+                    opacity var(--transition-time-ms) ease;
       }
 
       body > section > main > section > header::before {
@@ -197,8 +258,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        height: <% return opts.header_height %>px;
-        width: <% return opts.header_height %>px;
+        height: var(--header-height-px);
+        width: var(--header-height-px);
         fill: var(--header-fg);
         color: var(--header-fg);
       }
@@ -288,19 +349,19 @@
         display: flex;
         flex-direction: column;
         position: fixed;
-        width: <% return opts.nav_width %>px;
+        width: var(--nav-width-px);
         overflow-y: auto;
         overscroll-behavior: contain;
         max-width: 100dvw;
         min-width: 0;
-        min-height: calc(100lvh + <% return opts.header_height %>px);
-        max-height: calc(100lvh + <% return opts.header_height %>px);
-        padding-top: <% return opts.header_height %>px;
-        padding-bottom: calc(<% return opts.header_height %>px * 3);
-        border-right: <% return opts.header_border %>;
+        min-height: calc(100lvh + var(--header-height-px));
+        max-height: calc(100lvh + var(--header-height-px));
+        padding-top: var(--header-height-px);
+        padding-bottom: calc(var(--header-height-px) * 3);
+        border-right: var(--header-border);
         background: var(--nav-bg);
-        transition: transform <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease;
+        transition: transform var(--transition-time-ms) ease,
+                    opacity var(--transition-time-ms) ease;
       }
 
       body > section > main > section > .nav-overlay {
@@ -309,13 +370,13 @@
         left: 0;
         min-width: 100dvw;
         max-width: 100dvw;
-        min-height: calc(100lvh + <% return opts.header_height %>px);
-        max-height: calc(100lvh + <% return opts.header_height %>px);
-        z-index: <% return opts.nav_overlay_index %>;
+        min-height: calc(100lvh + var(--header-height-px));
+        max-height: calc(100lvh + var(--header-height-px));
+        z-index: var(--nav-overlay-index);
         opacity: 0;
         background: black;
         pointer-events: none;
-        transition: opacity <% return opts.transition_time %>ms ease;
+        transition: opacity var(--transition-time-ms) ease;
       }
 
       body > section:not(.is-wide) > main > section.showing-nav > .nav-overlay {
@@ -338,11 +399,11 @@
         background: var(--nav-bg);
         border-radius: 32px;
         box-sizing: border-box;
-        height: <% return opts.header_height %>px;
+        height: var(--header-height-px);
       }
 
       body > section > main > section > nav > button.is-clicked {
-        transition: background <% return opts.transition_time %>ms ease;
+        transition: background var(--transition-time-ms) ease;
         background: var(--nav-ripple-bg);
       }
 
@@ -364,14 +425,14 @@
         color: var(--fab-fg);
         background: var(--fab-bg);
         bottom: 0;
-        left: calc(100% - <% return opts.fab_width_large %>px - 16px);
-        height: <% return opts.fab_width_large %>px;
-        width: <% return opts.fab_width_large %>px;
-        border-radius: <% return opts.fab_radius_large %>px;
+        left: calc(100% - var(--fab-width-large-px) - 16px);
+        height: var(--fab-width-large-px);
+        width: var(--fab-width-large-px);
+        border-radius: var(--fab-radius-large-px);
         box-shadow: var(--fab-shadow);
-        transition: box-shadow <% return opts.transition_time %>ms ease,
-                    transform <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease;
+        transition: box-shadow var(--transition-time-ms) ease,
+                    transform var(--transition-time-ms) ease,
+                    opacity var(--transition-time-ms) ease;
       }
 
       body > section > main > section > button.top {
@@ -379,14 +440,14 @@
       }
 
       body > section > main > section > button.small {
-        height: <% return opts.fab_width_small %>px;
-        width: <% return opts.fab_width_small %>px;
-        border-radius: <% return opts.fab_radius_small %>px;
-        left: calc(100% - <% return opts.fab_width_small %>px - 24px);
+        height: var(--fab-width-small-px);
+        width: var(--fab-width-small-px);
+        border-radius: var(--fab-radius-small-px);
+        left: calc(100% - var(--fab-width-small-px) - 24px);
       }
 
       body > section > main > section > button > svg {
-        transition: transform <% return opts.transition_time %>ms ease;
+        transition: transform var(--transition-time-ms) ease;
       }
 
       body > section > main > section > main {
@@ -397,15 +458,15 @@
         overflow: visible;
         min-height: 100dvh;
         min-width: 100dvw;
-        transition: transform <% return opts.transition_time_main %>ms ease,
-                    opacity <% return opts.transition_time_main %>ms ease,
-                    box-shadow <% return opts.transition_time_main %>ms ease,
-                    max-width <% return opts.transition_time_main %>ms ease;
+        transition: transform var(--transition-time-main-ms) ease,
+                    opacity var(--transition-time-main-ms) ease,
+                    box-shadow var(--transition-time-main-ms) ease,
+                    max-width var(--transition-time-main-ms) ease;
       }
 
       body > section > main > section > header ~ main {
-        top: <% return opts.header_height %>px;
-        min-height: calc(100dvh - <% return opts.header_height %>px);
+        top: var(--header-height-px);
+        min-height: calc(100dvh - var(--header-height-px));
       }
 
       body > section:not(.is-wide) > main > section.showing-nav > main {
@@ -432,13 +493,13 @@
         overflow: visible;
         min-width: 100%;
         min-height: 100%;
-        transition: transform <% return opts.transition_time_main %>ms ease,
-                    opacity <% return opts.transition_time_main %>ms ease;
+        transition: transform var(--transition-time-main-ms) ease,
+                    opacity var(--transition-time-main-ms) ease;
       }
 
       body > section > main > section > header ~ main > section > main {
-        top: <% return opts.header_height %>px;
-        min-height: calc(100% - <% return opts.header_height %>px);
+        top: var(--header-height-px);
+        min-height: calc(100% - var(--header-height-px));
       }
 
       body > section > main > section > main > section > header {
@@ -451,20 +512,20 @@
         padding-right: 1em;
         padding-top: 0.75em;
         padding-bottom: 0.75em;
-        border-bottom: <% return opts.header_border %>;
+        border-bottom: var(--header-border);
         background: var(--page-bg);
         overflow-x: auto;
         overflow-y: hidden;
         overscroll-behavior: contain;
-        min-height: <% return opts.header_height %>px;
-        max-height: <% return opts.header_height %>px;
-        transition: box-shadow <% return opts.transition_time %>ms ease,
-                    transform <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease;
+        min-height: var(--header-height-px);
+        max-height: var(--header-height-px);
+        transition: box-shadow var(--transition-time-ms) ease,
+                    transform var(--transition-time-ms) ease,
+                    opacity var(--transition-time-ms) ease;
       }
 
       body > section > main > section > header ~ main > section > header {
-        top: <% return opts.header_height %>px;
+        top: var(--header-height-px);
       }
 
       body > section > main > section > header ~ main > section > main {
@@ -472,8 +533,8 @@
       }
 
       body > section > main > section > header ~ main > section > header ~ main {
-        top: <% return opts.header_height %>px;
-        min-height: calc(100% - <% return opts.header_height %>px);
+        top: var(--header-height-px);
+        min-height: calc(100% - var(--header-height-px));
       }
 
       body > section > main > section > main > section > main > section > main {
@@ -484,8 +545,8 @@
         overflow: visible;
         min-width: 100%;
         min-height: 100%;
-        transition: transform <% return opts.transition_time_main %>ms ease,
-                    opacity <% return opts.transition_time_main %>ms ease;
+        transition: transform var(--transition-time-main-ms) ease,
+                    opacity var(--transition-time-main-ms) ease;
       }
 
       body > section > main > section > aside {
@@ -501,15 +562,15 @@
         pointer-events: all;
         color: var(--snack-fg);
         background: var(--snack-bg);
-        min-height: <% return opts.snack_height %>px;
-        max-width: calc(100dvw - 16px - <% return opts.fab_width_large %>px - 56px);
+        min-height: var(--snack-height-px);
+        max-width: calc(100dvw - 16px - var(--fab-width-large-px) - 56px);
         bottom: 0;
         left: 16px;
-        border-radius: <% return opts.snack_radius %>px;
+        border-radius: var(--snack-radius-px);
         box-shadow: var(--snack-shadow);
-        transition: box-shadow <% return opts.transition_time %>ms ease,
-                    transform <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease;
+        transition: box-shadow var(--transition-time-ms) ease,
+                    transform var(--transition-time-ms) ease,
+                    opacity var(--transition-time-ms) ease;
       }
 
       [data-pane] {
@@ -532,9 +593,9 @@
       }
 
       body [data-pane] > section > main {
-        transition: box-shadow <% return opts.transition_time %>ms ease,
-                    transform <% return opts.transition_time %>ms ease,
-                    opacity <% return opts.transition_time %>ms ease;
+        transition: box-shadow var(--transition-time-ms) ease,
+                    transform var(--transition-time-ms) ease,
+                    opacity var(--transition-time-ms) ease;
       }
 
       body .transition *,
@@ -599,8 +660,8 @@
       }
 
       body > section > main > section > nav > button > .ripple-container {
-        height: calc(<% return opts.header_height %>px - 24px);
-        width: calc(<% return opts.nav_width %>px - 32px);
+        height: calc(var(--header-height-px) - 24px);
+        width: calc(var(--nav-width-px) - 32px);
         top: 0;
         left: 0;
         border-radius: 20px;
@@ -613,8 +674,8 @@
         transform: scale(0.7);
         opacity: 0.45;
         background: var(--ripple-bg);
-        transition: background <% return opts.transition_time_wave %>ms ease;
-        animation: ripple-wave <% return opts.transition_time_wave %>ms forwards ease;
+        transition: background var(--transition-time-wave-ms) ease;
+        animation: ripple-wave var(--transition-time-wave-ms) forwards ease;
       }
 
       body > section > main > section > nav > button:not(.is-active) .ripple-container .ripple-wave,
@@ -650,9 +711,12 @@
   </head>
 
   <body <% return opts.body_attrs %>>
-    <% return opts.prepend_body %>
+    <% push(opts.index_js) %>
     <script src="<% return opts.index_js %>"></script>
+    <% pop() %>
     <% return opts.append_body %>
   </body>
+
+  <% return opts.append_html %>
 
 </html>

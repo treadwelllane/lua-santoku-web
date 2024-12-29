@@ -5,6 +5,9 @@ local util = require("santoku.web.util")
 local async = require("santoku.async")
 local it = require("santoku.iter")
 local fun = require("santoku.functional")
+local tbl = require("santoku.table")
+local def = require("santoku.web.spa.defaults")
+
 local global = js.self
 local Module = global.Module
 local caches = js.caches
@@ -13,7 +16,7 @@ local Promise = js.Promise
 
 return function (opts)
 
-  opts = opts or {}
+  opts = tbl.merge({}, opts or {}, def.sw or {})
 
   opts.service_worker_version = opts.service_worker_version
     and tostring(opts.service_worker_version) or "0"

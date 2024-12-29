@@ -9,11 +9,11 @@ local it = require("santoku.iter")
 local arr = require("santoku.array")
 local num = require("santoku.num")
 local util = require("santoku.web.util")
-local defaults = require("santoku.web.spa.defaults")
+local def = require("santoku.web.spa.defaults")
 
 return function (opts)
 
-  opts = tbl.merge({}, opts, defaults)
+  opts = tbl.merge({}, opts or {}, def.spa or {})
 
   local Array = js.Array
   local MutationObserver = js.MutationObserver
@@ -2331,7 +2331,7 @@ return function (opts)
     elseif policy == "replace" then
       history:replaceState(state.current_id, "", url)
     else
-      err.error("Invalid history setting", opts.history)
+      err.error("Invalid history setting", policy)
     end
   end
 
