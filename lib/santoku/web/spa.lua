@@ -1,5 +1,6 @@
 local err = require("santoku.error")
 local js = require("santoku.web.js")
+local val = require("santoku.web.val")
 local str = require("santoku.string")
 local fun = require("santoku.functional")
 local op = require("santoku.op")
@@ -30,8 +31,6 @@ return function (opts)
   local base_path = location.pathname
   local state = util.parse_path(str.match(location.hash, "^#(.*)"))
   local active_view
-  state.next_id = 1
-  state.current_id = 0
 
   local M = {}
 
@@ -560,7 +559,7 @@ return function (opts)
     view.e_main.style.transform =
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
 
-    view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
+    view.e_main.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
 
@@ -644,7 +643,7 @@ return function (opts)
     view.e_main.style.transform =
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
 
-    view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
+    view.e_main.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
 
@@ -1497,7 +1496,7 @@ return function (opts)
     end
     if view.active_view then
       view.active_view.main_header_offset = view.header_offset
-      view.active_view.main_offset = view.header_offset
+      -- view.active_view.main_offset = view.header_offset
     end
     view.nav_offset = view.header_offset
     if restyle ~= false then
@@ -1511,15 +1510,11 @@ return function (opts)
     end
   end
 
-  -- TODO: Should this be debounced or does the view.header_hide check
-  -- accomplish that?
   M.scroll_listener = function (view)
 
-    local ready = true
-
-    local last_scroll_top = 0
-
     local n = 0
+    local ready = true
+    local last_scroll_top = 0
 
     return function ()
 
@@ -1535,18 +1530,10 @@ return function (opts)
       local curr_scroll_top = window.pageYOffset or document.documentElement.scrollTop
       local curr_diff = curr_scroll_top - last_scroll_top
 
-      if curr_diff >= 10 then
+      if curr_diff >= 16 then
         n = (n < 0 and 0 or n) + 1
-      elseif curr_diff <= -10 then
+      elseif curr_diff <= -16 then
         n = (n > 0 and 0 or n) - 1
-      end
-
-      if view.header_hide and curr_scroll_top <= tonumber(opts.header_height) then
-        M.style_header_hide(view, false)
-      elseif not view.header_hide and n > 4 then
-        M.style_header_hide(view, true)
-      elseif view.header_hide and n <= -4 then
-        M.style_header_hide(view, false)
       end
 
       if not active_view.el.classList:contains("is-wide") and view.el.classList:contains("showing-nav") then
@@ -1555,9 +1542,25 @@ return function (opts)
 
       last_scroll_top = curr_scroll_top <= 0 and 0 or curr_scroll_top
 
-      M.after_transition(function ()
-        ready = true
-      end)
+      if view.header_hide and curr_scroll_top <= tonumber(opts.header_height) then
+        ready = false
+        M.after_transition(function ()
+          ready = true
+        end)
+        M.style_header_hide(view, false)
+      elseif not view.header_hide and n >= 1 then
+        ready = false
+        M.after_transition(function ()
+          ready = true
+        end)
+        M.style_header_hide(view, true)
+      elseif view.header_hide and n <= -1 then
+        ready = false
+        M.after_transition(function ()
+          ready = true
+        end)
+        M.style_header_hide(view, false)
+      end
 
     end
   end
@@ -1652,7 +1655,7 @@ return function (opts)
       next_view.curr_scrolly = nil
       next_view.last_scrolly = nil
       next_view.scroll_listener = M.scroll_listener(next_view)
-      window:addEventListener("scroll", next_view.scroll_listener)
+      window:addEventListener("scroll", next_view.scroll_listener, false)
     end
 
     M.setup_ripples(next_view.el)
@@ -1830,13 +1833,29 @@ return function (opts)
     window:scrollTo({ top = e_body.scrollHeight, left = 0, behavior = "instant" })
   end
 
-  M.checkpoint = function ()
-    return state.current_id
+  M.mark = function ()
+    local s = history.state or {}
+    history:replaceState(val({ id = s.id, mark = s.id }, true), "", location.href)
   end
 
-  M.replace_checkpoint = function (id, ...)
-    history:back(state.current_id - id)
-    M.replace_forward(...)
+  M.forward_mark = function (...)
+    if history.state and history.state.id and history.state.mark and history.state.mark < history.state.id then
+      local diff = history.state.id - history.state.mark
+      state.popmark = true
+      history:go(-diff)
+    else
+      M.replace_forward(...)
+    end
+  end
+
+  M.backward_mark = function (...)
+    if history.state and history.state.id and history.state.mark and history.state.mark < history.state.id then
+      local diff = history.state.id - history.state.mark
+      state.popmark = true
+      history:go(-diff)
+    else
+      M.replace_backward(...)
+    end
   end
 
   M.init_view = function (name, path_idx, page, parent)
@@ -1845,12 +1864,14 @@ return function (opts)
 
     local view = {
       parent = parent,
+      back = M.back,
       forward = M.forward,
       backward = M.backward,
-      checkpoint = M.checkpoint,
       replace_forward = M.replace_forward,
       replace_backward = M.replace_backward,
-      replace_checkpoint = M.replace_checkpoint,
+      mark = M.mark,
+      forward_mark = M.forward_mark,
+      backward_mark = M.backward_mark,
       at_bottom = M.at_bottom,
       path_idx = path_idx,
       add_listener = M.add_listener,
@@ -2303,6 +2324,11 @@ return function (opts)
     return arr.spread(path)
   end
 
+  M.get_url = function (s)
+    s = s or state
+    return base_path .. "#" .. util.encode_path(s)
+  end
+
   M.set_route = function (policy, ...)
     local n = varg.len(...)
     local path, params
@@ -2322,17 +2348,30 @@ return function (opts)
     M.fill_defaults(path, params)
     state.path = path
     state.params = params
-    local url = base_path .. "#" ..
-      util.encode_path(state)
+    local url = M.get_url(state)
     if policy == "push" then
-      state.current_id = state.next_id
-      history:pushState(state.current_id, "", url)
-      state.next_id = state.next_id + 1
+      local hstate = { id = (history.state and history.state.id or 0) + 1 }
+      if not state.popmark and history.state then
+        hstate.mark = history.state.mark
+      end
+      state.popmark = nil
+      history:pushState(val(hstate, true), "", url)
+      state.current_id = hstate.id
     elseif policy == "replace" then
-      history:replaceState(state.current_id, "", url)
+      local hstate = { id = (history.state and history.state.id or 0) }
+      if not state.popmark and history.state then
+        hstate.mark = history.state.mark
+      end
+      state.popmark = nil
+      history:replaceState(val(hstate, true), "", url)
+      state.current_id = hstate.id
     else
       err.error("Invalid history setting", policy)
     end
+  end
+
+  M.back = function ()
+    history:back()
   end
 
   M.forward = function (...)
@@ -2357,12 +2396,11 @@ return function (opts)
 
   window:addEventListener("popstate", function (_, ev)
     local state0 = util.parse_path(str.match(location.hash, "^#(.*)"))
-    local id = ev.state and tonumber(ev.state)
-    local dir = (id and id < state.current_id) and "backward" or "forward"
-    state.current_id = id
+    local id = ev.state and ev.state.id and tonumber(ev.state.id)
+    local dir = (id and state.current_id and id < state.current_id) and "backward" or "forward"
     M.set_route("replace", M.get_route(state0))
     M.transition(dir)
-  end)
+  end, false)
 
   window:addEventListener("resize", function ()
     M.on_resize()

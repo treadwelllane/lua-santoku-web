@@ -14,6 +14,7 @@ local Promise = js.Promise
 local global = js.self or js.global or js.window
 local localStorage = global.localStorage
 local JSON = js.JSON
+local Date = js.Date
 local WebSocket = js.WebSocket
 local AbortController = js.AbortController
 
@@ -625,16 +626,22 @@ M.static = function (str)
   return { template = M.template("<section><main>" .. str .. "</main></section>") }
 end
 
--- TODO
-M.throttle = function (--[[  fn, time  ]])
-  error("throttle: unimplemented")
+M.throttle = function (fn, time)
+  local last
+  return function (...)
+    local now = Date:now()
+    if not last or (now - last) >= time then
+      last = now
+      return fn(...)
+    end
+  end
 end
 
 M.debounce = function (fn, time)
   local timer
-  return function ()
+  return function (...)
     global:clearTimeout(timer)
-    timer = global:setTimeout(fn, time)
+    timer = global:setTimeout(fn, time, ...)
   end
 end
 
