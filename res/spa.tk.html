@@ -33,10 +33,11 @@
 
     <% push(opts.theme_color) %>
     <meta name="theme-color" content="<% return opts.theme_color %>">
-    <meta name="apple-mobile-web-app-status-bar-style" content="<% return opts.theme_color %>">
     <meta name="msapplication-navbutton-color" content="<% return opts.theme_color %>">
     <meta name="msapplication-TileColor" content="<% return opts.theme_color %>">
     <% pop() %>
+
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
     <% push(opts.ios_icon) %>
     <link rel="apple-touch-icon" href="<% return opts.ios_icon %>">
@@ -139,18 +140,32 @@
         --transition-time-wave-ms: <% return opts.transition_time_wave %>ms;
       }
 
+      html {
+        height: 100%;
+        width: 100%;
+        overscroll-behavior: none;
+      }
+
+      body > section,
+      body > section > main,
+      body > section > main > section {
+        height: 100%;
+        width: 100%;
+        overscroll-behavior: none;
+      }
+
       body {
         font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-        overscroll-behavior: contain;
+        overscroll-behavior: none;
         overflow: auto;
         display: flex;
         flex-direction: column;
-        height: 100dvh;
+        height: 100%;
         padding: 0;
         margin: 0;
-        min-height: 100dvh;
-        min-width: 100dvw;
-        max-width: 100dvw;
+        min-height: 100%;
+        min-width: 100%;
+        max-width: 100%;
         background: var(--page-bg);
       }
 
@@ -168,7 +183,7 @@
         margin: 0;
         padding: 0;
         position: fixed;
-        width: 100dvw;
+        width: 100%;
         z-index: var(--banner-index);
         height: var(--banner-height-px);
         top: calc(var(--banner-height-px) * -1);
@@ -198,8 +213,8 @@
       body > section > main,
       body > section > main > section {
         position: absolute;
-        min-height: 100dvh;
-        max-width: 100dvw;
+        min-height: 100%;
+        max-width: 100%;
       }
 
       body > section > main > section > header {
@@ -218,7 +233,7 @@
 
       body > section > main > section > header::before {
         content: ' ';
-        width: 100dvw;
+        width: 100%;
         height: 8px;
         position: absolute;
         top: -4px;
@@ -351,11 +366,11 @@
         position: fixed;
         width: var(--nav-width-px);
         overflow-y: auto;
-        overscroll-behavior: contain;
-        max-width: 100dvw;
+        overscroll-behavior: none;
+        max-width: 100%;
         min-width: 0;
-        min-height: calc(100lvh + var(--header-height-px));
-        max-height: calc(100lvh + var(--header-height-px));
+        min-height: calc(100% + var(--header-height-px));
+        max-height: calc(100% + var(--header-height-px));
         padding-top: var(--header-height-px);
         padding-bottom: calc(var(--header-height-px) * 3);
         border-right: var(--header-border);
@@ -368,10 +383,10 @@
         position: fixed;
         top: 0;
         left: 0;
-        min-width: 100dvw;
-        max-width: 100dvw;
-        min-height: calc(100lvh + var(--header-height-px));
-        max-height: calc(100lvh + var(--header-height-px));
+        min-width: 100%;
+        max-width: 100%;
+        min-height: calc(100% + var(--header-height-px));
+        max-height: calc(100% + var(--header-height-px));
         z-index: var(--nav-overlay-index);
         opacity: 0;
         background: black;
@@ -456,8 +471,8 @@
         flex-direction: column;
         position: absolute;
         overflow: visible;
-        min-height: 100dvh;
-        min-width: 100dvw;
+        min-height: 100%;
+        min-width: 100%;
         transition: transform var(--transition-time-main-ms) ease,
                     opacity var(--transition-time-main-ms) ease,
                     box-shadow var(--transition-time-main-ms) ease,
@@ -466,7 +481,7 @@
 
       body > section > main > section > header ~ main {
         top: var(--header-height-px);
-        min-height: calc(100dvh - var(--header-height-px));
+        min-height: calc(100% - var(--header-height-px));
       }
 
       body > section:not(.is-wide) > main > section.showing-nav > main {
@@ -516,7 +531,7 @@
         background: var(--page-bg);
         overflow-x: auto;
         overflow-y: hidden;
-        overscroll-behavior: contain;
+        overscroll-behavior: none;
         min-height: var(--header-height-px);
         max-height: var(--header-height-px);
         transition: box-shadow var(--transition-time-ms) ease,
@@ -563,7 +578,7 @@
         color: var(--snack-fg);
         background: var(--snack-bg);
         min-height: var(--snack-height-px);
-        max-width: calc(100dvw - 16px - var(--fab-width-large-px) - 56px);
+        max-width: calc(100% - 16px - var(--fab-width-large-px) - 56px);
         bottom: 0;
         left: 16px;
         border-radius: var(--snack-radius-px);
