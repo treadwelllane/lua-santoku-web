@@ -1833,31 +1833,48 @@ return function (opts)
     window:scrollTo({ top = e_body.scrollHeight, left = 0, behavior = "instant" })
   end
 
-  M.mark = function (tag)
-    local s = history.state or {}
-    local ms = val(s.mark or {}, true)
-    ms[tag] = s.id
-    history:replaceState(val({ id = s.id, mark = ms }, true), "", location.href)
+  M.mark = function ()
+    local tag = M.route_tag(arr.spread(state.path))
+    local sl = val.lua(history.state or {}, true)
+    sl.id = sl.id or 0
+    sl.mark = sl.mark or {}
+    sl.mark[tag] = sl.id
+    local sj = val(sl, true)
+    history:replaceState(sj, "", location.href)
   end
 
-  M.forward_mark = function (tag, ...)
+  M.route_tag = function (...)
+    local r = {}
+    for i = 1, varg.len(...) do
+      local x = varg.get(i, ...)
+      if type(x) ~= "string" then
+        break
+      end
+      r[i] = x
+    end
+    return arr.concat(r, ".")
+  end
+
+  M.forward_mark = function (...)
+    local tag = M.route_tag(...)
     local id = history.state and history.state.id
     local mark = history.state and history.state.mark and history.state.mark[tag]
     if id and mark and mark < id then
       local diff = id - mark
-      state.popmark = mark
+      state.popmark = { ... }
       history:go(-diff)
     else
       M.replace_forward(...)
     end
   end
 
-  M.backward_mark = function (tag, ...)
+  M.backward_mark = function (...)
+    local tag = M.route_tag(...)
     local id = history.state and history.state.id
     local mark = history.state and history.state.mark and history.state.mark[tag]
     if id and mark and mark < id then
       local diff = id - mark
-      state.popmark = mark
+      state.popmark = { ... }
       history:go(-diff)
     else
       M.replace_backward(...)
@@ -2358,19 +2375,11 @@ return function (opts)
     if policy == "push" then
       local hstate = { id = (history.state and history.state.id or 0) + 1 }
       hstate.mark = history.state and history.state.mark or {}
-      if state.popmark and hstate.mark then
-        hstate.mark[state.popmark] = nil
-      end
-      state.popmark = nil
       history:pushState(val(hstate, true), "", url)
       state.current_id = hstate.id
     elseif policy == "replace" then
       local hstate = { id = (history.state and history.state.id or 0) }
       hstate.mark = history.state and history.state.mark or {}
-      if state.popmark and hstate.mark then
-        hstate.mark[state.popmark] = nil
-      end
-      state.popmark = nil
       history:replaceState(val(hstate, true), "", url)
       state.current_id = hstate.id
     else
@@ -2406,7 +2415,13 @@ return function (opts)
     local state0 = util.parse_path(str.match(location.hash, "^#(.*)"))
     local id = ev.state and ev.state.id and tonumber(ev.state.id)
     local dir = (id and state.current_id and id < state.current_id) and "backward" or "forward"
-    M.set_route("replace", M.get_route(state0))
+    if state.popmark then
+      local p = state.popmark
+      state.popmark = nil
+      M.set_route("replace", arr.spread(p))
+    else
+      M.set_route("replace", M.get_route(state0))
+    end
     M.transition(dir)
   end, false)
 
