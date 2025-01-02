@@ -111,7 +111,7 @@ return function (opts)
       el.classList:add("is-clicked")
       el:append(e_ripple)
 
-    end)
+    end, false)
 
   end
 
@@ -317,7 +317,7 @@ return function (opts)
         end)
       end
 
-      view.e_main:addEventListener("touchstart", on_touch_start)
+      view.e_main:addEventListener("touchstart", on_touch_start, false)
       view.e_main:addEventListener("touchmove", on_touch_move)
       view.e_main:addEventListener("touchend", on_touch_end)
       view.e_main:addEventListener("touchcancel", on_touch_end)
