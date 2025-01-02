@@ -2423,7 +2423,7 @@ return function (opts)
       M.set_route("replace", M.get_route(state0))
     end
     M.transition(dir)
-  end, false)
+  end)
 
   window:addEventListener("resize", function ()
     M.on_resize()
