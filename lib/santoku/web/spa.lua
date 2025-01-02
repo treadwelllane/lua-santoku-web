@@ -1833,25 +1833,31 @@ return function (opts)
     window:scrollTo({ top = e_body.scrollHeight, left = 0, behavior = "instant" })
   end
 
-  M.mark = function ()
+  M.mark = function (tag)
     local s = history.state or {}
-    history:replaceState(val({ id = s.id, mark = s.id }, true), "", location.href)
+    local ms = val(s.mark or {}, true)
+    ms[tag] = s.id
+    history:replaceState(val({ id = s.id, mark = ms }, true), "", location.href)
   end
 
-  M.forward_mark = function (...)
-    if history.state and history.state.id and history.state.mark and history.state.mark < history.state.id then
-      local diff = history.state.id - history.state.mark
-      state.popmark = true
+  M.forward_mark = function (tag, ...)
+    local id = history.state and history.state.id
+    local mark = history.state and history.state.mark and history.state.mark[tag]
+    if id and mark and mark < id then
+      local diff = id - mark
+      state.popmark = mark
       history:go(-diff)
     else
       M.replace_forward(...)
     end
   end
 
-  M.backward_mark = function (...)
-    if history.state and history.state.id and history.state.mark and history.state.mark < history.state.id then
-      local diff = history.state.id - history.state.mark
-      state.popmark = true
+  M.backward_mark = function (tag, ...)
+    local id = history.state and history.state.id
+    local mark = history.state and history.state.mark and history.state.mark[tag]
+    if id and mark and mark < id then
+      local diff = id - mark
+      state.popmark = mark
       history:go(-diff)
     else
       M.replace_backward(...)
@@ -2351,16 +2357,18 @@ return function (opts)
     local url = M.get_url(state)
     if policy == "push" then
       local hstate = { id = (history.state and history.state.id or 0) + 1 }
-      if not state.popmark and history.state then
-        hstate.mark = history.state.mark
+      hstate.mark = history.state and history.state.mark or {}
+      if state.popmark and hstate.mark then
+        hstate.mark[state.popmark] = nil
       end
       state.popmark = nil
       history:pushState(val(hstate, true), "", url)
       state.current_id = hstate.id
     elseif policy == "replace" then
       local hstate = { id = (history.state and history.state.id or 0) }
-      if not state.popmark and history.state then
-        hstate.mark = history.state.mark
+      hstate.mark = history.state and history.state.mark or {}
+      if state.popmark and hstate.mark then
+        hstate.mark[state.popmark] = nil
       end
       state.popmark = nil
       history:replaceState(val(hstate, true), "", url)
