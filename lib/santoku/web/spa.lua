@@ -269,6 +269,15 @@ return function (opts)
     return name, push
   end
 
+  -- TODO: does this cause a memory leak?
+  M.setup_header_links = function (view)
+    local e_header_links = active_view.active_view.e_header_links or {}
+    active_view.active_view.e_header_links = e_header_links
+    view.el:querySelectorAll(".tk-header-link"):forEach(function (_, el)
+      arr.push(e_header_links, el)
+    end)
+  end
+
   M.setup_nav = function (view, dir, init, explicit)
 
     view.e_nav = view.el:querySelector("section > nav")
@@ -577,6 +586,39 @@ return function (opts)
     view.e_main.style["z-index"] = view.main_index
 
   end
+
+  M.style_header_links = function (view, animate)
+
+    if not view.e_header_links or #view.e_header_links <= 0 then
+      return
+    end
+
+    if animate then
+      for i = 1, #view.e_header_links do
+        local el = view.e_header_links[i]
+        el.classList:add("animated")
+      end
+      if view.e_header_link_animation then
+        window:clearTimeout(view.e_header_link_animation)
+        view.e_header_link_animation = nil
+      end
+      view.e_header_link_animation = M.after_transition(function ()
+        for i = 1, #view.e_header_links do
+          local el = view.e_header_links[i]
+          el.classList:remove("animated")
+        end
+        view.e_header_link_animation = nil
+      end)
+    end
+
+    for i = 1, #view.e_header_links do
+      local el = view.e_header_links[i]
+      el.style.transform =
+        "translateY(" .. (M.get_base_header_offset() + view.header_offset) .. "px)"
+    end
+
+  end
+
 
   M.style_main_header_switch = function (view, animate)
 
@@ -1516,6 +1558,7 @@ return function (opts)
       M.style_header(view, true)
       M.style_nav(view, true)
       M.style_fabs(view, true)
+      M.style_header_links(view, true)
       if view.active_view then
         M.style_main_header_switch(view.active_view, true)
         M.style_main_switch(view.active_view, true)
@@ -1684,6 +1727,7 @@ return function (opts)
 
     M.setup_panes(next_view, init)
     M.setup_dropdowns(next_view, init)
+    M.setup_header_links(next_view)
     M.style_main_transition_pane(next_view, "enter", last_view, init)
 
     if next_view.page.init then
@@ -1709,6 +1753,7 @@ return function (opts)
 
     M.setup_panes(next_view, init)
     M.setup_dropdowns(next_view, init)
+    M.setup_header_links(next_view)
     M.style_main_header_transition_switch(next_view, "enter", direction, last_view, init)
     M.style_main_transition_switch(next_view, "enter", direction, last_view, init)
 
@@ -1769,6 +1814,7 @@ return function (opts)
     M.setup_snacks(next_view)
     M.setup_panes(next_view, init)
     M.setup_dropdowns(next_view, init)
+    M.setup_header_links(next_view)
     M.style_header_transition(next_view, "enter", direction, last_view)
     M.style_nav_transition(next_view, "enter", direction, last_view)
     M.style_fabs_transition(next_view, "enter", direction, last_view)
@@ -1835,6 +1881,7 @@ return function (opts)
     M.setup_ripples(el)
     M.setup_panes(view, nil, el)
     M.setup_dropdowns(view, nil, el)
+    M.setup_header_links(view)
   end
 
   M.at_bottom = function ()

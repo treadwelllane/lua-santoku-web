@@ -279,6 +279,19 @@
         color: var(--header-fg);
       }
 
+      body > section > main > section > header ~ main > section > main .tk-header-link.animated {
+        transition: transform var(--transition-time-ms) ease;
+      }
+
+      body > section > main > section > header ~ main > section > main .tk-header-link {
+        position: sticky;
+        top: calc(var(--header-height-px));
+      }
+
+      body > section > main > section > header ~ main > section > header ~ main .tk-header-link {
+        top: calc(var(--header-height-px) * 2);
+      }
+
       body > section.is-wide > main > section > header > button.menu {
         display: none;
       }
