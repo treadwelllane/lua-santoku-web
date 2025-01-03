@@ -1893,8 +1893,8 @@ return function (opts)
     window:scrollTo({ top = e_body.scrollHeight, left = 0, behavior = "instant" })
   end
 
-  M.mark = function ()
-    local tag = M.route_tag(arr.spread(state.path))
+  M.mark = function (tag)
+    tag = tag or M.route_tag(arr.spread(state.path))
     local sl = val.lua(history.state or {}, true)
     sl.id = sl.id or 0
     sl.mark = sl.mark or {}
@@ -1904,19 +1904,21 @@ return function (opts)
   end
 
   M.route_tag = function (...)
-    local r = {}
+    if type(...) == "table" then
+      return M.route_tag(arr.spread((...)[1]))
+    end
+    local r = { "." }
     for i = 1, varg.len(...) do
       local x = varg.get(i, ...)
       if type(x) ~= "string" then
         break
       end
-      r[i] = x
+      r[i + 1] = x
     end
     return arr.concat(r, ".")
   end
 
-  M.forward_mark = function (...)
-    local tag = M.route_tag(...)
+  M.forward_tag = function (tag, ...)
     local id = history.state and history.state.id
     local mark = history.state and history.state.mark and history.state.mark[tag]
     if id and mark and mark < id then
@@ -1928,8 +1930,7 @@ return function (opts)
     end
   end
 
-  M.backward_mark = function (...)
-    local tag = M.route_tag(...)
+  M.backward_tag = function (tag, ...)
     local id = history.state and history.state.id
     local mark = history.state and history.state.mark and history.state.mark[tag]
     if id and mark and mark < id then
@@ -1939,6 +1940,16 @@ return function (opts)
     else
       M.replace_backward(...)
     end
+  end
+
+  M.forward_mark = function (...)
+    local tag = M.route_tag(...)
+    return M.forward_tag(tag, ...)
+  end
+
+  M.backward_mark = function (...)
+    local tag = M.route_tag(...)
+    return M.backward_tag(tag, ...)
   end
 
   M.init_view = function (name, path_idx, page, parent)
@@ -1955,6 +1966,8 @@ return function (opts)
       mark = M.mark,
       forward_mark = M.forward_mark,
       backward_mark = M.backward_mark,
+      forward_tag = M.forward_tag,
+      backward_tag = M.backward_tag,
       at_bottom = M.at_bottom,
       path_idx = path_idx,
       add_listener = M.add_listener,
@@ -2413,6 +2426,14 @@ return function (opts)
   end
 
   M.set_route = function (policy, ...)
+    if type(...) == "table" then
+      local rs = ...
+      for i = 1, #rs do
+        M.set_route(policy, arr.spread(rs[i]))
+        policy = "push"
+      end
+      return
+    end
     local n = varg.len(...)
     local path, params
     if n == 0 then
@@ -2471,6 +2492,44 @@ return function (opts)
     M.transition("backward")
   end
 
+  M.get_default_route = function ()
+    local path, params = {}, {}
+    M.fill_defaults(path, params)
+    arr.push(path, params)
+    return arr.spread(path)
+  end
+
+  M.routes_match = function (a, b)
+    for i = 1, math.huge do
+      local sa = a[i]
+      local sb = b[i]
+      if type(sa) ~= "string" and type(sb) ~= "string" then
+        return true
+      elseif type(sa) ~= type(sb) or type(sa) ~= "string" or sa ~= sb then
+        return false
+      end
+      i = i + 1
+    end
+  end
+
+  -- TODO: Currently, this just sets up history with the current page as the
+  -- first entry. Ideally, it would set up history in an order that makes sense
+  -- for deep-links (bookmarked or otherwise). For example, after deep-linking
+  -- to /items/view, back should take you /items, but instead exits the app. The
+  -- following doesn't seem to handle redirects correctly. Needs review.
+  --
+  -- local default = { M.get_default_route() }
+  -- local current = { M.get_route() }
+  -- if M.routes_match(default, current) then
+  --   M.set_route("replace", arr.spread(current))
+  -- else
+  --   M.set_route("replace", { default, current })
+  -- end
+  M.set_default_route = function ()
+    M.mark("initial")
+    M.set_route("replace", M.get_route())
+  end
+
   window:addEventListener("popstate", function (_, ev)
     local state0 = util.parse_path(str.match(location.hash, "^#(.*)"))
     local id = ev.state and ev.state.id and tonumber(ev.state.id)
@@ -2492,7 +2551,7 @@ return function (opts)
   history.scrollRestoration = "manual"
   M.setup_active_view()
   M.on_resize()
-  M.set_route("replace", M.get_route())
+  M.set_default_route()
   M.transition("forward", true, true)
 
 end
