@@ -2212,8 +2212,8 @@ return function (opts)
     else
       local last
       for i = 1, #path do
-        local r = M.resolve_default(v, path[i])
-        v = r == path[i] and v.pages and v.pages[r]
+        path[i] = M.resolve_default(v, path[i])
+        v = v.pages and v.pages[path[i]]
         if not v then
           M.find_default(v, path, i)
           return
