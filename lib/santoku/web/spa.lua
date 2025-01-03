@@ -261,6 +261,14 @@ return function (opts)
     end)
   end
 
+  M.get_nav_button_page = function (el)
+    local name, push
+    name = el.dataset.page or el.dataset.pagePush
+    push = name
+    name = name or el.dataset.pageReplace
+    return name, push
+  end
+
   M.setup_nav = function (view, dir, init, explicit)
 
     view.e_nav = view.el:querySelector("section > nav")
@@ -322,15 +330,20 @@ return function (opts)
       view.e_main:addEventListener("touchend", on_touch_end)
       view.e_main:addEventListener("touchcancel", on_touch_end)
 
-      view.e_nav_buttons = view.e_nav:querySelectorAll("button[data-page]")
+      view.e_nav_buttons = view.e_nav
+        :querySelectorAll("button[data-page], button[data-page-replace], button[data-page-push]")
       view.nav_order = {}
       view.e_nav_buttons:forEach(function (_, el)
-        local n = el.dataset.page
-        arr.push(view.nav_order, n)
-        view.nav_order[n] = #view.nav_order
+        local name, push = M.get_nav_button_page(el)
+        arr.push(view.nav_order, name)
+        view.nav_order[name] = #view.nav_order
         el:addEventListener("click", function ()
           if not el.classList:contains("is-active") then
-            M.forward(view.name, n)
+            if push then
+              M.forward(view.name, name)
+            else
+              M.replace_forward(view.name, name)
+            end
           end
           util.after_frame(function ()
             M.toggle_nav_state(false)
@@ -2078,7 +2091,7 @@ return function (opts)
 
     if view.e_nav then
       view.e_nav_buttons:forEach(function (_, el)
-        if el.dataset.page == name then
+        if M.get_nav_button_page(el) == name then
           el.classList:add("is-active")
         else
           el.classList:remove("is-active")
