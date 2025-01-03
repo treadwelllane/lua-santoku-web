@@ -2053,7 +2053,7 @@ return function (opts)
   end
 
   M.resolve_default = function (view, name)
-    if name == "default" then
+    if name == "default" or not view.pages[name] then
       return view.pages.default
     else
       return name
@@ -2526,8 +2526,9 @@ return function (opts)
   --   M.set_route("replace", { default, current })
   -- end
   M.set_default_route = function ()
-    M.mark("initial")
+    M.fill_defaults(state.path, state.params)
     M.set_route("replace", M.get_route())
+    M.mark("initial")
   end
 
   window:addEventListener("popstate", function (_, ev)
