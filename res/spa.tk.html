@@ -143,7 +143,7 @@
       html {
         height: 100%;
         width: 100%;
-        overscroll-behavior: none;
+        overscroll-behavior: contain;
       }
 
       body > section,
@@ -151,12 +151,12 @@
       body > section > main > section {
         height: 100%;
         width: 100%;
-        overscroll-behavior: none;
+        overscroll-behavior: contain;
       }
 
       body {
         font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-        overscroll-behavior: none;
+        overscroll-behavior: contain;
         overflow: auto;
         display: flex;
         flex-direction: column;
@@ -379,7 +379,7 @@
         position: fixed;
         width: var(--nav-width-px);
         overflow-y: auto;
-        overscroll-behavior: none;
+        overscroll-behavior: contain;
         max-width: 100%;
         min-width: 0;
         min-height: calc(100% + var(--header-height-px));
@@ -544,7 +544,7 @@
         background: var(--page-bg);
         overflow-x: auto;
         overflow-y: hidden;
-        overscroll-behavior: none;
+        overscroll-behavior: contain;
         min-height: var(--header-height-px);
         max-height: var(--header-height-px);
         transition: box-shadow var(--transition-time-ms) ease,

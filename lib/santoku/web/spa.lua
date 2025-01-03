@@ -614,7 +614,7 @@ return function (opts)
     for i = 1, #view.e_header_links do
       local el = view.e_header_links[i]
       el.style.transform =
-        "translateY(" .. (M.get_base_header_offset() + view.header_offset) .. "px)"
+        "translateY(" .. view.header_offset .. "px)"
     end
 
   end
