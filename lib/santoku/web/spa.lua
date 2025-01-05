@@ -515,7 +515,9 @@ return function (opts)
       end)
     end
 
-    view.e_header.style.transform = "translateY(" .. (M.get_base_header_offset() + view.header_offset) .. "px)"
+    view.e_header.style.transform =
+      "translateY(" .. (M.get_base_header_offset() + view.header_offset) .. "px)"
+
     view.e_header.style.opacity = view.header_opacity
     view.e_header.style["z-index"] = view.header_index
 
@@ -581,7 +583,7 @@ return function (opts)
     view.e_main.style.transform =
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
 
-    view.e_main.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
+    view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
 
@@ -644,8 +646,9 @@ return function (opts)
     view.e_main_header.style.transform =
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_header_offset) .. "px)"
 
-    view.e_main_header.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
-    view.e_main_header.style["max-width"] = "calc(100% - " .. nav_push .. "px)"
+    view.e_main_header.style["width"] = "calc(100dvw - " .. nav_push .. "px)"
+    view.e_main_header.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
+    view.e_main_header.style["max-width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main_header.style.opacity = view.main_header_opacity
     view.e_main_header.style["z-index"] = view.main_header_index
 
@@ -698,7 +701,7 @@ return function (opts)
     view.e_main.style.transform =
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
 
-    view.e_main.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
+    view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
 
@@ -1568,53 +1571,42 @@ return function (opts)
 
   M.scroll_listener = function (view)
 
-    local n = 0
-    local ready = true
-    local last_scroll_top = 0
+    local scroll_distance = 0
+    local last_scroll_top = e_body.scrollTop
 
     return function ()
-
-      if not ready then
-        return
-      end
 
       if view.no_scroll then
         view.no_scroll = false
         return
       end
 
-      local curr_scroll_top = window.pageYOffset or document.documentElement.scrollTop
-      local curr_diff = curr_scroll_top - last_scroll_top
+      local curr_scroll_top = e_body.scrollTop
 
-      if curr_diff >= 16 then
-        n = (n < 0 and 0 or n) + 1
-      elseif curr_diff <= -16 then
-        n = (n > 0 and 0 or n) - 1
+      if curr_scroll_top > last_scroll_top then
+        scroll_distance =
+          (scroll_distance < 0 and 0 or scroll_distance) +
+          (curr_scroll_top - last_scroll_top)
+      else
+        scroll_distance =
+          (scroll_distance > 0 and 0 or scroll_distance) -
+          (last_scroll_top - curr_scroll_top)
       end
+
+      last_scroll_top = curr_scroll_top
 
       if not active_view.el.classList:contains("is-wide") and view.el.classList:contains("showing-nav") then
         M.toggle_nav_state()
       end
 
-      last_scroll_top = curr_scroll_top <= 0 and 0 or curr_scroll_top
-
-      if view.header_hide and curr_scroll_top <= tonumber(opts.header_height) then
-        ready = false
-        M.after_transition(function ()
-          ready = true
-        end)
-        M.style_header_hide(view, false)
-      elseif not view.header_hide and n >= 1 then
-        ready = false
-        M.after_transition(function ()
-          ready = true
-        end)
+      if not view.header_hide and
+        curr_scroll_top > tonumber(opts.header_hide_minimum) and
+        scroll_distance > tonumber(opts.header_hide_threshold)
+      then
         M.style_header_hide(view, true)
-      elseif view.header_hide and n <= -1 then
-        ready = false
-        M.after_transition(function ()
-          ready = true
-        end)
+      elseif curr_scroll_top < tonumber(opts.header_hide_minimum) or
+        -scroll_distance > tonumber(opts.header_hide_threshold)
+      then
         M.style_header_hide(view, false)
       end
 
@@ -1711,7 +1703,7 @@ return function (opts)
       next_view.curr_scrolly = nil
       next_view.last_scrolly = nil
       next_view.scroll_listener = M.scroll_listener(next_view)
-      window:addEventListener("scroll", next_view.scroll_listener, false)
+      document.body:addEventListener("scroll", next_view.scroll_listener, false)
     end
 
     M.setup_ripples(next_view.el)
@@ -1782,10 +1774,10 @@ return function (opts)
     view.header_offset = 0
     M.style_header(view, true)
 
-    last_view.el.style.marginLeft = -window.scrollX .. "px"
-    last_view.el.style.marginTop = -window.scrollY .. "px"
+    last_view.el.style.marginLeft = -e_body.scrollLeft .. "px"
+    last_view.el.style.marginTop = -e_body.scrollTop .. "px"
     active_view.active_view.no_scroll = true
-    window:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    e_body:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.style_main_header_transition_switch(next_view, "exit", direction, last_view)
     M.style_main_transition_switch(next_view, "exit", direction, last_view)
@@ -1842,15 +1834,15 @@ return function (opts)
   M.exit = function (last_view, direction, next_view)
 
     if last_view.active_view then
-      last_view.active_view.e_main.style.marginLeft = -window.scrollX .. "px"
-      last_view.active_view.e_main.style.marginTop = -window.scrollY .. "px"
+      last_view.active_view.e_main.style.marginLeft = -e_body.scrollLeft .. "px"
+      last_view.active_view.e_main.style.marginTop = -e_body.scrollTop .. "px"
     else
-      last_view.e_main.style.marginLeft = -window.scrollX .. "px"
-      last_view.e_main.style.marginTop = -window.scrollY .. "px"
+      last_view.e_main.style.marginLeft = -e_body.scrollLeft .. "px"
+      last_view.e_main.style.marginTop = -e_body.scrollTop .. "px"
     end
 
     last_view.no_scroll = true
-    window:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    e_body:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.setup_fabs(last_view, next_view)
     M.style_header_transition(next_view, "exit", direction, last_view)
@@ -1866,7 +1858,7 @@ return function (opts)
     end
 
     if last_view.scroll_listener then
-      window:removeEventListener("scroll", last_view.scroll_listener)
+      document.body:removeEventListener("scroll", last_view.scroll_listener)
       last_view.scroll_listener = nil
     end
 
@@ -1882,15 +1874,6 @@ return function (opts)
     M.setup_panes(view, nil, el)
     M.setup_dropdowns(view, nil, el)
     M.setup_header_links(view)
-  end
-
-  M.at_bottom = function ()
-    return (window.innerHeight + window.pageYOffset) >= e_body.offsetHeight
-  end
-
-  M.scroll_bottom = function ()
-    active_view.active_view.no_scroll = true
-    window:scrollTo({ top = e_body.scrollHeight, left = 0, behavior = "instant" })
   end
 
   M.mark = function (tag)
@@ -1923,6 +1906,7 @@ return function (opts)
     local mark = history.state and history.state.mark and history.state.mark[tag]
     if id and mark and mark < id then
       local diff = id - mark
+      state.popdir = "forward"
       state.popmark = { ... }
       history:go(-diff)
     else
@@ -1935,6 +1919,7 @@ return function (opts)
     local mark = history.state and history.state.mark and history.state.mark[tag]
     if id and mark and mark < id then
       local diff = id - mark
+      state.popdir = "backward"
       state.popmark = { ... }
       history:go(-diff)
     else
@@ -2534,10 +2519,11 @@ return function (opts)
   window:addEventListener("popstate", function (_, ev)
     local state0 = util.parse_path(str.match(location.hash, "^#(.*)"))
     local id = ev.state and ev.state.id and tonumber(ev.state.id)
-    local dir = (id and state.current_id and id < state.current_id) and "backward" or "forward"
+    local dir = state.popdir or (id and state.current_id and id < state.current_id) and "backward" or "forward"
     if state.popmark then
       local p = state.popmark
       state.popmark = nil
+      state.popdir = nil
       M.set_route("replace", arr.spread(p))
     else
       M.set_route("replace", M.get_route(state0))

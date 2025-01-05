@@ -48,6 +48,9 @@ return {
     transition_time = "250",
     transition_time_main = "250",
     transition_time_wave = "500",
+    easing = "cubic-bezier(0.4, 0, 0.2, 1)",
+    header_hide_minimum = "128",
+    header_hide_threshold = "128",
     transition_forward_height = "32",
     service_worker_poll_time_ms = 1000 * 60 * 5, -- 5 minutes
   },
