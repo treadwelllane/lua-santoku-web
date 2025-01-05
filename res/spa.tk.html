@@ -138,34 +138,15 @@
         --transition-time-main-ms: <% return opts.transition_time_main %>ms;
         --transition-time-wave: <% return opts.transition_time_wave %>;
         --transition-time-wave-ms: <% return opts.transition_time_wave %>ms;
-      }
-
-      html {
-        height: 100%;
-        width: 100%;
-        overscroll-behavior: contain;
-      }
-
-      body > section,
-      body > section > main,
-      body > section > main > section {
-        height: 100%;
-        width: 100%;
-        overscroll-behavior: contain;
+        --ease: <% return opts.easing %>;
       }
 
       body {
         font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-        overscroll-behavior: contain;
-        overflow: auto;
         display: flex;
         flex-direction: column;
-        height: 100%;
         padding: 0;
         margin: 0;
-        min-height: 100%;
-        min-width: 100%;
-        max-width: 100%;
         background: var(--page-bg);
       }
 
@@ -190,7 +171,7 @@
         left: 0;
         color: var(--banner-fg);
         background: var(--banner-bg);
-        transition: transform var(--transition-time-ms) ease;
+        transition: transform var(--transition-time-ms) var(--ease);
       }
 
       body > section > aside > button {
@@ -218,17 +199,20 @@
       }
 
       body > section > main > section > header {
+        width: 100dvw;
+        min-width: 100dvw;
+        max-width: 100dvw;
+        height: var(--header-height-px);
+        min-height: var(--header-height-px);
+        max-height: var(--header-height-px);
         position: fixed;
         display: flex;
         flex-direction: row;
         align-items: center;
-        min-width: 100%;
         color: var(--header-fg);
         background: var(--header-bg);
-        min-height: var(--header-height-px);
-        max-height: var(--header-height-px);
-        transition: transform var(--transition-time-ms) ease,
-                    opacity var(--transition-time-ms) ease;
+        transition: transform var(--transition-time-ms) var(--ease),
+                    opacity var(--transition-time-ms) var(--ease);
       }
 
       body > section > main > section > header::before {
@@ -280,7 +264,7 @@
       }
 
       body > section > main > section > header ~ main > section > main .tk-header-link.animated {
-        transition: transform var(--transition-time-ms) ease;
+        transition: transform var(--transition-time-ms) var(--ease);
       }
 
       body > section > main > section > header ~ main > section > main .tk-header-link {
@@ -330,8 +314,8 @@
         opacity: 1;
         transform-origin: top left;
         transform: translateX(calc(-100% - 0.75em));
-        transition: transform 250ms ease,
-                    opacity 250ms ease;
+        transition: transform 250ms var(--ease),
+                    opacity 250ms var(--ease);
       }
 
       .tk-dropdown.right > div {
@@ -385,26 +369,28 @@
         min-height: calc(100% + var(--header-height-px));
         max-height: calc(100% + var(--header-height-px));
         padding-top: var(--header-height-px);
-        padding-bottom: calc(var(--header-height-px) * 3);
+        padding-bottom: var(--header-height-px);
         border-right: var(--header-border);
         background: var(--nav-bg);
-        transition: transform var(--transition-time-ms) ease,
-                    opacity var(--transition-time-ms) ease;
+        transition: transform var(--transition-time-ms) var(--ease),
+                    opacity var(--transition-time-ms) var(--ease);
       }
 
       body > section > main > section > .nav-overlay {
         position: fixed;
         top: 0;
         left: 0;
-        min-width: 100%;
-        max-width: 100%;
-        min-height: calc(100% + var(--header-height-px));
-        max-height: calc(100% + var(--header-height-px));
+        height: calc(100dvh + var(--header-height-px));
+        min-height: calc(100dvh + var(--header-height-px));
+        max-height: calc(100dvh + var(--header-height-px));
+        width: 100dvw;
+        min-width: 100dvw;
+        max-width: 100dvw;
         z-index: var(--nav-overlay-index);
         opacity: 0;
         background: black;
         pointer-events: none;
-        transition: opacity var(--transition-time-ms) ease;
+        transition: opacity var(--transition-time-ms) var(--ease);
       }
 
       body > section:not(.is-wide) > main > section.showing-nav > .nav-overlay {
@@ -431,7 +417,7 @@
       }
 
       body > section > main > section > nav > button.is-clicked {
-        transition: background var(--transition-time-ms) ease;
+        transition: background var(--transition-time-ms) var(--ease);
         background: var(--nav-ripple-bg);
       }
 
@@ -453,14 +439,14 @@
         color: var(--fab-fg);
         background: var(--fab-bg);
         bottom: 0;
-        left: calc(100% - var(--fab-width-large-px) - 16px);
+        left: calc(100dvw - var(--fab-width-large-px) - 16px);
         height: var(--fab-width-large-px);
         width: var(--fab-width-large-px);
         border-radius: var(--fab-radius-large-px);
         box-shadow: var(--fab-shadow);
-        transition: box-shadow var(--transition-time-ms) ease,
-                    transform var(--transition-time-ms) ease,
-                    opacity var(--transition-time-ms) ease;
+        transition: box-shadow var(--transition-time-ms) var(--ease),
+                    transform var(--transition-time-ms) var(--ease),
+                    opacity var(--transition-time-ms) var(--ease);
       }
 
       body > section > main > section > button.top {
@@ -471,11 +457,11 @@
         height: var(--fab-width-small-px);
         width: var(--fab-width-small-px);
         border-radius: var(--fab-radius-small-px);
-        left: calc(100% - var(--fab-width-small-px) - 24px);
+        left: calc(100dvw - var(--fab-width-small-px) - 24px);
       }
 
       body > section > main > section > button > svg {
-        transition: transform var(--transition-time-ms) ease;
+        transition: transform var(--transition-time-ms) var(--ease);
       }
 
       body > section > main > section > main {
@@ -484,17 +470,14 @@
         flex-direction: column;
         position: absolute;
         overflow: visible;
-        min-height: 100%;
-        min-width: 100%;
-        transition: transform var(--transition-time-main-ms) ease,
-                    opacity var(--transition-time-main-ms) ease,
-                    box-shadow var(--transition-time-main-ms) ease,
-                    max-width var(--transition-time-main-ms) ease;
-      }
-
-      body > section > main > section > header ~ main {
-        top: var(--header-height-px);
-        min-height: calc(100% - var(--header-height-px));
+        height: 100dvh;
+        min-height: 100dvh;
+        width: 100dvw;
+        min-width: 100dvw;
+        transition: transform var(--transition-time-main-ms) var(--ease),
+                    opacity var(--transition-time-main-ms) var(--ease),
+                    box-shadow var(--transition-time-main-ms) var(--ease),
+                    max-width var(--transition-time-main-ms) var(--ease);
       }
 
       body > section:not(.is-wide) > main > section.showing-nav > main {
@@ -509,30 +492,25 @@
 
       body > section > main > section > main > section {
         position: absolute;
-        min-width: 100%;
-        min-height: 100%;
       }
 
       body > section > main > section > main > section > main {
-        flex-grow: 1;
         position: absolute;
+        flex-grow: 1;
         display: flex;
         flex-direction: column;
         overflow: visible;
-        min-width: 100%;
-        min-height: 100%;
-        transition: transform var(--transition-time-main-ms) ease,
-                    opacity var(--transition-time-main-ms) ease;
-      }
-
-      body > section > main > section > header ~ main > section > main {
-        top: var(--header-height-px);
-        min-height: calc(100% - var(--header-height-px));
+        transition: transform var(--transition-time-main-ms) var(--ease),
+                    opacity var(--transition-time-main-ms) var(--ease);
       }
 
       body > section > main > section > main > section > header {
-        max-width: 100%;
-        min-width: 100%;
+        width: 100dvw;
+        max-width: 100dvw;
+        min-width: 100dvw;
+        height: var(--header-height-px);
+        min-height: var(--header-height-px);
+        max-height: var(--header-height-px);
         position: fixed;
         display: flex;
         gap: 1em;
@@ -545,36 +523,23 @@
         overflow-x: auto;
         overflow-y: hidden;
         overscroll-behavior: contain;
-        min-height: var(--header-height-px);
-        max-height: var(--header-height-px);
-        transition: box-shadow var(--transition-time-ms) ease,
-                    transform var(--transition-time-ms) ease,
-                    opacity var(--transition-time-ms) ease;
-      }
-
-      body > section > main > section > header ~ main > section > header {
-        top: var(--header-height-px);
+        transition: box-shadow var(--transition-time-ms) var(--ease),
+                    transform var(--transition-time-ms) var(--ease),
+                    opacity var(--transition-time-ms) var(--ease);
       }
 
       body > section > main > section > header ~ main > section > main {
         top: 0;
       }
 
-      body > section > main > section > header ~ main > section > header ~ main {
-        top: var(--header-height-px);
-        min-height: calc(100% - var(--header-height-px));
-      }
-
       body > section > main > section > main > section > main > section > main {
-        flex-grow: 1;
         position: absolute;
+        flex-grow: 1;
         display: flex;
         flex-direction: column;
         overflow: visible;
-        min-width: 100%;
-        min-height: 100%;
-        transition: transform var(--transition-time-main-ms) ease,
-                    opacity var(--transition-time-main-ms) ease;
+        transition: transform var(--transition-time-main-ms) var(--ease),
+                    opacity var(--transition-time-main-ms) var(--ease);
       }
 
       body > section > main > section > aside {
@@ -591,39 +556,14 @@
         color: var(--snack-fg);
         background: var(--snack-bg);
         min-height: var(--snack-height-px);
-        max-width: calc(100% - 16px - var(--fab-width-large-px) - 56px);
+        max-width: calc(100dvw - 16px - var(--fab-width-large-px) - 56px);
         bottom: 0;
         left: 16px;
         border-radius: var(--snack-radius-px);
         box-shadow: var(--snack-shadow);
-        transition: box-shadow var(--transition-time-ms) ease,
-                    transform var(--transition-time-ms) ease,
-                    opacity var(--transition-time-ms) ease;
-      }
-
-      [data-pane] {
-        position: relative;
-      }
-
-      body [data-pane] > section {
-        position: absolute;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-grow: 1;
-        min-width: 100%;
-        top: 0;
-        left: 0;
-      }
-
-      body button[data-pane] > section {
-        min-height: 100%;
-      }
-
-      body [data-pane] > section > main {
-        transition: box-shadow var(--transition-time-ms) ease,
-                    transform var(--transition-time-ms) ease,
-                    opacity var(--transition-time-ms) ease;
+        transition: box-shadow var(--transition-time-ms) var(--ease),
+                    transform var(--transition-time-ms) var(--ease),
+                    opacity var(--transition-time-ms) var(--ease);
       }
 
       body .transition *,
@@ -702,8 +642,8 @@
         transform: scale(0.7);
         opacity: 0.45;
         background: var(--ripple-bg);
-        transition: background var(--transition-time-wave-ms) ease;
-        animation: ripple-wave var(--transition-time-wave-ms) forwards ease;
+        transition: background var(--transition-time-wave-ms) var(--ease);
+        animation: ripple-wave var(--transition-time-wave-ms) forwards var(--ease);
       }
 
       body > section > main > section > nav > button:not(.is-active) .ripple-container .ripple-wave,
@@ -720,6 +660,90 @@
       body > section > main > section > header button {
         position: relative;
         white-space: nowrap;
+      }
+
+      html, body {
+        position: relative;
+        overflow: auto;
+        overscroll-behavior: contain;
+        height: 100dvh;
+        min-height: 100dvh;
+        max-height: 100dvh;
+        width: 100dvw;
+        min-width: 100dvw;
+        max-width: 100dvw;
+      }
+
+      body > section,
+      body > section > main {
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+      }
+
+      body > section > main > section > main {
+        top: 0;
+        height: calc(100dvh);
+        min-height: calc(100dvh);
+        max-height: calc(100dvh);
+        width: 100dvw;
+        min-width: 100dvw;
+        max-width: 100dvw;
+      }
+
+      body > section > main > section > header ~ main {
+        top: calc(var(--header-height-px));
+        height: calc(100dvh - var(--header-height-px));
+        min-height: calc(100dvh - var(--header-height-px));
+        max-height: calc(100dvh - var(--header-height-px));
+      }
+
+      body > section > main > section > header ~ main > section > main {
+        top: 0;
+        height: calc(100dvh - var(--header-height-px));
+        min-height: calc(100dvh - var(--header-height-px));
+        max-height: calc(100dvh - var(--header-height-px));
+        width: 100dvw;
+        min-width: 100dvw;
+        max-width: 100dvw;
+      }
+
+      body > section > main > section > header ~ main > section > header ~ main {
+        top: calc(var(--header-height-px) * 1);
+        height: calc(100dvh - var(--header-height-px) * 2);
+        min-height: calc(100dvh - var(--header-height-px) * 2);
+        max-height: calc(100dvh - var(--header-height-px) * 2);
+      }
+
+      body [data-pane] {
+        position: relative;
+      }
+
+      body [data-pane] > section {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+      }
+
+      body button[data-pane] > section {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      body [data-pane] > section > main {
+        transition: box-shadow var(--transition-time-ms) var(--ease),
+          transform var(--transition-time-ms) var(--ease),
+          opacity var(--transition-time-ms) var(--ease);
       }
 
       @keyframes ripple-shadow {
