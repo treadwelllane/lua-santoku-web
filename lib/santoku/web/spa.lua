@@ -2144,7 +2144,7 @@ return function (opts)
       end)
     end
 
-    local dir = M.switch_dir(view, view.active_view, last_view, dir)
+    dir = dir or M.switch_dir(view, view.active_view, last_view, dir)
 
     M.enter_switch(view, view.active_view, dir, last_view, init)
 
@@ -2229,7 +2229,7 @@ return function (opts)
           M.exit(last_view, dir, active_view.active_view)
         end
       elseif state.path[2] then
-        M.switch(active_view.active_view, state.path[2], nil, init, explicit)
+        M.switch(active_view.active_view, state.path[2], dir, init, explicit)
       end
 
     end)
