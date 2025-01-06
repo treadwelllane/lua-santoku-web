@@ -7,7 +7,6 @@ local tbl = require("santoku.table")
 local it = require("santoku.iter")
 local fun = require("santoku.functional")
 
-local history = js.history
 local document = js.document
 local Array = js.Array
 local Promise = js.Promise
@@ -279,20 +278,6 @@ M.promise = function (fn)
       end
     end)
   end)
-end
-
-M.forward = function (path, state, replace)
-  state = val(state, true)
-  if replace then
-    history:replaceState(state, nil, path)
-  else
-    history:pushState(state, nil, path)
-  end
-  history:go()
-end
-
-M.backward = function ()
-  history:back()
 end
 
 M.clone = function (template, data, parent, before, pre_append)
