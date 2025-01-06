@@ -53,6 +53,8 @@ return {
     header_hide_threshold = "128",
     transition_forward_height = "32",
     service_worker_poll_time_ms = 1000 * 60 * 5, -- 5 minutes
+    lg_threshold = 1537,
+    md_threshold = 1024,
   },
 
   sw = {
