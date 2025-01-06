@@ -237,7 +237,23 @@ return function (opts)
           e_dropdown.classList:remove("tk-open")
         end
       end)
+      document:addEventListener("touchstart", function (_, ev)
+        if ev.e_dropdown ~= e_dropdown then
+          e_dropdown.classList:remove("tk-open")
+        end
+      end)
+      document.body:addEventListener("scroll", function (_, ev)
+        if ev.e_dropdown ~= e_dropdown then
+          e_dropdown.classList:remove("tk-open")
+        end
+      end)
       e_dropdown:addEventListener("click", function (_, ev)
+        ev.e_dropdown = e_dropdown
+      end)
+      e_dropdown:addEventListener("touchstart", function (_, ev)
+        ev.e_dropdown = e_dropdown
+      end)
+      e_dropdown:addEventListener("scroll", function (_, ev)
         ev.e_dropdown = e_dropdown
       end)
       e_trigger:addEventListener("click", function ()
