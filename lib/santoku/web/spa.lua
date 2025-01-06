@@ -25,12 +25,13 @@ return function (opts)
 
   local e_head = document.head
   local e_body = document.body
-  local t_ripple = e_head:querySelector("template.ripple")
-  local t_nav_overlay = e_head:querySelector("template.nav-overlay")
+  local t_ripple = e_head:querySelector("template.tk-ripple")
+  local t_nav_overlay = e_head:querySelector("template.tk-nav-overlay")
 
   local base_path = location.pathname
   local state = util.parse_path(str.match(location.hash, "^#(.*)"))
   local active_view
+  local size
 
   local M = {}
 
@@ -85,11 +86,11 @@ return function (opts)
       local e_ripple = util.clone(t_ripple)
 
       e_ripple:addEventListener("animationend", function ()
-        el.classList:remove("is-clicked")
+        el.classList:remove("tk-clicked")
         e_ripple:remove()
       end)
 
-      local e_wave = e_ripple:querySelector(".ripple-wave")
+      local e_wave = e_ripple:querySelector(".tk-ripple-wave")
       local dia = num.min(el.offsetHeight, el.offsetWidth, 100)
 
       local x = ev.offsetX
@@ -108,7 +109,7 @@ return function (opts)
       e_wave.style.left = (x - dia / 2) .. "px"
       e_wave.style.top = (y - dia / 2) .. "px"
 
-      el.classList:add("is-clicked")
+      el.classList:add("tk-clicked")
       el:append(e_ripple)
 
     end, false)
@@ -124,11 +125,11 @@ return function (opts)
 
       local el = view.e_banners:item(i)
 
-      for c in it.map(str.sub, str.matches(el.dataset.hide or "", "[^%s]+")) do
+      for c in it.map(str.sub, str.matches(el:getAttribute("tk-hide") or "", "[^%s]+")) do
         view.banner_observed_classes[c] = true
       end
 
-      for c in it.map(str.sub, str.matches(el.dataset.show or "", "[^%s]+")) do
+      for c in it.map(str.sub, str.matches(el:getAttribute("tk-show") or "", "[^%s]+")) do
         view.banner_observed_classes[c] = true
       end
 
@@ -267,8 +268,8 @@ return function (opts)
     if not view.page.panes then
       return
     end
-    el:querySelectorAll("[data-pane]"):forEach(function (_, el0)
-      local name = el0.dataset.pane
+    el:querySelectorAll("[tk-pane]"):forEach(function (_, el0)
+      local name = el0:getAttribute("tk-pane")
       local pane = view.page.panes[name]
       if pane then
         pane.el = el0
@@ -279,9 +280,9 @@ return function (opts)
 
   M.get_nav_button_page = function (el)
     local name, push
-    name = el.dataset.page or el.dataset.pagePush
+    name = el:getAttribute("tk-page") or el:getAttribute("tk-page-push")
     push = name
-    name = name or el.dataset.pageReplace
+    name = name or el:getAttribute("tk-page-replace")
     return name, push
   end
 
@@ -356,14 +357,14 @@ return function (opts)
       view.e_main:addEventListener("touchcancel", on_touch_end)
 
       view.e_nav_buttons = view.e_nav
-        :querySelectorAll("button[data-page], button[data-page-replace], button[data-page-push]")
+        :querySelectorAll("button[tk-page], button[tk-page-replace], button[tk-page-push]")
       view.nav_order = {}
       view.e_nav_buttons:forEach(function (_, el)
         local name, push = M.get_nav_button_page(el)
         arr.push(view.nav_order, name)
         view.nav_order[name] = #view.nav_order
         el:addEventListener("click", function ()
-          if not el.classList:contains("is-active") then
+          if not el.classList:contains("tk-active") then
             if push then
               M.forward(view.name, name)
             else
@@ -387,7 +388,7 @@ return function (opts)
     end
 
     if view.e_nav then
-      if active_view.el.classList:contains("is-wide") then
+      if size == "lg" or size == "md" then
         M.toggle_nav_state(true, false, false)
       else
         M.toggle_nav_state(false, false, false)
@@ -409,19 +410,19 @@ return function (opts)
 
       local el = next_view.e_fabs:item(i)
 
-      for c in it.map(str.sub, str.matches(el.dataset.hide or "", "[^%s]+")) do
+      for c in it.map(str.sub, str.matches(el:getAttribute("tk-hide") or "", "[^%s]+")) do
         next_view.fab_observed_classes[c] = true
       end
 
-      for c in it.map(str.sub, str.matches(el.dataset.show or "", "[^%s]+")) do
+      for c in it.map(str.sub, str.matches(el:getAttribute("tk-show") or "", "[^%s]+")) do
         next_view.fab_observed_classes[c] = true
       end
 
-      if not el.classList:contains("small") and not el.classList:contains("top") and
-        last_view and last_view.el:querySelectorAll("section > button:not(.small):not(.top)")
+      if not el.classList:contains("tk-small") and not el.classList:contains("tk-top") and
+        last_view and last_view.el:querySelectorAll("section > button:not(.tk-small):not(.tk-top)")
       then
         arr.push(next_view.e_fabs_shared, el)
-      elseif el.classList:contains("top") then
+      elseif el.classList:contains("tk-top") then
         arr.push(next_view.e_fabs_top, el)
       else
         arr.push(next_view.e_fabs_bottom, el)
@@ -441,10 +442,10 @@ return function (opts)
     next_view.snack_observed_classes = {}
 
     next_view.e_snacks:forEach(function (_, el)
-      for c in it.map(str.sub, str.matches(el.dataset.hide or "", "[^%s]+")) do
+      for c in it.map(str.sub, str.matches(el:getAttribute("tk-hide") or "", "[^%s]+")) do
         next_view.snack_observed_classes[c] = true
       end
-      for c in it.map(str.sub, str.matches(el.dataset.show or "", "[^%s]+")) do
+      for c in it.map(str.sub, str.matches(el:getAttribute("tk-show") or "", "[^%s]+")) do
         next_view.snack_observed_classes[c] = true
       end
     end)
@@ -453,7 +454,7 @@ return function (opts)
 
   M.setup_ripples = function (el)
 
-    el:querySelectorAll("button:not(.no-ripple)"):forEach(function (_, el)
+    el:querySelectorAll("button:not(.tk-no-ripple)"):forEach(function (_, el)
       if el._ripple then
         return
       end
@@ -461,7 +462,7 @@ return function (opts)
       el._ripple = true
     end)
 
-    el:querySelectorAll(".ripple"):forEach(function (_, el)
+    el:querySelectorAll(".tk-ripple"):forEach(function (_, el)
       if el._ripple or el == t_ripple then
         return
       end
@@ -489,7 +490,7 @@ return function (opts)
 
   M.should_show = function (view, el)
 
-    local hides = it.collect(it.map(str.sub, str.matches(el.dataset.hide or "", "[^%s]+")))
+    local hides = it.collect(it.map(str.sub, str.matches(el:getAttribute("tk-hide") or "", "[^%s]+")))
 
     for h in it.ivals(hides) do
       if view.el.classList:contains(h) then
@@ -497,7 +498,7 @@ return function (opts)
       end
     end
 
-    local shows = it.collect(it.map(str.sub, str.matches(el.dataset.show or "", "[^%s]+")))
+    local shows = it.collect(it.map(str.sub, str.matches(el:getAttribute("tk-show") or "", "[^%s]+")))
 
     if #shows == 0 then
       return true
@@ -520,13 +521,13 @@ return function (opts)
     end
 
     if animate then
-      view.e_header.classList:add("animated")
+      view.e_header.classList:add("tk-animated")
       if view.header_animation then
         window:clearTimeout(view.header_animation)
         view.header_animation = nil
       end
       view.header_animation = M.after_transition(function ()
-        view.e_header.classList:remove("animated")
+        view.e_header.classList:remove("tk-animated")
         view.header_animation = nil
       end)
     end
@@ -546,19 +547,19 @@ return function (opts)
     end
 
     if animate then
-      view.e_nav.classList:add("animated")
+      view.e_nav.classList:add("tk-animated")
       if view.nav_animation then
         window:clearTimeout(view.nav_animation)
         view.nav_animation = nil
       end
       view.nav_animation = M.after_transition(function ()
-        view.e_nav.classList:remove("animated")
+        view.e_nav.classList:remove("tk-animated")
         view.nav_animation = nil
       end)
     end
 
     if not view.nav_slide then
-      if view.e_nav and view.el.classList:contains("showing-nav") then
+      if view.e_nav and view.el.classList:contains("tk-showing-nav") then
         view.nav_slide = 0
       else
         view.nav_slide = -opts.nav_width
@@ -582,18 +583,18 @@ return function (opts)
     end
 
     if animate then
-      view.e_main.classList:add("animated")
+      view.e_main.classList:add("tk-animated")
       if view.main_animation then
         window:clearTimeout(view.main_animation)
         view.main_animation = nil
       end
       view.main_animation = M.after_transition(function ()
-        view.e_main.classList:remove("animated")
+        view.e_main.classList:remove("tk-animated")
         view.main_animation = nil
       end)
     end
 
-    local nav_push = (view.e_nav and active_view.el.classList:contains("is-wide"))
+    local nav_push = (view.e_nav and (size == "lg" or size == "md"))
       and opts.nav_width or 0
 
     view.e_main.style.transform =
@@ -614,7 +615,7 @@ return function (opts)
     if animate then
       for i = 1, #view.e_header_links do
         local el = view.e_header_links[i]
-        el.classList:add("animated")
+        el.classList:add("tk-animated")
       end
       if view.e_header_link_animation then
         window:clearTimeout(view.e_header_link_animation)
@@ -623,7 +624,7 @@ return function (opts)
       view.e_header_link_animation = M.after_transition(function ()
         for i = 1, #view.e_header_links do
           local el = view.e_header_links[i]
-          el.classList:remove("animated")
+          el.classList:remove("tk-animated")
         end
         view.e_header_link_animation = nil
       end)
@@ -645,18 +646,18 @@ return function (opts)
     end
 
     if animate then
-      view.e_main_header.classList:add("animated")
+      view.e_main_header.classList:add("tk-animated")
       if view.main_header_animation then
         window:clearTimeout(view.main_header_animation)
         view.main_header_animation = nil
       end
       view.main_header_animation = M.after_transition(function ()
-        view.e_main_header.classList:remove("animated")
+        view.e_main_header.classList:remove("tk-animated")
         view.main_header_animation = nil
       end)
     end
 
-    local nav_push = (view.parent and view.parent.e_nav and active_view.el.classList:contains("is-wide"))
+    local nav_push = (view.parent and view.parent.e_nav and (size == "lg" or size == "md"))
       and opts.nav_width or 0
 
     view.e_main_header.style.transform =
@@ -677,13 +678,13 @@ return function (opts)
     end
 
     if animate then
-      view.e_main.classList:add("animated")
+      view.e_main.classList:add("tk-animated")
       if view.main_animation then
         window:clearTimeout(view.main_animation)
         view.main_animation = nil
       end
       view.main_animation = M.after_transition(function ()
-        view.e_main.classList:remove("animated")
+        view.e_main.classList:remove("tk-animated")
         view.main_animation = nil
       end)
     end
@@ -700,23 +701,24 @@ return function (opts)
     end
 
     if animate then
-      view.e_main.classList:add("animated")
+      view.e_main.classList:add("tk-animated")
       if view.main_animation then
         window:clearTimeout(view.main_animation)
         view.main_animation = nil
       end
       view.main_animation = M.after_transition(function ()
-        view.e_main.classList:remove("animated")
+        view.e_main.classList:remove("tk-animated")
         view.main_animation = nil
       end)
     end
 
-    local nav_push = (view.parent and view.parent.e_nav and active_view.el.classList:contains("is-wide"))
+    local nav_push = (view.parent and view.parent.e_nav and (size == "lg" or size == "md"))
       and opts.nav_width or 0
 
     view.e_main.style.transform =
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
 
+    view.e_main.style["width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
@@ -731,7 +733,7 @@ return function (opts)
 
     if animate then
       view.e_fabs:forEach(function (_, e_fab)
-        e_fab.classList:add("animated")
+        e_fab.classList:add("tk-animated")
       end)
       if view.fabs_animation then
         window:clearTimeout(view.fabs_animation)
@@ -739,7 +741,7 @@ return function (opts)
       end
       view.fabs_animation = M.after_transition(function ()
         view.e_fabs:forEach(function (_, e_fab)
-          e_fab.classList:remove("animated")
+          e_fab.classList:remove("tk-animated")
         end)
         view.fabs_animation = nil
       end)
@@ -781,7 +783,7 @@ return function (opts)
         "translateY(" .. view.fab_shared_svg_offset .. "px)"
 
       bottom_offset_total = bottom_offset_total +
-        (el.classList:contains("small") and
+        (el.classList:contains("tk-small") and
           opts.fab_width_small or
           opts.fab_width_large) + opts.padding
 
@@ -794,7 +796,7 @@ return function (opts)
 
       local offset = view.fabs_bottom_offset - bottom_offset_total
 
-      local height = el.classList:contains("small") and
+      local height = el.classList:contains("tk-small") and
         opts.fab_width_small or
         opts.fab_width_large
 
@@ -826,7 +828,7 @@ return function (opts)
 
       local offset = subheader_offset + view.fabs_top_offset + top_offset_total
 
-      local height = el.classList:contains("small") and
+      local height = el.classList:contains("tk-small") and
         opts.fab_width_small or
         opts.fab_width_large
 
@@ -862,7 +864,7 @@ return function (opts)
 
     if animate then
       view.e_snacks:forEach(function (_, e_snack)
-        e_snack.classList:add("animated")
+        e_snack.classList:add("tk-animated")
       end)
       if view.snack_animation then
         window:clearTimeout(view.snack_animation)
@@ -870,7 +872,7 @@ return function (opts)
       end
       view.snack_animation = M.after_transition(function ()
         view.e_snacks:forEach(function (_, e_snack)
-          e_snack.classList:remove("animated")
+          e_snack.classList:remove("tk-animated")
         end)
         view.snack_animation = nil
       end)
@@ -879,7 +881,7 @@ return function (opts)
     local bottom_cutoff = M.get_subheader_offset(view) + opts.padding
     local bottom_offset_total = opts.padding
 
-    local nav_push = (view.e_nav and active_view.el.classList:contains("is-wide"))
+    local nav_push = (view.e_nav and (size == "lg" or size == "md"))
       and opts.nav_width or 0
 
     view.e_snacks:forEach(function (_, e_snack)
@@ -915,7 +917,7 @@ return function (opts)
     end
     if animate then
       view.e_banners:forEach(function (_, e_banner)
-        e_banner.classList:add("animated")
+        e_banner.classList:add("tk-animated")
       end)
       if view.banner_animation then
         window:clearTimeout(view.banner_animation)
@@ -923,7 +925,7 @@ return function (opts)
       end
       view.banner_animation = M.after_transition(function ()
         view.e_banners:forEach(function (_, e_banner)
-          e_banner.classList:remove("animated")
+          e_banner.classList:remove("tk-animated")
         end)
         view.banner_animation = nil
       end)
@@ -1611,7 +1613,7 @@ return function (opts)
 
       last_scroll_top = curr_scroll_top
 
-      if not active_view.el.classList:contains("is-wide") and view.el.classList:contains("showing-nav") then
+      if not (size == "lg" or size == "md") and view.el.classList:contains("tk-showing-nav") then
         M.toggle_nav_state()
       end
 
@@ -1655,12 +1657,12 @@ return function (opts)
   end
 
   M.post_enter_pane = function (view, next_view)
-    view.el.classList:remove("transition")
+    view.el.classList:remove("tk-transition")
     M.setup_ripples(next_view.el)
   end
 
   M.post_enter_switch = function (view, next_view)
-    view.el.classList:remove("transition")
+    view.el.classList:remove("tk-transition")
     M.setup_ripples(next_view.el)
   end
 
@@ -1693,13 +1695,13 @@ return function (opts)
 
   M.post_enter = function (next_view)
 
-    active_view.el.classList:remove("transition")
+    active_view.el.classList:remove("tk-transition")
 
     if next_view.page.post_append then
       next_view.page.post_append(next_view, opts)
     end
 
-    local e_back = next_view.el:querySelector("section > header > button.back")
+    local e_back = next_view.el:querySelector("section > header > button.tk-back")
 
     if e_back then
       e_back:addEventListener("click", function ()
@@ -1707,7 +1709,7 @@ return function (opts)
       end)
     end
 
-    local e_menu = next_view.el:querySelector("section > header > button.menu")
+    local e_menu = next_view.el:querySelector("section > header > button.tk-menu")
 
     if e_menu then
       e_menu:addEventListener("click", function ()
@@ -1742,7 +1744,7 @@ return function (opts)
       next_view.page.init(next_view, ...)
     end
 
-    view_pane.el.classList:add("transition")
+    view_pane.el.classList:add("tk-transition")
     view_pane.el:append(next_view.el)
 
     M.after_transition(function ()
@@ -1769,7 +1771,7 @@ return function (opts)
       next_view.page.init(next_view, opts)
     end
 
-    view.el.classList:add("transition")
+    view.el.classList:add("tk-transition")
     view.e_main:append(next_view.el)
 
     M.after_transition(function ()
@@ -1812,10 +1814,6 @@ return function (opts)
     next_view.e_header = next_view.el:querySelector("section > header")
     next_view.e_main = next_view.el:querySelector("section > main")
 
-    if next_view.e_main.firstElementChild and next_view.e_main.firstElementChild.tagName == "SECTION" then
-      next_view.el.classList:add("direct-switch")
-    end
-
     M.setup_observer(next_view)
     M.setup_nav(next_view, direction, init, explicit)
     M.setup_fabs(next_view, last_view)
@@ -1838,7 +1836,7 @@ return function (opts)
       next_view.page.init(next_view, opts)
     end
 
-    active_view.el.classList:add("transition")
+    active_view.el.classList:add("tk-transition")
     active_view.e_main:append(next_view.el)
 
     M.after_transition(function ()
@@ -1878,7 +1876,7 @@ return function (opts)
       last_view.scroll_listener = nil
     end
 
-    last_view.el.classList:add("exit", direction)
+    last_view.el.classList:add("tk-exit", direction)
     M.after_transition(function ()
       return M.post_exit(last_view, opts)
     end, true)
@@ -1984,7 +1982,7 @@ return function (opts)
     end
 
     view.toggle_nav = function ()
-      return M.toggle_nav_state(not view.el.classList:contains("showing-nav"), true, true)
+      return M.toggle_nav_state(not view.el.classList:contains("tk-showing-nav"), true, true)
     end
 
     view.pane = function (name, page_name, ...)
@@ -2153,9 +2151,9 @@ return function (opts)
     if view.e_nav then
       view.e_nav_buttons:forEach(function (_, el)
         if M.get_nav_button_page(el) == name then
-          el.classList:add("is-active")
+          el.classList:add("tk-active")
         else
-          el.classList:remove("is-active")
+          el.classList:remove("tk-active")
         end
       end)
     end
@@ -2254,20 +2252,20 @@ return function (opts)
 
   M.toggle_nav_state = function (open, animate, restyle)
     local view = active_view.active_view
-    if active_view.el.classList:contains("is-wide") then
+    if size == "lg" or size == "md" then
       open = true
     end
     if open == true then
-      view.el.classList:add("showing-nav")
+      view.el.classList:add("tk-showing-nav")
     elseif open == false then
-      view.el.classList:remove("showing-nav")
+      view.el.classList:remove("tk-showing-nav")
     else
-      view.el.classList:toggle("showing-nav")
+      view.el.classList:toggle("tk-showing-nav")
     end
-    if view.el.classList:contains("showing-nav") then
+    if view.el.classList:contains("tk-showing-nav") then
       view.nav_slide = 0
       view.nav_offset = view.header_offset
-      view.nav_overlay_opacity = active_view.el.classList:contains("is-wide")
+      view.nav_overlay_opacity = (size == "lg" or size == "md")
         and 0 or 0.5
       M.style_header_hide(view, false, restyle)
     else
@@ -2280,16 +2278,29 @@ return function (opts)
   end
 
   M.on_resize = function ()
-    local was_wide = active_view.el.classList:contains("is-wide")
-    if window.innerWidth > (opts.wide_threshold or 961) then
-      active_view.el.classList:add("is-wide")
-    else
-      active_view.el.classList:remove("is-wide")
+    local vw = math.max(document.documentElement.clientWidth or 0, window.innerWidth or 0)
+    local vh = math.max(document.documentElement.clientHeight or 0, window.innerHeight or 0)
+    local vwpx = vw .. "px"
+    local vhpx = vh .. "px"
+    e_body.style.height = vhpx
+    e_body.style.minHeight = vhpx
+    e_body.style.maxHeight = vhpx
+    e_body.style.width = vwpx
+    e_body.style.minWidth = vwpx
+    e_body.style.maxWidth = vwpx
+    local newsize =
+      (vw > opts.lg_threshold and "lg") or
+      (vw > opts.md_threshold and "md") or "sm"
+    if size then
+      active_view.el.classList:remove("tk-" .. size)
     end
+    local oldsize = size
+    size = newsize
+    active_view.el.classList:add("tk-" .. newsize)
     if active_view.active_view then
-      if active_view.el.classList:contains("is-wide") then
+      if newsize == "lg" or newsize == "md" then
         M.toggle_nav_state(true)
-      elseif was_wide then
+      elseif oldsize == "lg" or oldsize == "md" then
         M.toggle_nav_state(false)
       end
       M.style_nav(active_view.active_view, true)
@@ -2366,7 +2377,7 @@ return function (opts)
           elseif reg.active then
             if installing then
               installing = false
-              active_view.el.classList:add("update-worker")
+              active_view.el.classList:add("tk-update-worker")
             end
             if opts.verbose then
               print("Updated service worker active")
@@ -2509,7 +2520,6 @@ return function (opts)
       elseif type(sa) ~= type(sb) or type(sa) ~= "string" or sa ~= sb then
         return false
       end
-      i = i + 1
     end
   end
 

@@ -81,14 +81,14 @@
     <meta name="layoutmode" content="fitscreen">
     <meta name="imagemode" content="force">
 
-    <template class="ripple">
-      <div class="ripple-container">
-        <div class="ripple-wave"></div>
+    <template class="tk-ripple">
+      <div class="tk-ripple-container">
+        <div class="tk-ripple-wave"></div>
       </div>
     </template>
 
-    <template class="nav-overlay">
-      <div class="nav-overlay"></div>
+    <template class="tk-nav-overlay">
+      <div class="tk-nav-overlay"></div>
     </template>
 
     <style>
@@ -243,8 +243,10 @@
         width: 1.25em;
       }
 
-      body > section.is-wide > main > section > header > h1:first-child,
-      body > section.is-wide > main > section > header > button.menu:first-child + h1 {
+      body > section.tk-lg > main > section > header > h1:first-child,
+      body > section.tk-md > main > section > header > button.tk-menu:first-child + h1,
+      body > section.tk-lg > main > section > header > h1:first-child,
+      body > section.tk-md > main > section > header > button.tk-menu:first-child + h1 {
         padding-left: 32px;
       }
 
@@ -267,7 +269,7 @@
         color: var(--header-fg);
       }
 
-      body > section > main > section > header ~ main > section > main .tk-header-link.animated {
+      body > section > main > section > header ~ main > section > main .tk-header-link.tk-animated {
         transition: transform var(--transition-time-ms) var(--ease);
       }
 
@@ -280,7 +282,8 @@
         top: calc(var(--header-height-px) * 2);
       }
 
-      body > section.is-wide > main > section > header > button.menu {
+      body > section.tk-lg > main > section > header > button.tk-menu,
+      body > section.tk-md > main > section > header > button.tk-menu {
         display: none;
       }
 
@@ -322,11 +325,11 @@
                     opacity 250ms var(--ease);
       }
 
-      .tk-dropdown.right > div {
+      .tk-dropdown.tk-right > div {
         transform-origin: top right;
       }
 
-      .tk-dropdown > button > .ripple-container {
+      .tk-dropdown > button > .tk-ripple-container {
         border-radius: 50%;
         top: 0.25em;
         left: 0.25em;
@@ -380,13 +383,13 @@
                     opacity var(--transition-time-ms) var(--ease);
       }
 
-      body > section > main > section > .nav-overlay {
+      body > section > main > section > .tk-nav-overlay {
         position: fixed;
         top: 0;
         left: 0;
-        height: calc(100dvh + var(--header-height-px));
-        min-height: calc(100dvh + var(--header-height-px));
-        max-height: calc(100dvh + var(--header-height-px));
+        height: calc(100svh + var(--header-height-px));
+        min-height: calc(100svh + var(--header-height-px));
+        max-height: calc(100svh + var(--header-height-px));
         width: 100dvw;
         min-width: 100dvw;
         max-width: 100dvw;
@@ -397,7 +400,7 @@
         transition: opacity var(--transition-time-ms) var(--ease);
       }
 
-      body > section:not(.is-wide) > main > section.showing-nav > .nav-overlay {
+      body > section:not(.tk-lg):not(.tk-md) > main > section.tk-showing-nav > .tk-nav-overlay {
         opacity: 0.5;
         pointer-events: all;
       }
@@ -420,12 +423,12 @@
         height: var(--header-height-px);
       }
 
-      body > section > main > section > nav > button.is-clicked {
+      body > section > main > section > nav > button.tk-clicked {
         transition: background var(--transition-time-ms) var(--ease);
         background: var(--nav-ripple-bg);
       }
 
-      body > section > main > section > nav > button.is-active {
+      body > section > main > section > nav > button.tk-active {
         animation: none;
         background: var(--nav-ripple-bg);
       }
@@ -453,11 +456,11 @@
                     opacity var(--transition-time-ms) var(--ease);
       }
 
-      body > section > main > section > button.top {
+      body > section > main > section > button.tk-top {
         top: 0;
       }
 
-      body > section > main > section > button.small {
+      body > section > main > section > button.tk-small {
         height: var(--fab-width-small-px);
         width: var(--fab-width-small-px);
         border-radius: var(--fab-radius-small-px);
@@ -480,12 +483,12 @@
                     max-width var(--transition-time-main-ms) var(--ease);
       }
 
-      body > section:not(.is-wide) > main > section.showing-nav > main {
+      body > section:not(.tk-lg):not(.tk-md) > main > section.tk-showing-nav > main {
         user-select: none;
         pointer-events: none;
       }
 
-      body > section:not(.is-wide) > main > section.showing-nav > main {
+      body > section:not(.tk-lg):not(.tk-md) > main > section.tk-showing-nav > main {
         user-select: none;
         pointer-events: none;
       }
@@ -566,8 +569,8 @@
                     opacity var(--transition-time-ms) var(--ease);
       }
 
-      body .transition *,
-      body .animated * {
+      body .tk-transition *,
+      body .tk-animated * {
         pointer-events: none;
       }
 
@@ -603,11 +606,11 @@
         margin: -0.75em;
       }
 
-      body .ripple {
+      body .tk-ripple {
         position: relative;
       }
 
-      body .ripple-container {
+      body .tk-ripple-container {
         position: absolute;
         top: 0;
         left: 0;
@@ -619,7 +622,7 @@
         pointer-events: none;
       }
 
-      body > section > main > section > header > button > .ripple-container {
+      body > section > main > section > header > button > .tk-ripple-container {
         top: 0.25em;
         left: 0.25em;
         bottom: 0.25em;
@@ -627,7 +630,7 @@
         border-radius: 50%;
       }
 
-      body > section > main > section > nav > button > .ripple-container {
+      body > section > main > section > nav > button > .tk-ripple-container {
         height: calc(var(--header-height-px) - 24px);
         width: calc(var(--nav-width-px) - 32px);
         top: 0;
@@ -635,7 +638,7 @@
         border-radius: 20px;
       }
 
-      body .ripple-container .ripple-wave {
+      body .tk-ripple-container .tk-ripple-wave {
         backface-visibility: hidden;
         position: absolute;
         border-radius: 50%;
@@ -643,15 +646,15 @@
         opacity: 0.45;
         background: var(--ripple-bg);
         transition: background var(--transition-time-wave-ms) var(--ease);
-        animation: ripple-wave var(--transition-time-wave-ms) forwards var(--ease);
+        animation: tk-ripple-wave var(--transition-time-wave-ms) forwards var(--ease);
       }
 
-      body > section > main > section > nav > button:not(.is-active) .ripple-container .ripple-wave,
-      body > section > main > section > nav > button.is-clicked .ripple-container .ripple-wave {
+      body > section > main > section > nav > button:not(.tk-active) .tk-ripple-container .tk-ripple-wave,
+      body > section > main > section > nav > button.tk-clicked .tk-ripple-container .tk-ripple-wave {
         background: var(--nav-ripple-bg);
       }
 
-      body .ripple-dark .ripple-container .ripple-wave {
+      body .tk-ripple-dark .tk-ripple-container .tk-ripple-wave {
         background: var(--nav-ripple-bg);
       }
 
@@ -666,9 +669,9 @@
         position: relative;
         overflow: auto;
         overscroll-behavior: contain;
-        height: 100dvh;
-        min-height: 100dvh;
-        max-height: 100dvh;
+        height: 100svh;
+        min-height: 100svh;
+        max-height: 100svh;
         width: 100dvw;
         min-width: 100dvw;
         max-width: 100dvw;
@@ -718,11 +721,11 @@
         max-height: calc(100svh - var(--header-height-px) * 2);
       }
 
-      body [data-pane] {
+      body [tk-pane] {
         position: relative;
       }
 
-      body [data-pane] > section {
+      body [tk-pane] > section {
         position: absolute;
         top: 0;
         left: 0;
@@ -734,25 +737,19 @@
         max-height: 100%;
       }
 
-      body button[data-pane] > section {
+      body button[tk-pane] > section {
         display: flex;
         align-items: center;
         justify-content: center;
       }
 
-      body [data-pane] > section > main {
+      body [tk-pane] > section > main {
         transition: box-shadow var(--transition-time-ms) var(--ease),
           transform var(--transition-time-ms) var(--ease),
           opacity var(--transition-time-ms) var(--ease);
       }
 
-      @keyframes ripple-shadow {
-        0%   { box-shadow: 0 0 0 rgba(0,0,0,0.0); }
-        20%  { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
-        100% { box-shadow: 0 0 0 rgba(0,0,0,0.0); }
-      }
-
-      @keyframes ripple-wave {
+      @keyframes tk-ripple-wave {
         to { transform: scale(24); opacity:0; }
       }
 

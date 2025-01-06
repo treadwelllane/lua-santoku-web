@@ -1,10 +1,17 @@
 # Now
 
-- data-inherit=".template-selector", to replace element tag and attributes with
+- replace element tags with tk-section, tk-main, tk-header, etc. using custom
+  elements?
+    - tk-dropdown?
+    - tk-switch?
+    - tk-card?
+    - tk-table?
+
+- tk-inherit=".template-selector", to replace element tag and attributes with
   template
-    - add data-inherit-attrs (default) to inherit all attrs
-    - add data-inherit-class (or other attr) to inherit specific attrs
-    - add data-inherit-class+ (or orther attr, maybe not +) to append inherited
+    - add tk-inherit-attrs (default) to inherit all attrs
+    - add tk-inherit-class (or other attr) to inherit specific attrs
+    - add tk-inherit-class+ (or orther attr, maybe not +) to append inherited
       attributes to existing
 
 - Provide explicit funtions for val::u8string, val::string, etc. Currently,
@@ -16,14 +23,14 @@
 - Fix ugly scrollbars in desktop chrome browsers
 
 - Dynamically add height to account for snacks
-- Use a different property than data-show/hide for banner/snack class-based
+- Use a different property than tk-show/hide for banner/snack class-based
   show/hide
 
 - Standardized mechanism for client/server API agreement (require reload)
 - Smooth append helper (insert hidden, translate following elements back, unide
   inserted, translate following elements forward)
 
-- Sort out button links: (replace with <a>? remove data-page? use data-page broadly?)
+- Sort out button links: (replace with <a>? remove tk-page? use tk-page broadly?)
 - Icons in buttons
 - Asset generation
 
@@ -61,8 +68,8 @@
 - Right nav
 - Navs as rails
 
-- Smarter snack/fab/banner data-show/hide functionality, similar to
-  data-show/hide for cloning templates
+- Smarter snack/fab/banner tk-show/hide functionality, similar to
+  tk-show/hide for cloning templates
 
 - Dynamically add snacks/fabs/banners: can be added from any view, but injected
   into active_view (for banners) and active_view.active_view for fabs/snacks.
@@ -86,7 +93,7 @@
 - Add extra bottom padding when snacks and fabs are shown
 - Desktop site issues: zoom changes on page switch, scales tiny with small
   windows, etc
-- Data-show/hide for headers, nav, etc. Use for maximize
+- tk-show/hide for headers, nav, etc. Use for maximize
 
 - Better error messages
 - Lua coverage
@@ -120,7 +127,7 @@
 
 - Consider moving to slot-based navs: first "slot" is the forward/backward pager
   and is used for the pages passed into the top-level spa(...). Subsequent navs
-  must specify data-type as drawer, footer, or more TBD. This allows drawer
+  must specify tk-type as drawer, footer, or more TBD. This allows drawer
 
 - Support Object.keys, Object.values,
   Object.entries, pairs, ipairs

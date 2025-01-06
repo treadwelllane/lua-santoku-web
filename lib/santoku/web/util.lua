@@ -428,13 +428,13 @@ local function check_attr_match (data, key, val)
     (val ~= nil and val == data)
 end
 
--- data-show:ok
--- data-show:ok:true
--- data-show:ok:nil
--- data-show.class:ok:true
--- data-show.class:ok:nil
+-- tk-show:ok
+-- tk-show:ok:true
+-- tk-show:ok:nil
+-- tk-show.class:ok:true
+-- tk-show.class:ok:nil
 local function parse_attr_show_hide (attr)
-  local show_hide, show_spec = str.match(attr.name, "^data%-([^:]+)(.*)$")
+  local show_hide, show_spec = str.match(attr.name, "^tk%-([^:]+)(.*)$")
   if show_hide ~= "show" and show_hide ~= "hide" then
     return
   end
@@ -466,12 +466,12 @@ M.populate = function (el, data)
     local shadow, remove, repeat_
 
     Array:from(el.attributes):forEach(function (_, attr)
-      if attr.name == "data-repeat" then
+      if attr.name == "tk-repeat" then
         el:removeAttribute(attr.name)
         repeat_ = attr
         return
       end
-      if attr.name == "data-shadow" then
+      if attr.name == "tk-shadow" then
         el:removeAttribute(attr.name)
         shadow = (attr.value and attr.value ~= "") and attr.value or "closed"
         return
@@ -536,22 +536,22 @@ M.populate = function (el, data)
       local target = shadow and el:attachShadow({ mode = shadow }) or el
 
       Array:from(el.attributes):forEach(function (_, attr)
-        if attr.name == "data-text" then
+        if attr.name == "tk-text" then
           target:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
           el:removeAttribute(attr.name)
-        elseif attr.name == "data-html" then
+        elseif attr.name == "tk-html" then
           target.innerHTML = parse_attr_value(data, attr, el.attributes)
           el:removeAttribute(attr.name)
-        elseif attr.name == "data-href" then
+        elseif attr.name == "tk-href" then
           el.href = parse_attr_value(data, attr, el.attributes)
           el:removeAttribute(attr.name)
-        elseif attr.name == "data-value" then
+        elseif attr.name == "tk-value" then
           el.value = parse_attr_value(data, attr, el.attributes)
           el:removeAttribute(attr.name)
-        elseif attr.name == "data-src" then
+        elseif attr.name == "tk-src" then
           el.src = parse_attr_value(data, attr, el.attributes)
           el:removeAttribute(attr.name)
-        elseif attr.name == "data-checked" then
+        elseif attr.name == "tk-checked" then
           el.checked = data[attr.value] or false
           el:removeAttribute(attr.name)
         end
@@ -577,39 +577,6 @@ M.populate = function (el, data)
 
   return el
 
-end
-
-M.update = function (data, el)
-  data = data or {}
-  if el.dataset and el.dataset.prop then
-    if el.type == "checkbox" then
-      data[el.dataset.prop] = el.checked
-    else
-      data[el.dataset.prop] = el.value
-    end
-  end
-  return data
-end
-
-M.data = function (el, ret)
-  ret = ret or {}
-  M.update(ret, el)
-  Array:from(el.children):forEach(function (_, child)
-    M.data(child, ret)
-  end)
-  return ret
-end
-
-M.clear = function (el)
-  if el.dataset and (el.dataset.value or el.dataset.prop) then
-    el.value = ""
-  end
-  if el.dataset and el.dataset.text then
-    el.innerHTML = ""
-  end
-  Array:from(el.children):forEach(function (_, child)
-    M.clear(child)
-  end)
 end
 
 M.template = function (from)
