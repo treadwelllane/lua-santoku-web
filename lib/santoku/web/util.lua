@@ -669,6 +669,13 @@ M.parse_path = function (url, path, params)
       arr.push(result.path, segment)
     end
   end
+  if result.path[#result.path] then
+    local s, m = str.match(result.path[#result.path], "^([^%$]*)%$?(.*)$")
+    if s and m and m ~= "" then
+      result.path[#result.path] = s
+      result.modal = m
+    end
+  end
   if query then
     M.parse_query(query, result.params)
   end
@@ -682,6 +689,9 @@ M.encode_path = function (t)
       break
     end
     arr.push(out, "/", js:decodeURIComponent(t.path[i]))
+  end
+  if t.modal then
+    arr.push(out, "$", t.modal)
   end
   if t.params and next(t.params) then
     M.query_string(t.params, out)
