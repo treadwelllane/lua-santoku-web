@@ -91,6 +91,10 @@
       <div class="tk-nav-overlay"></div>
     </template>
 
+    <template class="tk-modal-overlay">
+      <div class="tk-modal-overlay"></div>
+    </template>
+
     <style>
 
       :root {
@@ -98,6 +102,10 @@
         --header-fg: <% return opts.header_fg %>;
         --nav-bg: <% return opts.nav_bg %>;
         --nav-active-bg: <% return opts.nav_active_bg %>;
+        --modal-bg: <% return opts.modal_bg %>;
+        --modal-radius: <% return opts.modal_radius %>;
+        --modal-radius-px: <% return opts.modal_radius %>px;
+        --modal-shadow: <% return opts.modal_shadow %>;
         --page-bg: <% return opts.page_bg %>;
         --ripple-bg: <% return opts.ripple_bg %>;
         --nav-ripple-bg: <% return opts.nav_ripple_bg %>;
@@ -125,6 +133,8 @@
         --header-border: <% return opts.header_border %>;
         --header-height: <% return opts.header_height %>;
         --header-height-px: <% return opts.header_height %>px;
+        --modal-overlay-index: <% return opts.modal_overlay_index %>;
+        --modal-index: <% return opts.modal_index %>;
         --nav-overlay-index: <% return opts.nav_overlay_index %>;
         --nav-width: <% return opts.nav_width %>;
         --nav-width-px: <% return opts.nav_width %>px;
@@ -747,6 +757,52 @@
         transition: box-shadow var(--transition-time-ms) var(--ease),
           transform var(--transition-time-ms) var(--ease),
           opacity var(--transition-time-ms) var(--ease);
+      }
+
+      body > section > main > section > section.tk-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100dvh;
+        min-height: 100dvh;
+        max-height: 100dvh;
+        width: 100dvw;
+        min-width: 100dvw;
+        max-width: 100dvw;
+        z-index: var(--modal-overlay-index);
+      }
+
+      body > section > main > section > section.tk-modal > .tk-modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100lvh;
+        min-height: 100lvh;
+        max-height: 100lvh;
+        width: 100dvw;
+        min-width: 100dvw;
+        max-width: 100dvw;
+        z-index: var(--modal-overlay-index);
+        opacity: 0;
+        background: black;
+        pointer-events: none;
+        transition: opacity var(--transition-time-ms) var(--ease);
+      }
+
+      body > section > main > section > section.tk-modal > main {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        max-height: calc(100svh - 1em);
+        max-width: calc(100dvw - 1em);
+        z-index: var(--modal-index);
+        opacity: 0;
+        background: white;
+        border-radius: var(--modal-radius-px);
+        box-shadow: var(--modal-shadow);
+        pointer-events: none;
+        transition: transform var(--transition-time-ms) var(--ease),
+                    opacity var(--transition-time-ms) var(--ease);
       }
 
       @keyframes tk-ripple-wave {

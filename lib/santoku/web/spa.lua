@@ -27,11 +27,12 @@ return function (opts)
   local e_body = document.body
   local t_ripple = e_head:querySelector("template.tk-ripple")
   local t_nav_overlay = e_head:querySelector("template.tk-nav-overlay")
+  local t_modal_overlay = e_head:querySelector("template.tk-modal-overlay")
 
   local base_path = location.pathname
   local state = util.parse_path(str.match(location.hash, "^#(.*)"))
   local active_view
-  local size
+  local size, vw, vh
 
   local M = {}
 
@@ -387,6 +388,8 @@ return function (opts)
       M.switch(view, state.path[2], dir, init, explicit)
     end
 
+    M.modal(view, state.modal, dir, init, explicit)
+
     if view.e_nav then
       if size == "lg" or size == "md" then
         M.toggle_nav_state(true, false, false)
@@ -691,6 +694,32 @@ return function (opts)
 
     view.e_main.style.opacity = view.main_opacity or 1
     view.e_main.style["z-index"] = view.main_index
+
+  end
+
+  M.style_modal = function (view, animate)
+
+    if animate then
+      view.e_main.classList:add("tk-animated")
+      if view.main_animation then
+        window:clearTimeout(view.main_animation)
+        view.main_animation = nil
+      end
+      view.main_animation = M.after_transition(function ()
+        view.e_main.classList:remove("tk-animated")
+        view.main_animation = nil
+      end)
+    end
+
+    view.e_main.style["z-index"] = view.main_index
+    view.e_main.style.opacity = view.main_opacity
+    view.e_main.style.transform =
+      "translate(" ..
+        "calc(" .. view.main_offset_x .. "px - 50%)," ..
+        "calc(" .. (M.get_base_header_offset() + view.main_offset_y) .. "px - 50%))"
+
+    view.e_modal_overlay.style["z-index"] = view.overlay_index
+    view.e_modal_overlay.style.opacity = view.overlay_opacity
 
   end
 
@@ -1114,6 +1143,121 @@ return function (opts)
 
     else
       err.error("invalid state", "main transition")
+    end
+
+  end
+
+  M.style_modal_transition = function (next_view, transition, direction, last_view, init)
+
+    if init and direction == "forward" then
+
+      next_view.overlay_opacity = 0.5
+      next_view.main_opacity = 1
+      next_view.main_offset_x = 0
+      next_view.main_offset_y = 0
+      next_view.main_index = opts.modal_index + 1
+      next_view.overlay_index = opts.modal_overlay_index + 1
+      M.style_modal(next_view)
+
+    elseif transition == "enter" and direction == "forward" then
+
+      next_view.overlay_opacity = 0
+      next_view.main_opacity = 0
+      if not last_view and next_view.modal_event then
+        next_view.main_offset_x = next_view.modal_event.pageX - (vw / 2)
+        next_view.main_offset_y = next_view.modal_event.pageY - (vh / 2)
+        local td = math.abs(next_view.main_offset_x) + math.abs(next_view.main_offset_x)
+        next_view.main_offset_x = opts.transition_forward_height * next_view.main_offset_x / td
+        next_view.main_offset_y = opts.transition_forward_height * next_view.main_offset_y / td
+      elseif last_view then
+        next_view.main_offset_x = opts.transition_forward_height
+        next_view.main_offset_y = 0
+      else
+        next_view.main_offset_x = 0
+        next_view.main_offset_y = opts.transition_forward_height
+      end
+      next_view.main_index = opts.modal_index + 1
+      next_view.overlay_index = opts.modal_overlay_index + 1
+      M.style_modal(next_view)
+
+      util.after_frame(function ()
+        next_view.overlay_opacity = 0.5
+        next_view.main_opacity = 1
+        next_view.main_offset_x = 0
+        next_view.main_offset_y = 0
+        M.style_modal(next_view, true)
+      end)
+
+    elseif transition == "exit" and direction == "forward" then
+
+      last_view.overlay_opacity = 0
+      last_view.main_opacity = 0
+      if not next_view and last_view.modal_event then
+        last_view.main_offset_x = last_view.modal_event.pageX - (vw / 2)
+        last_view.main_offset_y = last_view.modal_event.pageY - (vh / 2)
+        local td = math.abs(last_view.main_offset_x) + math.abs(last_view.main_offset_x)
+        last_view.main_offset_x = opts.transition_forward_height * last_view.main_offset_x / td
+        last_view.main_offset_y = opts.transition_forward_height * last_view.main_offset_y / td
+      elseif next_view then
+        last_view.main_offset_x = -opts.transition_forward_height
+        last_view.main_offset_y = 0
+      else
+        last_view.main_offset_x = 0
+        last_view.main_offset_y = opts.transition_forward_height
+      end
+      last_view.main_index = opts.modal_index - 1
+      last_view.overlay_index = opts.modal_overlay_index - 1
+      M.style_modal(last_view, true)
+
+    elseif transition == "enter" and direction == "backward" then
+
+      -- TODO: derive initial offsets from click event (if no modal) or
+      -- direction (if modal). Also, overlay opacity should remain as 1 if
+      -- modal exist.
+      next_view.overlay_opacity = 0
+      next_view.main_opacity = 0
+      if last_view then
+        next_view.main_offset_x = -opts.transition_forward_height
+        next_view.main_offset_y = 0
+      else
+        next_view.main_offset_x = 0
+        next_view.main_offset_y = -opts.transition_forward_height
+      end
+      next_view.main_index = opts.modal_index - 1
+      next_view.overlay_index = opts.modal_overlay_index - 1
+      M.style_modal(next_view)
+
+      util.after_frame(function ()
+        next_view.overlay_opacity = 0.5
+        next_view.main_opacity = 1
+        next_view.main_offset_x = 0
+        next_view.main_offset_y = 0
+        M.style_modal(next_view, true)
+      end)
+
+    elseif transition == "exit" and direction == "backward" then
+
+      last_view.overlay_opacity = 0
+      last_view.main_opacity = 0
+      if not next_view and last_view.modal_event then
+        last_view.main_offset_x = last_view.modal_event.pageX - (vw / 2)
+        last_view.main_offset_y = last_view.modal_event.pageY - (vh / 2)
+        local td = math.abs(last_view.main_offset_x) + math.abs(last_view.main_offset_x)
+        last_view.main_offset_x = opts.transition_forward_height * last_view.main_offset_x / td
+        last_view.main_offset_y = opts.transition_forward_height * last_view.main_offset_y / td
+      elseif next_view then
+        last_view.main_offset_x = opts.transition_forward_height
+        last_view.main_offset_y = 0
+      else
+        last_view.main_offset_x = 0
+        last_view.main_offset_y = opts.transition_forward_height
+      end
+      last_view.main_index = opts.modal_index + 1
+      last_view.overlay_index = opts.modal_overlay_index + 1
+      M.style_modal(last_view, true)
+
+    else
+      err.error("invalid state", "modal transition")
     end
 
   end
@@ -1661,12 +1805,25 @@ return function (opts)
     M.setup_ripples(next_view.el)
   end
 
+  M.post_enter_modal = function (view, next_view)
+    view.el.classList:remove("tk-transition")
+    M.setup_ripples(next_view.el)
+  end
+
   M.post_enter_switch = function (view, next_view)
     view.el.classList:remove("tk-transition")
     M.setup_ripples(next_view.el)
   end
 
   M.post_exit_pane = function (last_view)
+    last_view.el:remove()
+    if last_view.page.destroy then
+      last_view.page.destroy(last_view, opts)
+    end
+    M.clear_panes(last_view)
+  end
+
+  M.post_exit_modal = function (last_view)
     last_view.el:remove()
     if last_view.page.destroy then
       last_view.page.destroy(last_view, opts)
@@ -1753,6 +1910,35 @@ return function (opts)
 
   end
 
+  M.enter_modal = function (view, next_view, direction, last_view, init)
+
+    M.close_dropdowns(last_view)
+
+    next_view.el = util.clone(next_view.page.template)
+    next_view.e_main = next_view.el:querySelector("section > main")
+    next_view.e_modal_overlay = util.clone(t_modal_overlay, nil, next_view.el)
+    next_view.e_modal_overlay:addEventListener("click", function ()
+      view.back()
+    end)
+
+    M.setup_panes(next_view, init)
+    M.setup_dropdowns(next_view, init)
+    M.style_modal_transition(next_view, "enter", direction, last_view, init)
+
+    if next_view.page.init then
+      next_view.page.init(next_view, opts)
+    end
+
+    view.el.classList:add("tk-transition")
+    next_view.el.classList:add("tk-modal")
+    view.el:append(next_view.el)
+
+    M.after_transition(function ()
+      return M.post_enter_modal(view, next_view)
+    end)
+
+  end
+
   M.enter_switch = function (view, next_view, direction, last_view, init)
 
     M.close_dropdowns(last_view)
@@ -1784,6 +1970,13 @@ return function (opts)
     M.style_main_transition_pane(next_view, "exit", last_view)
     M.after_transition(function ()
       return M.post_exit_pane(last_view)
+    end, true)
+  end
+
+  M.exit_modal = function (last_view, direction, next_view)
+    M.style_modal_transition(next_view, "exit", direction, last_view)
+    M.after_transition(function ()
+      return M.post_exit_modal(last_view)
     end, true)
   end
 
@@ -1951,7 +2144,7 @@ return function (opts)
     return M.backward_tag(tag, ...)
   end
 
-  M.init_view = function (name, path_idx, page, parent)
+  M.init_view = function (name, page, parent)
 
     err.assert(name ~= "default", "view name can't be default")
 
@@ -1962,13 +2155,15 @@ return function (opts)
       backward = M.backward,
       replace_forward = M.replace_forward,
       replace_backward = M.replace_backward,
+      forward_modal = M.forward_modal,
+      backward_modal = M.backward_modal,
+      replace_forward_modal = M.replace_forward_modal,
+      replace_backward_modal = M.replace_backward_modal,
       mark = M.mark,
       forward_mark = M.forward_mark,
       backward_mark = M.backward_mark,
       forward_tag = M.forward_tag,
       backward_tag = M.backward_tag,
-      at_bottom = M.at_bottom,
-      path_idx = path_idx,
       add_listener = M.add_listener,
       remove_listener = M.remove_listener,
       emit = M.emit,
@@ -1976,10 +2171,6 @@ return function (opts)
       name = name,
       state = state
     }
-
-    view.scroll_bottom = function ()
-      return M.scroll_bottom()
-    end
 
     view.toggle_nav = function ()
       return M.toggle_nav_state(not view.el.classList:contains("tk-showing-nav"), true, true)
@@ -2121,12 +2312,46 @@ return function (opts)
 
     local last_view_pane = view_pane.active_view
 
-    view_pane.active_view = M.init_view(page_name, nil, pane_page, view)
+    view_pane.active_view = M.init_view(page_name, pane_page, view)
 
     M.enter_pane(view_pane, view_pane.active_view, last_view_pane, init, ...)
 
     if last_view_pane then
       M.exit_pane(last_view_pane, view_pane.active_view)
+    end
+
+  end
+
+  M.modal = function (view, name, dir, init, explicit)
+
+    if not name then
+      if view.active_modal then
+        M.exit_modal(view.active_modal, dir)
+        view.active_modal = nil
+      end
+      return
+    end
+
+    local page = type(name) == "table"
+      and name
+      or M.get_page(view.page.modals, name, "(modal)")
+
+    if M.maybe_redirect(view, page, init, explicit) then
+      return
+    end
+
+    if view.active_modal and page == view.active_modal.page then
+      return
+    end
+
+    local last_modal = view.active_modal
+    view.active_modal = M.init_view(name, page, view)
+    view.active_modal.modal_event = state.modal_event or (last_modal and last_modal.modal_event) or nil
+
+    M.enter_modal(view, view.active_modal, dir, last_modal, init)
+
+    if last_modal then
+      M.exit_modal(last_modal, dir, view.active_modal)
     end
 
   end
@@ -2146,7 +2371,7 @@ return function (opts)
     end
 
     local last_view = view.active_view
-    view.active_view = M.init_view(name, 2, page, view)
+    view.active_view = M.init_view(name, page, view)
 
     if view.e_nav then
       view.e_nav_buttons:forEach(function (_, el)
@@ -2208,6 +2433,7 @@ return function (opts)
     local v = active_view.page
     if #path < 1 then
       M.find_default(v, path, 1)
+      M.assign_persisted(path, params)
     else
       local last
       for i = 1, #path do
@@ -2215,14 +2441,15 @@ return function (opts)
         v = v.pages and v.pages[path[i]]
         if not v then
           M.find_default(v, path, i)
+          M.assign_persisted(path, params)
           return
         else
           last = v
         end
       end
       M.find_default(last, path, #path + 1)
+      M.assign_persisted(path, params)
     end
-    M.assign_persisted(path, params)
   end
 
   M.transition = function (dir, init, explicit)
@@ -2237,7 +2464,7 @@ return function (opts)
 
       if not active_view.active_view or page ~= active_view.active_view.page then
         local last_view = active_view.active_view
-        active_view.active_view = M.init_view(state.path[1], 1, page)
+        active_view.active_view = M.init_view(state.path[1], page)
         M.enter(active_view.active_view, dir, last_view, init, explicit)
         if last_view then
           M.exit(last_view, dir, active_view.active_view)
@@ -2245,6 +2472,8 @@ return function (opts)
       elseif state.path[2] then
         M.switch(active_view.active_view, state.path[2], dir, init, explicit)
       end
+
+      M.modal(active_view.active_view, state.modal, dir, init, explicit)
 
     end)
 
@@ -2278,8 +2507,8 @@ return function (opts)
   end
 
   M.on_resize = function ()
-    local vw = math.max(document.documentElement.clientWidth or 0, window.innerWidth or 0)
-    local vh = math.max(document.documentElement.clientHeight or 0, window.innerHeight or 0)
+    vw = math.max(document.documentElement.clientWidth or 0, window.innerWidth or 0)
+    vh = math.max(document.documentElement.clientHeight or 0, window.innerHeight or 0)
     local vwpx = vw .. "px"
     local vhpx = vh .. "px"
     e_body.style.height = vhpx
@@ -2317,7 +2546,7 @@ return function (opts)
 
   M.setup_active_view = function ()
 
-    active_view = M.init_view(nil, 0, opts.main)
+    active_view = M.init_view(nil, opts.main)
 
     active_view.el = util.clone(opts.main.template)
     active_view.e_main = active_view.el:querySelector("section > main")
@@ -2418,52 +2647,76 @@ return function (opts)
 
   end
 
-  M.get_route = function (s)
-    s = s or state
-    local path = {}
-    local params = {}
-    if s and s.path then
-      arr.copy(path, s.path)
-    end
-    if s and s.params then
-      tbl.assign(params, s.params)
-    end
-    arr.push(path, params)
-    return arr.spread(path)
-  end
-
   M.get_url = function (s)
     s = s or state
     return base_path .. "#" .. util.encode_path(s)
   end
 
-  M.set_route = function (policy, ...)
+  M.get_modal_spec = function (...)
+    if type(...) == "string" then
+      local name, params = ...
+      return {
+        path = state.path,
+        modal = name,
+        params = params
+      }
+    else
+      local spec = ...
+      return {
+        path = state.path,
+        modal = spec.modal,
+        params = spec.params,
+        event = spec.event,
+      }
+    end
+  end
+
+  M.get_route_spec = function (...)
     if type(...) == "table" then
-      local rs = ...
-      for i = 1, #rs do
-        M.set_route(policy, arr.spread(rs[i]))
+      local spec = ...
+      spec.path = spec.path or {}
+      spec.params = spec.params or {}
+      M.fill_defaults(spec.path, spec.params)
+      return spec
+    elseif type(...) == "string" then
+      local spec = {}
+      local args = { ... }
+      if #args == 0 then
+        spec.path = {}
+        spec.params = {}
+        M.fill_defaults(spec.path, spec.params)
+        return spec
+      else
+        if type(args[#args]) == "table" then
+          spec.params = args[#args]
+          spec.path = args
+          spec.path[#spec.path] = nil
+        else
+          spec.params = {}
+          spec.path = args
+        end
+        M.fill_defaults(spec.path, spec.params)
+        return spec
+      end
+    else
+      err.error("Unexpected route spec", varg.map(type, ...))
+    end
+  end
+
+  M.set_route = function (policy, ...)
+    local spec = M.get_route_spec(...)
+    if #spec > 0 then
+      for i = 1, #spec do
+        local spec = spec[i]
+        M.set_route(policy, spec)
         policy = "push"
       end
       return
     end
-    local n = varg.len(...)
-    local path, params
-    if n == 0 then
-      path = {}
-      params = {}
-    else
-      params = varg.sel(n, ...)
-      if type(params) == "table" then
-        n = n - 1
-        path = { varg.take(n, ...) }
-      else
-        params = {}
-        path = { varg.take(n, ...) }
-      end
-    end
-    M.fill_defaults(path, params)
-    state.path = path
-    state.params = params
+    state.path = spec.path
+    state.params = spec.params
+    state.modal = spec.modal
+    state.modal_event = spec.event
     local url = M.get_url(state)
     if policy == "push" then
       local hstate = { id = (history.state and history.state.id or 0) + 1 }
@@ -2504,16 +2757,29 @@ return function (opts)
     M.transition("backward")
   end
 
-  M.get_default_route = function ()
-    local path, params = {}, {}
-    M.fill_defaults(path, params)
-    arr.push(path, params)
-    return arr.spread(path)
+  M.forward_modal = function (...)
+    M.set_route("push", M.get_modal_spec(...))
+    M.transition("forward")
+  end
+
+  M.backward_modal = function (...)
+    M.set_route("push", M.get_modal_spec(...))
+    M.transition("forward")
+  end
+
+  M.replace_forward_modal = function (...)
+    M.set_route("replace", M.get_modal_spec(...))
+    M.transition("forward")
+  end
+
+  M.replace_backward_modal = function (...)
+    M.set_route("replace", M.get_modal_spec(...))
+    M.transition("backward")
   end
 
   M.set_default_route = function ()
     M.fill_defaults(state.path, state.params)
-    M.set_route("replace", M.get_route())
+    M.set_route("replace", state)
     M.mark("initial")
   end
 
@@ -2527,7 +2793,7 @@ return function (opts)
       state.popdir = nil
       M.set_route("replace", arr.spread(p))
     else
-      M.set_route("replace", M.get_route(state0))
+      M.set_route("replace", state0)
     end
     M.transition(dir)
   end)
