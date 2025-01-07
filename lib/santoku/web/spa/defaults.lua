@@ -40,6 +40,7 @@ return {
     header_index = "100",
     modal_index = "120",
     modal_overlay_index = "110",
+    modal_scale = "0.95",
     nav_index = "90",
     nav_overlay_index = "80",
     modal_radius = "8",

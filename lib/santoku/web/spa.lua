@@ -716,7 +716,8 @@ return function (opts)
     view.e_main.style.transform =
       "translate(" ..
         "calc(" .. view.main_offset_x .. "px - 50%)," ..
-        "calc(" .. (M.get_base_header_offset() + view.main_offset_y) .. "px - 50%))"
+        "calc(" .. (M.get_base_header_offset() + view.main_offset_y) .. "px - 50%))" ..
+      "scale(" .. view.main_scale or 1 .. ")"
 
     view.e_modal_overlay.style["z-index"] = view.overlay_index
     view.e_modal_overlay.style.opacity = view.overlay_opacity
@@ -1152,6 +1153,7 @@ return function (opts)
     if init and direction == "forward" then
 
       next_view.overlay_opacity = 0.5
+      next_view.main_scale = 1
       next_view.main_opacity = 1
       next_view.main_offset_x = 0
       next_view.main_offset_y = 0
@@ -1162,6 +1164,7 @@ return function (opts)
     elseif transition == "enter" and direction == "forward" then
 
       next_view.overlay_opacity = 0
+      next_view.main_scale = opts.modal_scale
       next_view.main_opacity = 0
       if not last_view and next_view.modal_event then
         next_view.main_offset_x = next_view.modal_event.pageX - (vw / 2)
@@ -1182,6 +1185,7 @@ return function (opts)
 
       util.after_frame(function ()
         next_view.overlay_opacity = 0.5
+        next_view.main_scale = 1
         next_view.main_opacity = 1
         next_view.main_offset_x = 0
         next_view.main_offset_y = 0
@@ -1191,6 +1195,7 @@ return function (opts)
     elseif transition == "exit" and direction == "forward" then
 
       last_view.overlay_opacity = 0
+      last_view.main_scale = opts.modal_scale
       last_view.main_opacity = 0
       if not next_view and last_view.modal_event then
         last_view.main_offset_x = last_view.modal_event.pageX - (vw / 2)
@@ -1215,6 +1220,7 @@ return function (opts)
       -- direction (if modal). Also, overlay opacity should remain as 1 if
       -- modal exist.
       next_view.overlay_opacity = 0
+      next_view.main_scale = opts.modal_scale
       next_view.main_opacity = 0
       if last_view then
         next_view.main_offset_x = -opts.transition_forward_height
@@ -1229,6 +1235,7 @@ return function (opts)
 
       util.after_frame(function ()
         next_view.overlay_opacity = 0.5
+        next_view.main_scale = 1
         next_view.main_opacity = 1
         next_view.main_offset_x = 0
         next_view.main_offset_y = 0
@@ -1238,6 +1245,7 @@ return function (opts)
     elseif transition == "exit" and direction == "backward" then
 
       last_view.overlay_opacity = 0
+      last_view.main_scale = opts.modal_scale
       last_view.main_opacity = 0
       if not next_view and last_view.modal_event then
         last_view.main_offset_x = last_view.modal_event.pageX - (vw / 2)
@@ -1917,9 +1925,6 @@ return function (opts)
     next_view.el = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
     next_view.e_modal_overlay = util.clone(t_modal_overlay, nil, next_view.el)
-    next_view.e_modal_overlay:addEventListener("click", function ()
-      view.back()
-    end)
 
     M.setup_panes(next_view, init)
     M.setup_dropdowns(next_view, init)
