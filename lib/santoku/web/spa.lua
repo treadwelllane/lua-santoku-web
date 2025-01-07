@@ -2025,7 +2025,7 @@ return function (opts)
 
   M.switch_dir = function (view, next_switch, last_switch, dir)
     if not view.e_nav then
-      return "forward"
+      return dir or "forward"
     elseif view.header_offset and view.header_offset < 0 then
       return "backward"
     end
@@ -2158,7 +2158,7 @@ return function (opts)
       end)
     end
 
-    dir = dir or M.switch_dir(view, view.active_view, last_view, dir)
+    dir = M.switch_dir(view, view.active_view, last_view, dir)
 
     M.enter_switch(view, view.active_view, dir, last_view, init)
 
@@ -2511,31 +2511,6 @@ return function (opts)
     return arr.spread(path)
   end
 
-  M.routes_match = function (a, b)
-    for i = 1, math.huge do
-      local sa = a[i]
-      local sb = b[i]
-      if type(sa) ~= "string" and type(sb) ~= "string" then
-        return true
-      elseif type(sa) ~= type(sb) or type(sa) ~= "string" or sa ~= sb then
-        return false
-      end
-    end
-  end
-
-  -- TODO: Currently, this just sets up history with the current page as the
-  -- first entry. Ideally, it would set up history in an order that makes sense
-  -- for deep-links (bookmarked or otherwise). For example, after deep-linking
-  -- to /items/view, back should take you /items, but instead exits the app. The
-  -- following doesn't seem to handle redirects correctly. Needs review.
-  --
-  -- local default = { M.get_default_route() }
-  -- local current = { M.get_route() }
-  -- if M.routes_match(default, current) then
-  --   M.set_route("replace", arr.spread(current))
-  -- else
-  --   M.set_route("replace", { default, current })
-  -- end
   M.set_default_route = function ()
     M.fill_defaults(state.path, state.params)
     M.set_route("replace", M.get_route())
