@@ -760,7 +760,7 @@
       }
 
       body > section > main > section > section.tk-modal {
-        position: fixed;
+        position: absolute;
         top: 0;
         left: 0;
         height: 100dvh;
@@ -769,11 +769,10 @@
         width: 100dvw;
         min-width: 100dvw;
         max-width: 100dvw;
-        z-index: var(--modal-overlay-index);
       }
 
       body > section > main > section > section.tk-modal > .tk-modal-overlay {
-        position: absolute;
+        position: fixed;
         top: 0;
         left: 0;
         height: 100lvh;
@@ -785,12 +784,12 @@
         z-index: var(--modal-overlay-index);
         opacity: 0;
         background: black;
-        pointer-events: none;
+        pointer-events: all;
         transition: opacity var(--transition-time-ms) var(--ease);
       }
 
       body > section > main > section > section.tk-modal > main {
-        position: absolute;
+        position: fixed;
         top: 50%;
         left: 50%;
         max-height: calc(100svh - 1em);
