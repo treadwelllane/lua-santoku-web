@@ -2,6 +2,7 @@ local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local err = require("santoku.error")
 local str = require("santoku.string")
+local varg = require("santoku.varg")
 local arr = require("santoku.array")
 local tbl = require("santoku.table")
 local it = require("santoku.iter")
@@ -395,16 +396,20 @@ local function parse_attr_value (data, attr, attrs)
 
 end
 
-local function check_attr_match (data, key, val)
+local function check_attr_match (data, root, key, val)
   if key == nil then
     return
   end
   if type(val) == "table" then
     return arr.find(val, function (val)
-      return check_attr_match(data, key, val)
+      return check_attr_match(data, root, key, val)
     end) ~= nil
   end
-  data = tbl.get(data, arr.spread(key))
+  if key[1] == "$" then
+    data = tbl.get(root, varg.sel(2, arr.spread(key)))
+  else
+    data = tbl.get(data, arr.spread(key))
+  end
   return
     (val == "true" and data == true) or
     (val == "false" and data == false) or
@@ -413,11 +418,6 @@ local function check_attr_match (data, key, val)
     (val ~= nil and val == data)
 end
 
--- tk-show:ok
--- tk-show:ok:true
--- tk-show:ok:nil
--- tk-show.class:ok:true
--- tk-show.class:ok:nil
 local function parse_attr_show_hide (attr)
   local show_hide, show_spec = str.match(attr.name, "^tk%-([^:]+)(.*)$")
   if show_hide ~= "show" and show_hide ~= "hide" then
@@ -437,7 +437,9 @@ local function parse_attr_show_hide (attr)
   end
 end
 
-M.populate = function (el, data)
+M.populate = function (el, data, root)
+
+  root = root or data
 
   if not data then
     return el
@@ -470,12 +472,12 @@ M.populate = function (el, data)
       el:removeAttribute(attr.name)
       if show_attr == nil then
         remove =
-          (show_hide == "show" and not check_attr_match(data, show_key, show_val)) or
-          (show_hide == "hide" and check_attr_match(data, show_key, show_val))
+          (show_hide == "show" and not check_attr_match(data, root, show_key, show_val)) or
+          (show_hide == "hide" and check_attr_match(data, root, show_key, show_val))
         return
       elseif
-        (show_hide == "show" and check_attr_match(data, show_key, show_val)) or
-        (show_hide == "hide" and not check_attr_match(data, show_key, show_val))
+        (show_hide == "show" and check_attr_match(data, root, show_key, show_val)) or
+        (show_hide == "hide" and not check_attr_match(data, root, show_key, show_val))
       then
         arr.push(add_attrs, { name = show_attr, value = show_exp })
         return
@@ -507,11 +509,17 @@ M.populate = function (el, data)
 
       local el_before = el.nextSibling
 
-      for i = 1, #data[repeat_.value] do
-        local r0 = el:cloneNode(true)
-        M.populate(r0, data[repeat_.value][i])
-        el.parentNode:insertBefore(r0, el_before)
-        el_before = r0
+      local ik = it.collect(str.gmatch(repeat_.value, "[^.]+"))
+      local items = tbl.get(data, arr.spread(ik))
+
+      if items then
+        for i = 1, #items do
+          local r0 = el:cloneNode(true)
+          local item = items[i]
+          M.populate(r0, item, root)
+          el.parentNode:insertBefore(r0, el_before)
+          el_before = r0
+        end
       end
 
       el:remove()
@@ -555,7 +563,7 @@ M.populate = function (el, data)
     end)
 
     Array:from(el.children):forEach(function (_, child)
-      M.populate(child, data)
+      M.populate(child, data, root)
     end)
 
   end
