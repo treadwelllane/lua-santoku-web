@@ -721,6 +721,7 @@ return function (opts)
 
     view.e_modal_overlay.style["z-index"] = view.overlay_index
     view.e_modal_overlay.style.opacity = view.overlay_opacity
+    view.e_modal_overlay.style.visibility = view.hide_overlay and "hidden" or "visible"
 
   end
 
@@ -1167,12 +1168,18 @@ return function (opts)
       next_view.main_scale = opts.modal_scale
       next_view.main_opacity = 0
       if not last_view and next_view.modal_event then
-        next_view.main_offset_x = next_view.modal_event.pageX - (vw / 2)
-        next_view.main_offset_y = next_view.modal_event.pageY - (vh / 2)
+        next_view.main_offset_x = next_view.modal_event.pageX - vw / 2
+        next_view.main_offset_y = next_view.modal_event.pageY - vh / 2
         local td = math.abs(next_view.main_offset_x) + math.abs(next_view.main_offset_x)
         next_view.main_offset_x = opts.transition_forward_height * next_view.main_offset_x / td
         next_view.main_offset_y = opts.transition_forward_height * next_view.main_offset_y / td
       elseif last_view then
+        next_view.hide_overlay = true
+        M.after_transition(function ()
+          next_view.hide_overlay = false
+          M.style_modal(next_view)
+        end)
+        next_view.overlay_opacity = 0.5
         next_view.main_offset_x = opts.transition_forward_height
         next_view.main_offset_y = 0
       else
@@ -1198,12 +1205,13 @@ return function (opts)
       last_view.main_scale = opts.modal_scale
       last_view.main_opacity = 0
       if not next_view and last_view.modal_event then
-        last_view.main_offset_x = last_view.modal_event.pageX - (vw / 2)
-        last_view.main_offset_y = last_view.modal_event.pageY - (vh / 2)
+        last_view.main_offset_x = last_view.modal_event.pageX - vw / 2
+        last_view.main_offset_y = last_view.modal_event.pageY - vh / 2
         local td = math.abs(last_view.main_offset_x) + math.abs(last_view.main_offset_x)
         last_view.main_offset_x = opts.transition_forward_height * last_view.main_offset_x / td
         last_view.main_offset_y = opts.transition_forward_height * last_view.main_offset_y / td
       elseif next_view then
+        last_view.overlay_opacity = 0.5
         last_view.main_offset_x = -opts.transition_forward_height
         last_view.main_offset_y = 0
       else
@@ -1223,6 +1231,12 @@ return function (opts)
       next_view.main_scale = opts.modal_scale
       next_view.main_opacity = 0
       if last_view then
+        next_view.hide_overlay = true
+        M.after_transition(function ()
+          next_view.hide_overlay = false
+          M.style_modal(next_view)
+        end)
+        next_view.overlay_opacity = 0.5
         next_view.main_offset_x = -opts.transition_forward_height
         next_view.main_offset_y = 0
       else
@@ -1248,12 +1262,13 @@ return function (opts)
       last_view.main_scale = opts.modal_scale
       last_view.main_opacity = 0
       if not next_view and last_view.modal_event then
-        last_view.main_offset_x = last_view.modal_event.pageX - (vw / 2)
-        last_view.main_offset_y = last_view.modal_event.pageY - (vh / 2)
+        last_view.main_offset_x = last_view.modal_event.pageX - vw / 2
+        last_view.main_offset_y = last_view.modal_event.pageY - vh / 2
         local td = math.abs(last_view.main_offset_x) + math.abs(last_view.main_offset_x)
         last_view.main_offset_x = opts.transition_forward_height * last_view.main_offset_x / td
         last_view.main_offset_y = opts.transition_forward_height * last_view.main_offset_y / td
       elseif next_view then
+        last_view.overlay_opacity = 0.5
         last_view.main_offset_x = opts.transition_forward_height
         last_view.main_offset_y = 0
       else
