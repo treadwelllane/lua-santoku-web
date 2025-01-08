@@ -1198,13 +1198,7 @@ return function (opts)
       last_view.overlay_opacity = 0
       last_view.main_scale = opts.modal_scale
       last_view.main_opacity = 0
-      if not next_view and last_view.modal_event then
-        last_view.main_offset_x = last_view.modal_event.pageX - vw / 2
-        last_view.main_offset_y = last_view.modal_event.pageY - vh / 2
-        local td = math.abs(last_view.main_offset_x) + math.abs(last_view.main_offset_x)
-        last_view.main_offset_x = opts.transition_forward_height * last_view.main_offset_x / td
-        last_view.main_offset_y = opts.transition_forward_height * last_view.main_offset_y / td
-      elseif next_view then
+      if next_view then
         last_view.e_modal_overlay:remove()
         last_view.main_offset_x = -opts.transition_forward_height
         last_view.main_offset_y = 0
@@ -1250,13 +1244,7 @@ return function (opts)
       last_view.overlay_opacity = 0
       last_view.main_scale = opts.modal_scale
       last_view.main_opacity = 0
-      if not next_view and last_view.modal_event then
-        last_view.main_offset_x = last_view.modal_event.pageX - vw / 2
-        last_view.main_offset_y = last_view.modal_event.pageY - vh / 2
-        local td = math.abs(last_view.main_offset_x) + math.abs(last_view.main_offset_x)
-        last_view.main_offset_x = opts.transition_forward_height * last_view.main_offset_x / td
-        last_view.main_offset_y = opts.transition_forward_height * last_view.main_offset_y / td
-      elseif next_view then
+      if next_view then
         last_view.e_modal_overlay:remove()
         last_view.main_offset_x = opts.transition_forward_height
         last_view.main_offset_y = 0
@@ -2520,12 +2508,12 @@ return function (opts)
     vh = math.max(document.documentElement.clientHeight or 0, window.innerHeight or 0)
     local vwpx = vw .. "px"
     local vhpx = vh .. "px"
-    e_body.style.height = vhpx
-    e_body.style.minHeight = vhpx
-    e_body.style.maxHeight = vhpx
-    e_body.style.width = vwpx
-    e_body.style.minWidth = vwpx
-    e_body.style.maxWidth = vwpx
+    active_view.el.style.height = vhpx
+    active_view.el.style.minHeight = vhpx
+    active_view.el.style.maxHeight = vhpx
+    active_view.el.style.width = vwpx
+    active_view.el.style.minWidth = vwpx
+    active_view.el.style.maxWidth = vwpx
     local newsize =
       (vw > opts.lg_threshold and "lg") or
       (vw > opts.md_threshold and "md") or "sm"
