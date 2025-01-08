@@ -2304,6 +2304,9 @@ return function (opts)
     local pane_page = M.get_page(view_pane.pages, page_name, name)
 
     if view_pane.active_view and pane_page == view_pane.active_view.page then
+      if pane_page.update then
+        pane_page.update(view_pane.active_view)
+      end
       return
     end
 
@@ -2338,6 +2341,9 @@ return function (opts)
     end
 
     if view.active_modal and page == view.active_modal.page then
+      if page.update then
+        page.update(view.active_modal)
+      end
       return
     end
 
@@ -2364,6 +2370,9 @@ return function (opts)
     end
 
     if view.active_view and page == view.active_view.page then
+      if page.update then
+        page.update(view.active_view)
+      end
       return
     end
 
@@ -2466,8 +2475,13 @@ return function (opts)
         if last_view then
           M.exit(last_view, dir, active_view.active_view)
         end
-      elseif state.path[2] then
-        M.switch(active_view.active_view, state.path[2], dir, init, explicit)
+      else
+        if active_view.active_view.page.update then
+          active_view.active_view.page.update(active_view.active_view)
+        end
+        if state.path[2] then
+          M.switch(active_view.active_view, state.path[2], dir, init, explicit)
+        end
       end
 
       M.modal(active_view.active_view, state.modal, dir, init, explicit)
