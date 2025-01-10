@@ -279,13 +279,11 @@
         color: var(--header-fg);
       }
 
-      body > section > main > section > header ~ main > section > main .tk-header-link.tk-animated {
-        transition: transform var(--transition-time-ms) var(--ease);
-      }
-
       body > section > main > section > header ~ main > section > main .tk-header-link {
         position: sticky;
         top: calc(var(--header-height-px));
+        transform: translateZ(0);
+        transition: transform var(--transition-time-ms) var(--ease);
       }
 
       body > section > main > section > header ~ main > section > header ~ main .tk-header-link {

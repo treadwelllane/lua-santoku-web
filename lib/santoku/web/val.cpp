@@ -541,9 +541,9 @@ static inline int mt_lua (lua_State *L)
   return 1;
 }
 
-static inline void val_to_lua (lua_State *L, int iv, bool recurse, bool force_wrap) {
-
-  if (!force_wrap and mtx_to_lua(L, iv))
+static inline void val_to_lua (lua_State *L, int iv, bool recurse, bool force_wrap)
+{
+  if (!force_wrap && mtx_to_lua(L, iv))
     return;
 
   val v = peek_val(L, iv);

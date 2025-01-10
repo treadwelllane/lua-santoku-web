@@ -11,6 +11,7 @@ local arr = require("santoku.array")
 local num = require("santoku.num")
 local util = require("santoku.web.util")
 local def = require("santoku.web.spa.defaults")
+local json = require("cjson")
 
 return function (opts)
 
@@ -2081,7 +2082,7 @@ return function (opts)
   end
 
   M.mark = function (tag)
-    tag = tag or M.route_tag(arr.spread(state.path))
+    tag = tag or M.route_tag(state)
     local sl = val.lua(history.state or {}, true)
     sl.id = sl.id or 0
     sl.mark = sl.mark or {}
@@ -2091,18 +2092,11 @@ return function (opts)
   end
 
   M.route_tag = function (...)
-    if type(...) == "table" then
-      return M.route_tag(arr.spread((...)[1]))
+    local s = M.get_route_spec(...)
+    if #s > 0 then
+      return M.route_tag(s[1])
     end
-    local r = { "." }
-    for i = 1, varg.len(...) do
-      local x = varg.get(i, ...)
-      if type(x) ~= "string" then
-        break
-      end
-      r[i + 1] = x
-    end
-    return arr.concat(r, ".")
+    return M.get_url(s, false), s
   end
 
   M.forward_tag = function (tag, ...)
@@ -2111,7 +2105,7 @@ return function (opts)
     if id and mark and mark < id then
       local diff = id - mark
       state.popdir = "forward"
-      state.popmark = { ... }
+      state.popmark = M.get_route_spec(...)
       history:go(-diff)
     else
       M.replace_forward(...)
@@ -2124,7 +2118,7 @@ return function (opts)
     if id and mark and mark < id then
       local diff = id - mark
       state.popdir = "backward"
-      state.popmark = { ... }
+      state.popmark = M.get_route_spec(...)
       history:go(-diff)
     else
       M.replace_backward(...)
@@ -2132,13 +2126,13 @@ return function (opts)
   end
 
   M.forward_mark = function (...)
-    local tag = M.route_tag(...)
-    return M.forward_tag(tag, ...)
+    local tag, spec = M.route_tag(...)
+    return M.forward_tag(tag, spec)
   end
 
   M.backward_mark = function (...)
-    local tag = M.route_tag(...)
-    return M.backward_tag(tag, ...)
+    local tag, spec = M.route_tag(...)
+    return M.backward_tag(tag, spec)
   end
 
   M.init_view = function (name, page, parent)
@@ -2147,6 +2141,12 @@ return function (opts)
 
     local view = {
       parent = parent,
+      data = M.data,
+      replace = M.replace,
+      encode_param = M.encode_param,
+      decode_param = M.decode_param,
+      get_param = M.get_param,
+      set_param = M.set_param,
       back = M.back,
       forward = M.forward,
       backward = M.backward,
@@ -2305,7 +2305,9 @@ return function (opts)
 
     if view_pane.active_view and pane_page == view_pane.active_view.page then
       if pane_page.update then
-        pane_page.update(view_pane.active_view)
+        util.after_frame(function ()
+          pane_page.update(view_pane.active_view)
+        end)
       end
       return
     end
@@ -2342,7 +2344,9 @@ return function (opts)
 
     if view.active_modal and page == view.active_modal.page then
       if page.update then
-        page.update(view.active_modal)
+        util.after_frame(function ()
+          page.update(view.active_modal)
+        end)
       end
       return
     end
@@ -2371,7 +2375,9 @@ return function (opts)
 
     if view.active_view and page == view.active_view.page then
       if page.update then
-        page.update(view.active_view)
+        util.after_frame(function ()
+          page.update(view.active_view)
+        end)
       end
       return
     end
@@ -2419,27 +2425,38 @@ return function (opts)
     end
   end
 
-  M.assign_persisted = function (path, params)
-    local v = active_view.page
-    local i = 1
-    while v do
-      local params0 = v and v.params
-      if params0 then
-        for j = 1, #params0 do
-          local param = params0[j]
-          params[param] = params[param] or state.params[param]
-        end
+  local function assign_persisted (v, params)
+    local params0 = v and v.params
+    if params0 then
+      for j = 1, #params0 do
+        local param = params0[j]
+        params[param] = params[param] or state.params[param]
       end
-      v = v and path[i] and v.pages and v.pages[path[i]]
-      i = i + 1
     end
   end
 
-  M.fill_defaults = function (path, params)
+  M.assign_persisted = function (path, modal, params)
+    local v = active_view.page
+    local m
+    local i = 1
+    while v do
+      assign_persisted(v, params)
+      v = v and path[i] and v.pages and v.pages[path[i]]
+      if i == 1 then
+        m = v and modal and v.modals and v.modals[modal]
+      end
+      i = i + 1
+    end
+    if m then
+      assign_persisted(m, params)
+    end
+  end
+
+  M.fill_defaults = function (path, modal, params)
     local v = active_view.page
     if #path < 1 then
       M.find_default(v, path, 1)
-      M.assign_persisted(path, params)
+      M.assign_persisted(path, modal, params)
     else
       local last
       for i = 1, #path do
@@ -2447,14 +2464,14 @@ return function (opts)
         v = v.pages and v.pages[path[i]]
         if not v then
           M.find_default(v, path, i)
-          M.assign_persisted(path, params)
+          M.assign_persisted(path, modal, params)
           return
         else
           last = v
         end
       end
       M.find_default(last, path, #path + 1)
-      M.assign_persisted(path, params)
+      M.assign_persisted(path, modal, params)
     end
   end
 
@@ -2477,7 +2494,9 @@ return function (opts)
         end
       else
         if active_view.active_view.page.update then
-          active_view.active_view.page.update(active_view.active_view)
+          util.after_frame(function ()
+            active_view.active_view.page.update(active_view.active_view)
+          end)
         end
         if state.path[2] then
           M.switch(active_view.active_view, state.path[2], dir, init, explicit)
@@ -2658,9 +2677,9 @@ return function (opts)
 
   end
 
-  M.get_url = function (s)
+  M.get_url = function (s, params)
     s = s or state
-    return base_path .. "#" .. util.encode_path(s)
+    return base_path .. "#" .. util.encode_path(s, params)
   end
 
   M.get_modal_spec = function (...)
@@ -2687,7 +2706,7 @@ return function (opts)
       local spec = ...
       spec.path = spec.path or {}
       spec.params = spec.params or {}
-      M.fill_defaults(spec.path, spec.params)
+      M.fill_defaults(spec.path, spec.modal, spec.params)
       return spec
     elseif type(...) == "string" then
       local spec = {}
@@ -2695,7 +2714,7 @@ return function (opts)
       if #args == 0 then
         spec.path = {}
         spec.params = {}
-        M.fill_defaults(spec.path, spec.params)
+        M.fill_defaults(spec.path, spec.modal, spec.params)
         return spec
       else
         if type(args[#args]) == "table" then
@@ -2706,7 +2725,7 @@ return function (opts)
           spec.params = {}
           spec.path = args
         end
-        M.fill_defaults(spec.path, spec.params)
+        M.fill_defaults(spec.path, spec.modal, spec.params)
         return spec
       end
     else
@@ -2789,9 +2808,61 @@ return function (opts)
   end
 
   M.set_default_route = function ()
-    M.fill_defaults(state.path, state.params)
+    M.fill_defaults(state.path, state.modal, state.params)
     M.set_route("replace", state)
     M.mark("initial")
+  end
+
+  M.decode_param = function (v)
+    return json.decode(str.from_base64_url(v))
+  end
+
+  M.encode_param = function (v)
+    return str.to_base64_url(json.encode(v))
+  end
+
+  M.get_param = function (p, decode)
+    local v = state.params[p]
+    if decode then
+      local ok, d = pcall(function ()
+        return M.decode_param(v)
+      end)
+      return ok and d or nil
+    else
+      return v
+    end
+  end
+
+  M.set_param = function (p, v, encode)
+    if v == nil then
+      state.params[p] = nil
+    elseif not encode then
+      state.params[p] = v
+    else
+      state.params[p] = M.encode_param(v)
+    end
+  end
+
+  M.data = function (...)
+    local n = varg.len(...)
+    if n < 1 then
+      return
+    elseif n == 1 then
+      return M.get_param(..., true)
+    else
+      local k, v = ...
+      if v == nil then
+        return M.set_param(k, nil)
+      elseif type(v) ~= "function" then
+        return M.set_param(k, v, true)
+      else
+        return M.set_param(k, v(M.get_param(k, true)), true)
+      end
+    end
+  end
+
+  M.replace = function ()
+    M.set_route("replace", state)
   end
 
   window:addEventListener("popstate", function (_, ev)
@@ -2802,7 +2873,7 @@ return function (opts)
       local p = state.popmark
       state.popmark = nil
       state.popdir = nil
-      M.set_route("replace", arr.spread(p))
+      M.set_route("replace", p)
     else
       M.set_route("replace", state0)
     end

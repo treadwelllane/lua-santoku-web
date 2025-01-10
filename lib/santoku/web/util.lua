@@ -7,13 +7,13 @@ local arr = require("santoku.array")
 local tbl = require("santoku.table")
 local it = require("santoku.iter")
 local fun = require("santoku.functional")
+local json = require("cjson")
 
 local document = js.document
 local Array = js.Array
 local Promise = js.Promise
 local global = js.self or js.global or js.window
 local localStorage = global.localStorage
-local JSON = js.JSON
 local Date = js.Date
 local WebSocket = js.WebSocket
 local AbortController = js.AbortController
@@ -65,9 +65,9 @@ M.response = function (done, ok, resp, ...)
   end
   local ct = result.headers and result.headers["content-type"]
   if ct and str.find(ct, "application/json") then
-    return resp:json():await(function (_, ok0, data, ...)
+    return resp:text():await(function (_, ok0, data, ...)
       if ok0 then
-        result.body = data
+        result.body = json.decode(data)
         return done(ok, result)
       else
         return done(ok0, data, ...)
@@ -87,30 +87,27 @@ M.response = function (done, ok, resp, ...)
   end
 end
 
-M.fetch = function (url, opts, retries, backoffs, retry_until, raw)
+M.fetch = function (url, opts, retries, backoffs, retry_until, raw, done)
   retries = retries or 3
   backoffs = backoffs or 1
-  return M.promise(function (complete)
-    return global:fetch(url, val(opts, true)):await(function (_, ok, resp, ...)
-      if not ok and resp and resp.name == "AbortError" then
-        return
+  return global:fetch(url, val(opts, true)):await(function (_, ok, resp, ...)
+    if not ok and resp and resp.name == "AbortError" then
+      return
+    end
+    if raw then
+      return done(true, resp, ...)
+    end
+    return M.response(function (ok, resp, ...)
+      if ok and resp and resp.ok then
+        return done(true, resp, ...)
+      elseif retries <= 0 or (retry_until and retry_until(resp)) then
+        return done(false, resp, ...)
+      else
+        return global:setTimeout(function ()
+          return M.fetch(url, opts, retries - 1, backoffs, retry_until, raw, done)
+        end, backoffs * 1000)
       end
-      if raw then
-        return complete(true, resp, ...)
-      end
-      return M.response(function (ok, resp, ...)
-        if ok and resp and resp.ok then
-          return complete(true, resp, ...)
-        elseif retries <= 0 or (retry_until and retry_until(resp)) then
-          return complete(false, resp, ...)
-        else
-          return global:setTimeout(function ()
-            return M.fetch(url, opts, retries - 1, backoffs, retry_until, raw)
-              :await(fun.sel(complete, 2))
-          end, backoffs * 1000)
-        end
-      end, ok, resp, ...)
-    end)
+    end, ok, resp, ...)
   end)
 end
 
@@ -207,7 +204,7 @@ M.get = function (...)
     method = "GET",
     headers = req.headers,
     signal = ctrl.signal,
-  }, req.retries, req.backoffs, req.retry_until, req.raw):await(fun.sel(req.done, 2))
+  }, req.retries, req.backoffs, req.retry_until, req.raw, req.done)
   return function ()
     return ctrl:abort()
   end
@@ -221,9 +218,9 @@ M.post = function (...)
   M.fetch(req.url, {
     method = "POST",
     headers = req.headers,
-    body = req.body and JSON:stringify(req.body) or nil,
+    body = req.body and json.encode(req.body) or nil,
     signal = ctrl.signal,
-  }, req.retries, req.backoffs, req.retry_until, req.raw):await(fun.sel(req.done, 2))
+  }, req.retries, req.backoffs, req.retry_until, req.raw, req.done)
   return function ()
     return ctrl:abort()
   end
@@ -690,7 +687,7 @@ M.parse_path = function (url, path, params)
   return result
 end
 
-M.encode_path = function (t)
+M.encode_path = function (t, params)
   local out = {}
   for i = 1, #t.path do
     if type(t.path[i]) == "table" then
@@ -701,7 +698,7 @@ M.encode_path = function (t)
   if t.modal then
     arr.push(out, "$", t.modal)
   end
-  if t.params and next(t.params) then
+  if (params or params == nil) and t.params and next(t.params) then
     M.query_string(t.params, out)
   end
   return arr.concat(out)
