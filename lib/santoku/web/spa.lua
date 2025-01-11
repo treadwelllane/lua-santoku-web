@@ -1739,11 +1739,6 @@ return function (opts)
 
     return function ()
 
-      if view.no_scroll then
-        view.no_scroll = false
-        return
-      end
-
       local curr_scroll_top = e_body.scrollTop
 
       if curr_scroll_top > last_scroll_top then
@@ -1965,6 +1960,11 @@ return function (opts)
   end
 
   M.exit_pane = function (last_view, next_view)
+    if last_view.el.parentElement:getAttribute("tk-scroll-link") then
+      last_view.el.style.marginLeft = -e_body.scrollLeft .. "px"
+      last_view.el.style.marginTop = -e_body.scrollTop .. "px"
+      e_body:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    end
     M.style_main_transition_pane(next_view, "exit", last_view)
     M.after_transition(function ()
       return M.post_exit_pane(last_view)
@@ -1985,7 +1985,6 @@ return function (opts)
 
     last_view.el.style.marginLeft = -e_body.scrollLeft .. "px"
     last_view.el.style.marginTop = -e_body.scrollTop .. "px"
-    active_view.active_view.no_scroll = true
     e_body:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.style_main_header_transition_switch(next_view, "exit", direction, last_view)
@@ -2046,7 +2045,6 @@ return function (opts)
       last_view.e_main.style.marginTop = -e_body.scrollTop .. "px"
     end
 
-    last_view.no_scroll = true
     e_body:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.setup_fabs(last_view, next_view)
@@ -2839,8 +2837,10 @@ return function (opts)
     elseif not encode then
       state.params[p] = v
     else
-      state.params[p] = M.encode_param(v)
+      local v0 = M.encode_param(v)
+      state.params[p] = v0
     end
+    return v
   end
 
   M.data = function (...)
