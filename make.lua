@@ -1,7 +1,7 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.223-1",
+  version = "0.0.224-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,
@@ -12,6 +12,7 @@ local env = {
     "santoku-sqlite >= 0.0.17-1", -- only for sqlite wrapper, move to separate lib
     "santoku-fs >= 0.0.32-1", -- only for strip extensions, remove
     "santoku-fs >= 0.0.32-1", -- only for strip extensions, remove
+    "lua-cjson == 2.1.0.10-1"
   },
 
   -- NOTE: Not using build.wasm and test.wasm for emscripten flags so that the

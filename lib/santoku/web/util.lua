@@ -311,11 +311,14 @@ local function clone_all (items, wait, done, set_timeout)
     return
   end
   if map_data then
-    map_data(data)
+    if map_data(data) == false then
+      done()
+      return
+    end
   end
   local el = M.clone(template, data)
   if map_el then
-    map_el(el, data, function (opts)
+    if map_el(el, data, function (opts)
       items = it.chain(opts.items or it.map(function (data)
         return
           opts.parent,
@@ -325,7 +328,10 @@ local function clone_all (items, wait, done, set_timeout)
           opts.map_data,
           opts.map_el
       end, it.ivals(opts.data)), items)
-    end)
+    end) == false then
+      done()
+      return
+    end
   end
   if before then
     parent:insertBefore(el, before)
