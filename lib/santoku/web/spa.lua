@@ -1,4 +1,5 @@
 local err = require("santoku.error")
+local async = require("santoku.async")
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local str = require("santoku.string")
@@ -18,60 +19,72 @@ return function (opts)
   opts = tbl.merge({}, opts or {}, def.spa or {})
 
   local Array = js.Array
-  local MutationObserver = js.MutationObserver
   local window = js.window
   local history = window.history
   local document = window.document
   local location = window.location
 
-  local e_head = document.head
-  local e_body = document.body
-  local t_ripple = e_head:querySelector("template.tk-ripple")
-  local t_nav_overlay = e_head:querySelector("template.tk-nav-overlay")
-  local t_modal_overlay = e_head:querySelector("template.tk-modal-overlay")
+  local e_container = opts.container or document.body
+
+  local t_ripple = e_container:querySelector("template.tk-ripple")
+  local t_nav_overlay = e_container:querySelector("template.tk-nav-overlay")
+  local t_modal_overlay = e_container:querySelector("template.tk-modal-overlay")
 
   local base_path = location.pathname
-  local state = util.parse_path(str.match(location.hash, "^#(.*)"))
-  local active_view
+  local state = util.parse_path(str.match(location.hash, "^#(.*)"), nil, nil, opts.modal_separator)
+
+  -- TODO: make properties of state
+  local http = util.http_client()
+  local root
   local size, vw, vh
 
   local M = {}
 
-  local handlers = {}
-
-  M.add_listener = function (ev, handler)
-    if not ev or not handler then
-      return
+  http.on("request", function (req)
+    if req.view then
+      req.view.events.on("destroy", req.cancel)
     end
-    handlers[ev] = handlers[ev] or {}
-    handlers[ev][handler] = true
+  end)
+
+  http.on("response", function (_, req)
+    if req.view then
+      req.view.events.off("destroy", req.cancel)
+    end
+  end)
+
+  local function wrap (el)
+    local t = document:createElement("template")
+    local s = document:createElement("section")
+    local m = document:createElement("main")
+    if el then
+      m:append(el)
+    end
+    s:append(m)
+    t.content:append(s)
+    return t
   end
 
-  M.remove_listener = function (ev, handler)
-    if not ev or not handler then
-      return
+  local function maybe_wrap (page)
+    local template
+    if page.tagName == "TEMPLATE" then
+      template = page
+      page = {
+        init = function (view, data)
+          if data then
+            util.populate(view.el, data)
+          end
+        end
+      }
+    else
+      template = page.template
     end
-    local hs = handlers[ev]
-    if not hs then
-      return
+    local sect = template and template.content and template.content.firstElementChild
+    if (not sect) or sect.tagName ~= "SECTION" then
+      page.template = wrap(sect and util.clone(template) or nil)
+      return page
     end
-    hs[handler] = nil
-    if not next(hs) then
-      handlers[ev] = nil
-    end
-  end
-
-  M.emit = function (ev, ...)
-    if not ev then
-      return
-    end
-    local hs = handlers[ev]
-    if not hs then
-      return
-    end
-    for h in pairs(hs) do
-      h(...)
-    end
+    page.template = template
+    return page
   end
 
   M.setup_ripple = function (el)
@@ -93,18 +106,10 @@ return function (opts)
       end)
 
       local e_wave = e_ripple:querySelector(".tk-ripple-wave")
-      local dia = num.min(el.offsetHeight, el.offsetWidth, 100)
-
-      local x = ev.offsetX
-      local y = ev.offsetY
-      local el0 = ev.target
-      while el0 and el0 ~= el do
-        local rchild = el0:getBoundingClientRect()
-        local rparent = el0.parentElement:getBoundingClientRect()
-        x = x + rchild.left - rparent.left
-        y = y + rchild.top - rparent.top
-        el0 = el0.parentNode
-      end
+      local rect = el:getBoundingClientRect()
+      local dia = num.min(num.max(rect.height, rect.width, 100), 400)
+      local x = ev.clientX - rect.left
+      local y = ev.clientY - rect.top
 
       e_wave.style.width = dia .. "px"
       e_wave.style.height = dia .. "px"
@@ -112,126 +117,17 @@ return function (opts)
       e_wave.style.top = (y - dia / 2) .. "px"
 
       el.classList:add("tk-clicked")
-      el:append(e_ripple)
+      el:insertBefore(e_ripple, el.firstElementChild)
 
     end, false)
 
   end
 
-  M.setup_banners = function (view)
-
-    view.e_banners = view.el:querySelectorAll("section > aside")
-    view.banner_observed_classes = {}
-
-    for i = 0, view.e_banners.length - 1 do
-
-      local el = view.e_banners:item(i)
-
-      for c in it.map(str.sub, str.matches(el:getAttribute("tk-hide") or "", "[^%s]+")) do
-        view.banner_observed_classes[c] = true
-      end
-
-      for c in it.map(str.sub, str.matches(el:getAttribute("tk-show") or "", "[^%s]+")) do
-        view.banner_observed_classes[c] = true
-      end
-
-    end
-
-  end
-
-  -- TODO: there must be a better way to do this
-  M.setup_observer = function (view)
-
-    local old_classes = it.reduce(function (a, n)
-      a[n] = true
-      return a
-    end, {}, it.map(str.sub, str.matches(view.el.className, "[^%s]+")))
-
-    view.observer = MutationObserver:new(function (_, mutations)
-
-      return mutations:forEach(function (_, mu)
-
-        local recs = view.observer:takeRecords()
-
-        recs:push(mu)
-
-        if not recs:find(function (_, mu)
-          return mu["type"] == "attributes" and mu.attributeName == "class"
-        end) then
-          return
-        end
-
-        local banners = false
-        local fabs = false
-        local snacks = false
-
-        view.el.classList:forEach(function (_, c)
-          if not old_classes[c] then
-            if view.banner_observed_classes and view.banner_observed_classes[c] then
-              banners = true
-            end
-            if view.fab_observed_classes and view.fab_observed_classes[c] then
-              fabs = true
-            end
-            if view.snack_observed_classes and view.snack_observed_classes[c] then
-              snacks = true
-            end
-          end
-        end)
-
-        for c in it.keys(old_classes) do
-          if not view.el.classList:contains(c) then
-            if view.banner_observed_classes and view.banner_observed_classes[c] then
-              banners = true
-            end
-            if view.fab_observed_classes and view.fab_observed_classes[c] then
-              fabs = true
-            end
-            if view.snack_observed_classes and view.snack_observed_classes[c] then
-              snacks = true
-            end
-          end
-        end
-
-        old_classes = it.reduce(function (a, n)
-          a[n] = true
-          return a
-        end, {}, it.map(str.sub, str.matches(view.el.className or "", "[^%s]+")))
-
-        if banners then
-          M.style_banners(view, true)
-          M.style_header(active_view.active_view, true)
-          M.style_nav(active_view.active_view, true)
-          M.style_fabs(active_view.active_view, true)
-          if active_view.active_view.active_view then
-            M.style_main_header_switch(active_view.active_view.active_view, true)
-            M.style_main_switch(active_view.active_view.active_view, true)
-          else
-            M.style_main(active_view.active_view, true)
-          end
-        end
-
-        if fabs then
-          M.style_fabs(view, true)
-        end
-
-        if snacks then
-          M.style_snacks(view, true)
-        end
-
-      end)
-
-    end)
-
-    view.observer:observe(view.el, {
-      attributes = true,
-      attributeFilter = { "class" }
-    })
-
-  end
-
-  M.setup_dropdowns = function (view, _, el)
+  M.setup_dropdowns = function (view, el)
     el = el or view.el
+    if not el then
+      return
+    end
     view.e_dropdowns = el:querySelectorAll(".tk-dropdown")
     view.e_dropdowns:forEach(function (_, e_dropdown)
       local e_trigger = e_dropdown:querySelector(":scope > button")
@@ -267,7 +163,7 @@ return function (opts)
 
   M.setup_panes = function (view, init, el)
     el = el or view.el
-    if not view.page.panes then
+    if not el or not tbl.get(view, "page", "panes") then
       return
     end
     el:querySelectorAll("[tk-pane]"):forEach(function (_, el0)
@@ -288,12 +184,27 @@ return function (opts)
     return name, push
   end
 
-  -- TODO: does this cause a memory leak?
-  M.setup_header_links = function (view)
-    local e_header_links = active_view.active_view.e_header_links or {}
-    active_view.active_view.e_header_links = e_header_links
-    view.el:querySelectorAll(".tk-header-link"):forEach(function (_, el)
-      arr.push(e_header_links, el)
+  M.destroy_header_links = function (view)
+    while true do
+      local el = next(view.self_header_links)
+      if not el then
+        break
+      end
+      view.self_header_links[el] = nil
+      root.main.header_links[el] = nil
+    end
+  end
+
+  M.setup_header_links = function (view, el)
+    el = el or view.el
+    if not el or not root.main then
+      return
+    end
+    view.self_header_links = {}
+    root.main.header_links = root.main.header_links or {}
+    el:querySelectorAll(".tk-header-link"):forEach(function (_, el)
+      view.self_header_links[el] = true
+      root.main.header_links[el] = true
     end)
   end
 
@@ -365,6 +276,12 @@ return function (opts)
         local name, push = M.get_nav_button_page(el)
         arr.push(view.nav_order, name)
         view.nav_order[name] = #view.nav_order
+        el:addEventListener("mousedown", function ()
+          el.classList:add("tk-transition")
+          window:setTimeout(function ()
+            el.classList:remove("tk-transition")
+          end, tonumber(opts.transition_time) * 4)
+        end)
         el:addEventListener("click", function ()
           if not el.classList:contains("tk-active") then
             if push then
@@ -401,69 +318,14 @@ return function (opts)
 
   end
 
-  M.setup_fabs = function (next_view, last_view)
-
-    next_view.e_fabs = next_view.el:querySelectorAll("section > button")
-
-    next_view.e_fabs_shared = {}
-    next_view.e_fabs_top = {}
-    next_view.e_fabs_bottom = {}
-    next_view.fab_observed_classes = {}
-
-    for i = 0, next_view.e_fabs.length - 1 do
-
-      local el = next_view.e_fabs:item(i)
-
-      for c in it.map(str.sub, str.matches(el:getAttribute("tk-hide") or "", "[^%s]+")) do
-        next_view.fab_observed_classes[c] = true
-      end
-
-      for c in it.map(str.sub, str.matches(el:getAttribute("tk-show") or "", "[^%s]+")) do
-        next_view.fab_observed_classes[c] = true
-      end
-
-      if not el.classList:contains("tk-small") and not el.classList:contains("tk-top") and
-        last_view and last_view.el:querySelectorAll("section > button:not(.tk-small):not(.tk-top)")
-      then
-        arr.push(next_view.e_fabs_shared, el)
-      elseif el.classList:contains("tk-top") then
-        arr.push(next_view.e_fabs_top, el)
-      else
-        arr.push(next_view.e_fabs_bottom, el)
-      end
-
-    end
-
-    arr.reverse(next_view.e_fabs_bottom)
-
-  end
-
-  M.setup_snacks = function (next_view)
-
-    next_view.e_snacks = next_view.el:querySelectorAll("section > aside")
-    next_view.e_snacks = Array:from(next_view.e_snacks):reverse()
-
-    next_view.snack_observed_classes = {}
-
-    next_view.e_snacks:forEach(function (_, el)
-      for c in it.map(str.sub, str.matches(el:getAttribute("tk-hide") or "", "[^%s]+")) do
-        next_view.snack_observed_classes[c] = true
-      end
-      for c in it.map(str.sub, str.matches(el:getAttribute("tk-show") or "", "[^%s]+")) do
-        next_view.snack_observed_classes[c] = true
-      end
-    end)
-
-  end
-
   M.setup_ripples = function (el)
 
     el:querySelectorAll("button:not(.tk-no-ripple)"):forEach(function (_, el)
       if el._ripple then
         return
       end
-      M.setup_ripple(el)
       el._ripple = true
+      M.setup_ripple(el)
     end)
 
     el:querySelectorAll(".tk-ripple"):forEach(function (_, el)
@@ -474,18 +336,23 @@ return function (opts)
       M.setup_ripple(el)
     end)
 
+    if el.classList:contains("tk-ripple") then
+      el._ripple = true
+      M.setup_ripple(el)
+    end
+
   end
 
   M.get_subheader_offset = function (view)
     local offset = M.get_base_header_offset() + (view.header_offset or 0) + (opts.header_height or 0)
-    if view.active_view and view.active_view.e_main_header then
+    if view.main and view.main.e_main_header then
       offset = offset + (opts.header_height or 0)
     end
     return offset
   end
 
   M.get_base_header_offset = function ()
-    return (active_view.banner_offset_total or 0)
+    return (root.banner_offset_total or 0)
   end
 
   M.get_base_footer_offset = function ()
@@ -612,32 +479,28 @@ return function (opts)
 
   M.style_header_links = function (view, animate)
 
-    if not view.e_header_links or #view.e_header_links <= 0 then
+    if not view.header_links or not next(view.header_links) then
       return
     end
 
     if animate then
-      for i = 1, #view.e_header_links do
-        local el = view.e_header_links[i]
+      for el in pairs(view.header_links) do
         el.classList:add("tk-animated")
       end
-      if view.e_header_link_animation then
-        window:clearTimeout(view.e_header_link_animation)
-        view.e_header_link_animation = nil
+      if view.header_link_animation then
+        window:clearTimeout(view.header_link_animation)
+        view.header_link_animation = nil
       end
-      view.e_header_link_animation = M.after_transition(function ()
-        for i = 1, #view.e_header_links do
-          local el = view.e_header_links[i]
+      view.header_link_animation = M.after_transition(function ()
+        for el in pairs(view.header_links) do
           el.classList:remove("tk-animated")
         end
-        view.e_header_link_animation = nil
+        view.header_link_animation = nil
       end)
     end
 
-    for i = 1, #view.e_header_links do
-      local el = view.e_header_links[i]
-      el.style.transform =
-        "translateY(" .. view.header_offset .. "px)"
+    for el in pairs(view.header_links) do
+      el.style.transform = "translateY(" .. view.header_offset .. "px)"
     end
 
   end
@@ -756,224 +619,331 @@ return function (opts)
 
   end
 
-  M.style_fabs = function (view, animate)
+  -- M.style_fabs = function (view, animate)
 
-    if not view.e_fabs or view.e_fabs.length <= 0 then
-      return
+  --   if not view.e_fabs or view.e_fabs.length <= 0 then
+  --     return
+  --   end
+
+  --   if animate then
+  --     view.e_fabs:forEach(function (_, e_fab)
+  --       e_fab.classList:add("tk-animated")
+  --     end)
+  --     if view.fabs_animation then
+  --       window:clearTimeout(view.fabs_animation)
+  --       view.fabs_animation = nil
+  --     end
+  --     view.fabs_animation = M.after_transition(function ()
+  --       view.e_fabs:forEach(function (_, e_fab)
+  --         e_fab.classList:remove("tk-animated")
+  --       end)
+  --       view.fabs_animation = nil
+  --     end)
+  --   end
+
+  --   local subheader_offset = M.get_subheader_offset(view)
+
+  --   local bottom_offset_total = opts.padding
+  --   local top_offset_total = opts.padding
+
+  --   arr.each(view.e_fabs_shared, function (el)
+
+  --     local offset = -view.fab_shared_offset
+
+  --     el.style["z-index"] = view.fab_shared_index
+
+  --     if not M.should_show(view, el) then
+  --       el.style.opacity = 0
+  --       el.style["box-shadow"] = view.fab_shared_shadow
+  --       el.style["pointer-events"] = "none"
+  --       el.style.transform =
+  --         "scale(" .. opts.fab_scale .. ") " ..
+  --         "translateY(" .. offset .. "px)"
+  --       return
+  --     end
+
+  --     local e_svg = el:querySelector("svg")
+
+  --     el.style["z-index"] = view.fab_shared_index
+  --     el.style.opacity = view.fab_shared_opacity
+  --     el.style["pointer-events"] = "all"
+  --     el.style["box-shadow"] = view.fab_shared_shadow
+
+  --     el.style.transform =
+  --       "scale(" .. view.fab_shared_scale .. ") " ..
+  --       "translateY(" .. offset .. "px)"
+
+  --     e_svg.style.transform =
+  --       "translateY(" .. view.fab_shared_svg_offset .. "px)"
+
+  --     bottom_offset_total = bottom_offset_total +
+  --       (el.classList:contains("tk-small") and
+  --         opts.fab_width_small or
+  --         opts.fab_width_large) + opts.padding
+
+  --   end)
+
+  --   local bottom_cutoff = subheader_offset + opts.padding
+  --   local last_bottom_top = 0
+
+  --   arr.each(view.e_fabs_bottom, function (el)
+
+  --     local offset = view.fabs_bottom_offset - bottom_offset_total
+
+  --     local height = el.classList:contains("tk-small") and
+  --       opts.fab_width_small or
+  --       opts.fab_width_large
+
+  --     el.style["z-index"] = view.fabs_bottom_index
+
+  --     last_bottom_top = (e_container.clientHeight + offset - height - opts.padding)
+
+  --     if last_bottom_top <= bottom_cutoff or not M.should_show(view, el)
+  --     then
+  --       el.style.opacity = 0
+  --       el.style["pointer-events"] = "none"
+  --       el.style.transform =
+  --         "scale(" .. opts.fab_scale .. ") " ..
+  --         "translateY(" .. offset .. "px)"
+  --       return
+  --     end
+
+  --     el.style["pointer-events"] = "all"
+  --     el.style.opacity = view.fabs_bottom_opacity
+  --     el.style.transform =
+  --       "scale(" .. view.fabs_bottom_scale .. ") " ..
+  --       "translateY(" .. offset .. "px)"
+
+  --     bottom_offset_total = bottom_offset_total + height + opts.padding
+
+  --   end)
+
+  --   arr.each(view.e_fabs_top, function (el)
+
+  --     local offset = subheader_offset + view.fabs_top_offset + top_offset_total
+
+  --     local height = el.classList:contains("tk-small") and
+  --       opts.fab_width_small or
+  --       opts.fab_width_large
+
+  --     el.style["z-index"] = view.fabs_top_index
+
+  --     if (offset + height) >= last_bottom_top or not M.should_show(view, el)
+  --     then
+  --       el.style.opacity = 0
+  --       el.style["pointer-events"] = "none"
+  --       el.style.transform =
+  --         "scale(" .. opts.fab_scale .. ") " ..
+  --         "translateY(" .. offset .. "px)"
+  --       return
+  --     end
+
+  --     el.style["pointer-events"] = "all"
+  --     el.style.opacity = view.fabs_top_opacity or 0
+  --     el.style.transform =
+  --       "scale(" .. (view.fabs_top_scale or 1) .. ") " ..
+  --       "translateY(" .. offset .. "px)"
+
+  --     top_offset_total = top_offset_total + height + opts.padding
+
+  --   end)
+
+  -- end
+
+  M.setup_banners = function (view)
+    view.banner_add = {}
+    view.banner_remove = {}
+    view.banner_list = {}
+    view.banner_list_index = {}
+  end
+
+  M.setup_snacks = function (view)
+    view.snack_add = {}
+    view.snack_remove = {}
+    view.snack_list = {}
+    view.snack_list_index = {}
+  end
+
+  M.banner = function (view, name, page, data)
+    local banner
+    if page == nil then
+      if name then
+        root.banner_remove[name] = true
+        tbl.set(view, "active_banners", name, nil)
+      else
+        for i = 1, #root.main.banner_list do
+          root.main.banner_remove[root.main.banner_list[i].name] = true
+          tbl.set(view, "active_banners", root.main.banner_list[i].name, nil)
+        end
+      end
+    else
+      page = maybe_wrap(page)
+      banner = M.init_view(name, page, root)
+      arr.push(root.banner_add, { banner = banner, data = data })
+      tbl.set(view, "active_banners", name, true)
     end
-
-    if animate then
-      view.e_fabs:forEach(function (_, e_fab)
-        e_fab.classList:add("tk-animated")
-      end)
-      if view.fabs_animation then
-        window:clearTimeout(view.fabs_animation)
-        view.fabs_animation = nil
-      end
-      view.fabs_animation = M.after_transition(function ()
-        view.e_fabs:forEach(function (_, e_fab)
-          e_fab.classList:remove("tk-animated")
-        end)
-        view.fabs_animation = nil
-      end)
+    M.style_banners(root, true)
+    M.style_header(root.main, true)
+    M.style_nav(root.main, true)
+    -- M.style_fabs(view, true)
+    M.style_header_links(root.main, true)
+    if root.main.main then
+      M.style_main_header_switch(root.main.main, true)
+      M.style_main_switch(root.main.main, true)
     end
+    if banner and banner.el then
+      return banner
+    end
+  end
 
-    local subheader_offset = M.get_subheader_offset(view)
-
-    local bottom_offset_total = opts.padding
-    local top_offset_total = opts.padding
-
-    arr.each(view.e_fabs_shared, function (el)
-
-      local offset = -view.fab_shared_offset
-
-      el.style["z-index"] = view.fab_shared_index
-
-      if not M.should_show(view, el) then
-        el.style.opacity = 0
-        el.style["box-shadow"] = view.fab_shared_shadow
-        el.style["pointer-events"] = "none"
-        el.style.transform =
-          "scale(" .. opts.fab_scale .. ") " ..
-          "translateY(" .. offset .. "px)"
-        return
+  M.snack = function (view, name, page, data)
+    local snack
+    if page == nil then
+      if name then
+        root.main.snack_remove[name] = true
+        tbl.set(view, "active_snacks", name, nil)
+      else
+        for i = 1, #root.main.snack_list do
+          root.main.snack_remove[root.main.snack_list[i].name] = true
+          tbl.set(view, "active_snacks", root.main.snack_list[i].name, nil)
+        end
       end
-
-      local e_svg = el:querySelector("svg")
-
-      el.style["z-index"] = view.fab_shared_index
-      el.style.opacity = view.fab_shared_opacity
-      el.style["pointer-events"] = "all"
-      el.style["box-shadow"] = view.fab_shared_shadow
-
-      el.style.transform =
-        "scale(" .. view.fab_shared_scale .. ") " ..
-        "translateY(" .. offset .. "px)"
-
-      e_svg.style.transform =
-        "translateY(" .. view.fab_shared_svg_offset .. "px)"
-
-      bottom_offset_total = bottom_offset_total +
-        (el.classList:contains("tk-small") and
-          opts.fab_width_small or
-          opts.fab_width_large) + opts.padding
-
-    end)
-
-    local bottom_cutoff = subheader_offset + opts.padding
-    local last_bottom_top = 0
-
-    arr.each(view.e_fabs_bottom, function (el)
-
-      local offset = view.fabs_bottom_offset - bottom_offset_total
-
-      local height = el.classList:contains("tk-small") and
-        opts.fab_width_small or
-        opts.fab_width_large
-
-      el.style["z-index"] = view.fabs_bottom_index
-
-      last_bottom_top = (e_body.clientHeight + offset - height - opts.padding)
-
-      if last_bottom_top <= bottom_cutoff or not M.should_show(view, el)
-      then
-        el.style.opacity = 0
-        el.style["pointer-events"] = "none"
-        el.style.transform =
-          "scale(" .. opts.fab_scale .. ") " ..
-          "translateY(" .. offset .. "px)"
-        return
-      end
-
-      el.style["pointer-events"] = "all"
-      el.style.opacity = view.fabs_bottom_opacity
-      el.style.transform =
-        "scale(" .. view.fabs_bottom_scale .. ") " ..
-        "translateY(" .. offset .. "px)"
-
-      bottom_offset_total = bottom_offset_total + height + opts.padding
-
-    end)
-
-    arr.each(view.e_fabs_top, function (el)
-
-      local offset = subheader_offset + view.fabs_top_offset + top_offset_total
-
-      local height = el.classList:contains("tk-small") and
-        opts.fab_width_small or
-        opts.fab_width_large
-
-      el.style["z-index"] = view.fabs_top_index
-
-      if (offset + height) >= last_bottom_top or not M.should_show(view, el)
-      then
-        el.style.opacity = 0
-        el.style["pointer-events"] = "none"
-        el.style.transform =
-          "scale(" .. opts.fab_scale .. ") " ..
-          "translateY(" .. offset .. "px)"
-        return
-      end
-
-      el.style["pointer-events"] = "all"
-      el.style.opacity = view.fabs_top_opacity or 0
-      el.style.transform =
-        "scale(" .. (view.fabs_top_scale or 1) .. ") " ..
-        "translateY(" .. offset .. "px)"
-
-      top_offset_total = top_offset_total + height + opts.padding
-
-    end)
-
+    else
+      page = maybe_wrap(page)
+      snack = M.init_view(name, page, root.main)
+      arr.push(root.main.snack_add, { snack = snack, data = data })
+      tbl.set(view, "active_snacks", name, true)
+    end
+    M.style_snacks(root.main, true)
+    if snack and snack.el then
+      return snack
+    end
   end
 
   M.style_snacks = function (view, animate)
 
-    if view.e_snacks.length <= 0 then
-      return
+    for i = 1, #view.snack_add do
+      M.enter_snack(view, view.snack_add[i].snack, view.snack_add[i].data)
     end
 
+    arr.clear(view.snack_add)
+
     if animate then
-      view.e_snacks:forEach(function (_, e_snack)
-        e_snack.classList:add("tk-animated")
-      end)
+      for i = 1, #view.snack_list do
+        local snack = view.snack_list[i]
+        snack.el.classList:add("tk-animated")
+      end
       if view.snack_animation then
         window:clearTimeout(view.snack_animation)
         view.snack_animation = nil
       end
       view.snack_animation = M.after_transition(function ()
-        view.e_snacks:forEach(function (_, e_snack)
-          e_snack.classList:remove("tk-animated")
-        end)
+        for i = 1, #view.snack_list do
+          local snack = view.snack_list[i]
+          snack.el.classList:remove("tk-animated")
+        end
         view.snack_animation = nil
       end)
     end
 
-    local bottom_cutoff = M.get_subheader_offset(view) + opts.padding
     local bottom_offset_total = opts.padding
 
     local nav_push = (view.e_nav and (size == "lg" or size == "md"))
       and opts.nav_width or 0
 
-    view.e_snacks:forEach(function (_, e_snack)
-
-      e_snack.style["z-index"] = view.snack_index
-
+    for i = 1, #view.snack_list do
+      local snack = view.snack_list[i]
+      local e_snack = snack.el
+      if root.main.active_modal then
+        e_snack.style["z-index"] = view.snack_index - opts.snack_index + opts.modal_overlay_index + 1
+      else
+        e_snack.style["z-index"] = view.snack_index
+      end
       local offset = view.snack_offset - bottom_offset_total
       local height = e_snack:getBoundingClientRect().height
-      local snack_top = e_body.clientHeight + offset - height - opts.padding
-
-      if snack_top <= bottom_cutoff or not M.should_show(view, e_snack)
-      then
-        e_snack.style.opacity = 0
-        e_snack.style["pointer-events"] = "none"
-        e_snack.style.transform =
-          "translate(" .. nav_push .. "px," .. offset .. "px)"
+      if view.snack_remove[snack.name] then
+        if view.snack_list_index[snack.name] then
+          snack.el.style.opacity = 0
+          snack.el.style["pointer-events"] = "none"
+          snack.el.style.transform = "translate(" .. nav_push .. "px," .. offset .. "px)"
+          M.exit_snack(view, snack)
+        else
+          view.snack_remove[snack.name] = nil
+        end
       else
-        e_snack.style.opacity = view.snack_opacity
-        e_snack.style["pointer-events"] = (view.snack_opacity or 0) == 0 and "none" or "all"
-        e_snack.style.transform =
-          "translate(" .. nav_push .. "px," .. offset .. "px)"
-        bottom_offset_total = bottom_offset_total +
-            height + opts.padding
+        if snack.should_update then
+          snack.events.emit("update")
+        end
+        snack.should_update = true
+        snack.el.style.opacity = view.snack_opacity
+        snack.el.style["pointer-events"] = (view.snack_opacity or 0) == 0 and "none" or "all"
+        snack.el.style.transform = "translate(" .. nav_push .. "px," .. offset .. "px)"
+        bottom_offset_total = bottom_offset_total + height + opts.padding
       end
+    end
 
-    end)
+    tbl.clear(view.snack_remove)
 
   end
 
   M.style_banners = function (view, animate)
-    if view.e_banners.length <= 0 then
-      return
+
+    for i = 1, #view.banner_add do
+      M.enter_banner(view, view.banner_add[i].banner, view.banner_add[i].data)
     end
+
+    arr.clear(view.banner_add)
+
     if animate then
-      view.e_banners:forEach(function (_, e_banner)
-        e_banner.classList:add("tk-animated")
-      end)
+      for i = 1, #view.banner_list do
+        local banner = view.banner_list[i]
+        banner.el.classList:add("tk-animated")
+      end
       if view.banner_animation then
         window:clearTimeout(view.banner_animation)
         view.banner_animation = nil
       end
       view.banner_animation = M.after_transition(function ()
-        view.e_banners:forEach(function (_, e_banner)
-          e_banner.classList:remove("tk-animated")
-        end)
+        for i = 1, #view.banner_list do
+          local banner = view.banner_list[i]
+          banner.el.classList:remove("tk-animated")
+        end
         view.banner_animation = nil
       end)
     end
+
     view.banner_offset_total = 0
-    local shown_index = opts.banner_index + view.e_banners.length
-    view.e_banners:forEach(function (_, e_banner)
-      if not M.should_show(view, e_banner) then
-        e_banner.style["z-index"] = shown_index
-        e_banner.style.transform = "translateY(" .. view.banner_offset_total .. "px)"
+
+    local shown_index = opts.banner_index + #view.banner_list
+
+    for i = 1, #view.banner_list do
+      local banner = view.banner_list[i]
+      if view.banner_remove[banner.name] then
+        if view.banner_list_index[banner.name] then
+          local transform = "translateY(" .. view.banner_offset_total .. "px)"
+          view.after_frame(function ()
+            banner.el.style["z-index"] = shown_index
+            banner.el_banner.style.transform = transform
+          end)
+          M.exit_banner(view, banner)
+        else
+          view.banner_remove[banner.name] = nil
+        end
       else
+        if banner.should_update then
+          banner.events.emit("update")
+        end
+        banner.should_update = true
         view.banner_offset_total = view.banner_offset_total + opts.banner_height
-        e_banner.style["z-index"] = shown_index
-        e_banner.style.transform = "translateY(" .. view.banner_offset_total .. "px)"
+        local transform = "translateY(" .. view.banner_offset_total .. "px)"
+        view.after_frame(function ()
+          banner.el.style["z-index"] = shown_index
+          banner.el.style.transform = transform
+        end)
       end
       shown_index = shown_index - 1
-    end)
+    end
+
   end
 
   M.style_nav_transition = function (next_view, transition, direction, last_view)
@@ -1153,7 +1123,7 @@ return function (opts)
 
     if init and direction == "forward" then
 
-      next_view.overlay_opacity = 0.5
+      next_view.overlay_opacity = 1
       next_view.main_scale = 1
       next_view.main_opacity = 1
       next_view.main_offset_x = 0
@@ -1174,7 +1144,7 @@ return function (opts)
         next_view.main_offset_x = opts.transition_forward_height * next_view.main_offset_x / td
         next_view.main_offset_y = opts.transition_forward_height * next_view.main_offset_y / td
       elseif last_view then
-        next_view.overlay_opacity = 0.5
+        next_view.overlay_opacity = 1
         next_view.main_offset_x = opts.transition_forward_height
         next_view.main_offset_y = 0
       else
@@ -1186,7 +1156,7 @@ return function (opts)
       M.style_modal(next_view)
 
       util.after_frame(function ()
-        next_view.overlay_opacity = 0.5
+        next_view.overlay_opacity = 1
         next_view.main_scale = 1
         next_view.main_opacity = 1
         next_view.main_offset_x = 0
@@ -1220,7 +1190,7 @@ return function (opts)
       next_view.main_scale = opts.modal_scale
       next_view.main_opacity = 0
       if last_view then
-        next_view.overlay_opacity = 0.5
+        next_view.overlay_opacity = 1
         next_view.main_offset_x = -opts.transition_forward_height
         next_view.main_offset_y = 0
       else
@@ -1232,7 +1202,7 @@ return function (opts)
       M.style_modal(next_view)
 
       util.after_frame(function ()
-        next_view.overlay_opacity = 0.5
+        next_view.overlay_opacity = 1
         next_view.main_scale = 1
         next_view.main_opacity = 1
         next_view.main_offset_x = 0
@@ -1406,251 +1376,251 @@ return function (opts)
 
   end
 
-  M.style_fabs_transition = function (next_view, transition, direction, last_view)
+  -- M.style_fabs_transition = function (next_view, transition, direction, last_view)
 
-    local is_shared =
-      (next_view and next_view.e_fabs and next_view.e_fabs.length > 0) and
-      (last_view and last_view.e_fabs and last_view.e_fabs.length > 0)
+  --   local is_shared =
+  --     (next_view and next_view.e_fabs and next_view.e_fabs.length > 0) and
+  --     (last_view and last_view.e_fabs and last_view.e_fabs.length > 0)
 
-    if not last_view and transition == "enter" then
+  --   if not last_view and transition == "enter" then
 
-      next_view.fab_shared_index = opts.fab_index + 1
-      next_view.fab_shared_scale = 1
-      next_view.fab_shared_opacity = 1
-      next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = opts.padding
-      next_view.fab_shared_svg_offset = 0
+  --     next_view.fab_shared_index = opts.fab_index + 1
+  --     next_view.fab_shared_scale = 1
+  --     next_view.fab_shared_opacity = 1
+  --     next_view.fab_shared_shadow = opts.fab_shadow
+  --     next_view.fab_shared_offset = opts.padding
+  --     next_view.fab_shared_svg_offset = 0
 
-      next_view.fabs_bottom_index = opts.fab_index - 1
-      next_view.fabs_bottom_scale = 1
-      next_view.fabs_bottom_opacity = 1
-      next_view.fabs_bottom_offset = 0
+  --     next_view.fabs_bottom_index = opts.fab_index - 1
+  --     next_view.fabs_bottom_scale = 1
+  --     next_view.fabs_bottom_opacity = 1
+  --     next_view.fabs_bottom_offset = 0
 
-      next_view.fabs_top_index = opts.fab_index - 1
-      next_view.fabs_top_scale = 1
-      next_view.fabs_top_opacity = 1
-      next_view.fabs_top_offset = 0
+  --     next_view.fabs_top_index = opts.fab_index - 1
+  --     next_view.fabs_top_scale = 1
+  --     next_view.fabs_top_opacity = 1
+  --     next_view.fabs_top_offset = 0
 
-      M.style_fabs(next_view)
+  --     M.style_fabs(next_view)
 
-    elseif is_shared and transition == "enter" and direction == "forward" then
+  --   elseif is_shared and transition == "enter" and direction == "forward" then
 
-      next_view.fab_shared_index = opts.fab_index + 1
-      next_view.fab_shared_scale = 1
-      next_view.fab_shared_opacity = 0
-      next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = opts.padding
-      next_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
+  --     next_view.fab_shared_index = opts.fab_index + 1
+  --     next_view.fab_shared_scale = 1
+  --     next_view.fab_shared_opacity = 0
+  --     next_view.fab_shared_shadow = opts.fab_shadow
+  --     next_view.fab_shared_offset = opts.padding
+  --     next_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
 
-      next_view.fabs_bottom_index = opts.fab_index - 1
-      next_view.fabs_bottom_scale = opts.fab_scale
-      next_view.fabs_bottom_opacity = 0
-      next_view.fabs_bottom_offset = opts.transition_forward_height
+  --     next_view.fabs_bottom_index = opts.fab_index - 1
+  --     next_view.fabs_bottom_scale = opts.fab_scale
+  --     next_view.fabs_bottom_opacity = 0
+  --     next_view.fabs_bottom_offset = opts.transition_forward_height
 
-      next_view.fabs_top_index = opts.fab_index - 1
-      next_view.fabs_top_scale = 1
-      next_view.fabs_top_opacity = 0
-      next_view.fabs_top_offset = opts.transition_forward_height
+  --     next_view.fabs_top_index = opts.fab_index - 1
+  --     next_view.fabs_top_scale = 1
+  --     next_view.fabs_top_opacity = 0
+  --     next_view.fabs_top_offset = opts.transition_forward_height
 
-      M.style_fabs(next_view)
+  --     M.style_fabs(next_view)
 
-      util.after_frame(function ()
-        next_view.fab_shared_svg_offset = 0
-        next_view.fab_shared_opacity = 1
-        next_view.fabs_bottom_scale = 1
-        next_view.fabs_bottom_opacity = 1
-        next_view.fabs_bottom_offset = 0
-        next_view.fabs_top_scale = 1
-        next_view.fabs_top_opacity = 1
-        next_view.fabs_top_offset = 0
-        M.style_fabs(next_view, true)
-      end)
+  --     util.after_frame(function ()
+  --       next_view.fab_shared_svg_offset = 0
+  --       next_view.fab_shared_opacity = 1
+  --       next_view.fabs_bottom_scale = 1
+  --       next_view.fabs_bottom_opacity = 1
+  --       next_view.fabs_bottom_offset = 0
+  --       next_view.fabs_top_scale = 1
+  --       next_view.fabs_top_opacity = 1
+  --       next_view.fabs_top_offset = 0
+  --       M.style_fabs(next_view, true)
+  --     end)
 
-    elseif is_shared and transition == "exit" and direction == "forward" then
+  --   elseif is_shared and transition == "exit" and direction == "forward" then
 
-      last_view.fab_shared_index = opts.fab_index + 1
-      last_view.fab_shared_scale = 1
-      last_view.fab_shared_opacity = 1
-      last_view.fab_shared_shadow = opts.fab_shadow_transparent
-      last_view.fab_shared_offset = opts.padding
-      last_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
+  --     last_view.fab_shared_index = opts.fab_index + 1
+  --     last_view.fab_shared_scale = 1
+  --     last_view.fab_shared_opacity = 1
+  --     last_view.fab_shared_shadow = opts.fab_shadow_transparent
+  --     last_view.fab_shared_offset = opts.padding
+  --     last_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
 
-      last_view.fabs_bottom_index = opts.fab_index - 2
-      last_view.fabs_bottom_scale = 1
-      last_view.fabs_bottom_opacity = 0
-      last_view.fabs_bottom_offset = 0
+  --     last_view.fabs_bottom_index = opts.fab_index - 2
+  --     last_view.fabs_bottom_scale = 1
+  --     last_view.fabs_bottom_opacity = 0
+  --     last_view.fabs_bottom_offset = 0
 
-      last_view.fabs_top_index = opts.fab_index - 2
-      last_view.fabs_top_scale = 1
-      last_view.fabs_top_opacity = 0
-      last_view.fabs_top_offset = 0
+  --     last_view.fabs_top_index = opts.fab_index - 2
+  --     last_view.fabs_top_scale = 1
+  --     last_view.fabs_top_opacity = 0
+  --     last_view.fabs_top_offset = 0
 
-      M.style_fabs(last_view, true)
+  --     M.style_fabs(last_view, true)
 
-    elseif is_shared and transition == "enter" and direction == "backward" then
+  --   elseif is_shared and transition == "enter" and direction == "backward" then
 
-      next_view.fab_shared_index = opts.fab_index + 1
-      next_view.fab_shared_scale = 1
-      next_view.fab_shared_opacity = 0
-      next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = opts.padding
-      next_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
+  --     next_view.fab_shared_index = opts.fab_index + 1
+  --     next_view.fab_shared_scale = 1
+  --     next_view.fab_shared_opacity = 0
+  --     next_view.fab_shared_shadow = opts.fab_shadow
+  --     next_view.fab_shared_offset = opts.padding
+  --     next_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
 
-      next_view.fabs_bottom_index = opts.fab_index - 2
-      next_view.fabs_bottom_scale = opts.fab_scale
-      next_view.fabs_bottom_opacity = 0
-      next_view.fabs_bottom_offset = 0
+  --     next_view.fabs_bottom_index = opts.fab_index - 2
+  --     next_view.fabs_bottom_scale = opts.fab_scale
+  --     next_view.fabs_bottom_opacity = 0
+  --     next_view.fabs_bottom_offset = 0
 
-      next_view.fabs_top_index = opts.fab_index - 2
-      next_view.fabs_top_scale = 1
-      next_view.fabs_top_opacity = 0
-      next_view.fabs_top_offset = 0
+  --     next_view.fabs_top_index = opts.fab_index - 2
+  --     next_view.fabs_top_scale = 1
+  --     next_view.fabs_top_opacity = 0
+  --     next_view.fabs_top_offset = 0
 
-      M.style_fabs(next_view)
+  --     M.style_fabs(next_view)
 
-      util.after_frame(function ()
-        next_view.fab_shared_svg_offset = 0
-        next_view.fab_shared_opacity = 1
-        next_view.fabs_bottom_scale = 1
-        next_view.fabs_bottom_opacity = 1
-        next_view.fabs_top_scale = 1
-        next_view.fabs_top_opacity = 1
-        M.style_fabs(next_view, true)
-      end)
+  --     util.after_frame(function ()
+  --       next_view.fab_shared_svg_offset = 0
+  --       next_view.fab_shared_opacity = 1
+  --       next_view.fabs_bottom_scale = 1
+  --       next_view.fabs_bottom_opacity = 1
+  --       next_view.fabs_top_scale = 1
+  --       next_view.fabs_top_opacity = 1
+  --       M.style_fabs(next_view, true)
+  --     end)
 
-    elseif is_shared and transition == "exit" and direction == "backward" then
+  --   elseif is_shared and transition == "exit" and direction == "backward" then
 
-      last_view.fab_shared_index = opts.fab_index + 1
-      last_view.fab_shared_scale = 1
-      last_view.fab_shared_opacity = 1
-      last_view.fab_shared_shadow = opts.fab_shadow_transparent
-      last_view.fab_shared_offset = opts.padding
-      last_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
+  --     last_view.fab_shared_index = opts.fab_index + 1
+  --     last_view.fab_shared_scale = 1
+  --     last_view.fab_shared_opacity = 1
+  --     last_view.fab_shared_shadow = opts.fab_shadow_transparent
+  --     last_view.fab_shared_offset = opts.padding
+  --     last_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
 
-      last_view.fabs_bottom_index = opts.fab_index - 1
-      last_view.fabs_bottom_scale = opts.fab_scale
-      last_view.fabs_bottom_opacity = 0
-      last_view.fabs_bottom_offset = opts.transition_forward_height
+  --     last_view.fabs_bottom_index = opts.fab_index - 1
+  --     last_view.fabs_bottom_scale = opts.fab_scale
+  --     last_view.fabs_bottom_opacity = 0
+  --     last_view.fabs_bottom_offset = opts.transition_forward_height
 
-      last_view.fabs_top_index = opts.fab_index + 2
-      last_view.fabs_top_scale = 1
-      last_view.fabs_top_opacity = 0
-      last_view.fabs_top_offset = opts.transition_forward_height
+  --     last_view.fabs_top_index = opts.fab_index + 2
+  --     last_view.fabs_top_scale = 1
+  --     last_view.fabs_top_opacity = 0
+  --     last_view.fabs_top_offset = opts.transition_forward_height
 
-      M.style_fabs(last_view, true)
+  --     M.style_fabs(last_view, true)
 
-    elseif transition == "enter" and direction == "forward" then
+  --   elseif transition == "enter" and direction == "forward" then
 
-      next_view.fab_shared_index = opts.fab_index - 1
-      next_view.fab_shared_scale = opts.fab_scale
-      next_view.fab_shared_opacity = 0
-      next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = opts.padding + opts.transition_forward_height
-      next_view.fab_shared_svg_offset = 0
+  --     next_view.fab_shared_index = opts.fab_index - 1
+  --     next_view.fab_shared_scale = opts.fab_scale
+  --     next_view.fab_shared_opacity = 0
+  --     next_view.fab_shared_shadow = opts.fab_shadow
+  --     next_view.fab_shared_offset = opts.padding + opts.transition_forward_height
+  --     next_view.fab_shared_svg_offset = 0
 
-      next_view.fabs_bottom_index = opts.fab_index - 1
-      next_view.fabs_bottom_scale = opts.fab_scale
-      next_view.fabs_bottom_opacity = 0
-      next_view.fabs_bottom_offset = opts.transition_forward_height
+  --     next_view.fabs_bottom_index = opts.fab_index - 1
+  --     next_view.fabs_bottom_scale = opts.fab_scale
+  --     next_view.fabs_bottom_opacity = 0
+  --     next_view.fabs_bottom_offset = opts.transition_forward_height
 
-      next_view.fabs_top_index = opts.fab_index - 1
-      next_view.fabs_top_scale = 1
-      next_view.fabs_top_opacity = 0
-      next_view.fabs_top_offset = opts.transition_forward_height
+  --     next_view.fabs_top_index = opts.fab_index - 1
+  --     next_view.fabs_top_scale = 1
+  --     next_view.fabs_top_opacity = 0
+  --     next_view.fabs_top_offset = opts.transition_forward_height
 
-      M.style_fabs(next_view)
+  --     M.style_fabs(next_view)
 
-      util.after_frame(function ()
-        next_view.fab_shared_scale = 1
-        next_view.fab_shared_opacity = 1
-        next_view.fab_shared_offset = opts.padding
-        next_view.fabs_bottom_scale = 1
-        next_view.fabs_bottom_opacity = 1
-        next_view.fabs_bottom_offset = 0
-        next_view.fabs_top_scale = 1
-        next_view.fabs_top_opacity = 1
-        next_view.fabs_top_offset = 0
-        M.style_fabs(next_view, true)
-      end)
+  --     util.after_frame(function ()
+  --       next_view.fab_shared_scale = 1
+  --       next_view.fab_shared_opacity = 1
+  --       next_view.fab_shared_offset = opts.padding
+  --       next_view.fabs_bottom_scale = 1
+  --       next_view.fabs_bottom_opacity = 1
+  --       next_view.fabs_bottom_offset = 0
+  --       next_view.fabs_top_scale = 1
+  --       next_view.fabs_top_opacity = 1
+  --       next_view.fabs_top_offset = 0
+  --       M.style_fabs(next_view, true)
+  --     end)
 
-    elseif transition == "enter" and direction == "backward" then
+  --   elseif transition == "enter" and direction == "backward" then
 
-      next_view.fab_shared_index = opts.fab_index - 2
-      next_view.fab_shared_scale = 1
-      next_view.fab_shared_opacity = 0
-      next_view.fab_shared_shadow = opts.fab_shadow
-      next_view.fab_shared_offset = opts.padding
-      next_view.fab_shared_svg_offset = 0
+  --     next_view.fab_shared_index = opts.fab_index - 2
+  --     next_view.fab_shared_scale = 1
+  --     next_view.fab_shared_opacity = 0
+  --     next_view.fab_shared_shadow = opts.fab_shadow
+  --     next_view.fab_shared_offset = opts.padding
+  --     next_view.fab_shared_svg_offset = 0
 
-      next_view.fabs_bottom_index = opts.fab_index - 2
-      next_view.fabs_bottom_scale = 1
-      next_view.fabs_bottom_opacity = 0
-      next_view.fabs_bottom_offset = 0
+  --     next_view.fabs_bottom_index = opts.fab_index - 2
+  --     next_view.fabs_bottom_scale = 1
+  --     next_view.fabs_bottom_opacity = 0
+  --     next_view.fabs_bottom_offset = 0
 
-      next_view.fabs_top_index = opts.fab_index - 2
-      next_view.fabs_top_scale = 1
-      next_view.fabs_top_opacity = 0
-      next_view.fabs_top_offset = 0
+  --     next_view.fabs_top_index = opts.fab_index - 2
+  --     next_view.fabs_top_scale = 1
+  --     next_view.fabs_top_opacity = 0
+  --     next_view.fabs_top_offset = 0
 
-      M.style_fabs(next_view)
+  --     M.style_fabs(next_view)
 
-      util.after_frame(function ()
-        next_view.fab_shared_scale = 1
-        next_view.fab_shared_opacity = 1
-        next_view.fabs_bottom_scale = 1
-        next_view.fabs_bottom_opacity = 1
-        next_view.fabs_top_scale = 1
-        next_view.fabs_top_opacity = 1
-        M.style_fabs(next_view, true)
-      end)
+  --     util.after_frame(function ()
+  --       next_view.fab_shared_scale = 1
+  --       next_view.fab_shared_opacity = 1
+  --       next_view.fabs_bottom_scale = 1
+  --       next_view.fabs_bottom_opacity = 1
+  --       next_view.fabs_top_scale = 1
+  --       next_view.fabs_top_opacity = 1
+  --       M.style_fabs(next_view, true)
+  --     end)
 
-    elseif transition == "exit" and direction == "forward" then
+  --   elseif transition == "exit" and direction == "forward" then
 
-      last_view.fab_shared_index = opts.fab_index - 2
-      last_view.fab_shared_scale = 1
-      last_view.fab_shared_opacity = 0
-      last_view.fab_shared_shadow = opts.fab_shadow
-      last_view.fab_shared_offset = opts.padding
-      last_view.fab_shared_svg_offset = 0
+  --     last_view.fab_shared_index = opts.fab_index - 2
+  --     last_view.fab_shared_scale = 1
+  --     last_view.fab_shared_opacity = 0
+  --     last_view.fab_shared_shadow = opts.fab_shadow
+  --     last_view.fab_shared_offset = opts.padding
+  --     last_view.fab_shared_svg_offset = 0
 
-      last_view.fabs_bottom_index = opts.fab_index - 2
-      last_view.fabs_bottom_scale = 1
-      last_view.fabs_bottom_opacity = 0
-      last_view.fabs_bottom_offset = 0
+  --     last_view.fabs_bottom_index = opts.fab_index - 2
+  --     last_view.fabs_bottom_scale = 1
+  --     last_view.fabs_bottom_opacity = 0
+  --     last_view.fabs_bottom_offset = 0
 
-      last_view.fabs_top_index = opts.fab_index - 2
-      last_view.fabs_top_scale = 1
-      last_view.fabs_top_opacity = 0
-      last_view.fabs_top_offset = 0
+  --     last_view.fabs_top_index = opts.fab_index - 2
+  --     last_view.fabs_top_scale = 1
+  --     last_view.fabs_top_opacity = 0
+  --     last_view.fabs_top_offset = 0
 
-      M.style_fabs(last_view, true)
+  --     M.style_fabs(last_view, true)
 
-    elseif transition == "exit" and direction == "backward" then
+  --   elseif transition == "exit" and direction == "backward" then
 
-      last_view.fab_shared_index = opts.fab_index - 1
-      last_view.fab_shared_scale = opts.fab_scale
-      last_view.fab_shared_opacity = 0
-      last_view.fab_shared_shadow = opts.fab_shadow
-      last_view.fab_shared_offset = opts.padding + opts.transition_forward_height
-      last_view.fab_shared_svg_offset = 0
+  --     last_view.fab_shared_index = opts.fab_index - 1
+  --     last_view.fab_shared_scale = opts.fab_scale
+  --     last_view.fab_shared_opacity = 0
+  --     last_view.fab_shared_shadow = opts.fab_shadow
+  --     last_view.fab_shared_offset = opts.padding + opts.transition_forward_height
+  --     last_view.fab_shared_svg_offset = 0
 
-      last_view.fabs_bottom_index = opts.fab_index - 1
-      last_view.fabs_bottom_scale = opts.fab_scale
-      last_view.fabs_bottom_opacity = 0
-      last_view.fabs_bottom_offset = opts.transition_forward_height
+  --     last_view.fabs_bottom_index = opts.fab_index - 1
+  --     last_view.fabs_bottom_scale = opts.fab_scale
+  --     last_view.fabs_bottom_opacity = 0
+  --     last_view.fabs_bottom_offset = opts.transition_forward_height
 
-      last_view.fabs_top_index = opts.fab_index - 1
-      last_view.fabs_top_scale = opts.fab_scale
-      last_view.fabs_top_opacity = 0
-      last_view.fabs_top_offset = opts.transition_forward_height
+  --     last_view.fabs_top_index = opts.fab_index - 1
+  --     last_view.fabs_top_scale = opts.fab_scale
+  --     last_view.fabs_top_opacity = 0
+  --     last_view.fabs_top_offset = opts.transition_forward_height
 
-      M.style_fabs(last_view, true)
+  --     M.style_fabs(last_view, true)
 
-    else
-      err.error("invalid state", "fabs transition")
-    end
+  --   else
+  --     err.error("invalid state", "fabs transition")
+  --   end
 
-  end
+  -- end
 
   M.style_snacks_transition = function (next_view, transition, direction, last_view)
 
@@ -1715,19 +1685,19 @@ return function (opts)
       view.header_hide = false
       view.header_offset = 0
     end
-    if view.active_view then
-      view.active_view.main_header_offset = view.header_offset
-      -- view.active_view.main_offset = view.header_offset
+    if view.main then
+      view.main.main_header_offset = view.header_offset
+      -- view.main.main_offset = view.header_offset
     end
     view.nav_offset = view.header_offset
     if restyle ~= false then
       M.style_header(view, true)
       M.style_nav(view, true)
-      M.style_fabs(view, true)
+      -- M.style_fabs(view, true)
       M.style_header_links(view, true)
-      if view.active_view then
-        M.style_main_header_switch(view.active_view, true)
-        M.style_main_switch(view.active_view, true)
+      if view.main then
+        M.style_main_header_switch(view.main, true)
+        M.style_main_switch(view.main, true)
       end
     end
   end
@@ -1735,11 +1705,11 @@ return function (opts)
   M.scroll_listener = function (view)
 
     local scroll_distance = 0
-    local last_scroll_top = e_body.scrollTop
+    local last_scroll_top = e_container.scrollTop
 
     return function ()
 
-      local curr_scroll_top = e_body.scrollTop
+      local curr_scroll_top = e_container.scrollTop
 
       if curr_scroll_top > last_scroll_top then
         scroll_distance =
@@ -1771,10 +1741,10 @@ return function (opts)
     end
   end
 
-  M.after_transition = function (fn, ...)
-    return window:setTimeout(function (...)
-      util.after_frame(fn, ...)
-    end, tonumber(opts.transition_time), ...)
+  M.after_transition = function (fn)
+    return window:setTimeout(function ()
+      return util.after_frame(fn)
+    end, tonumber(opts.transition_time))
   end
 
   M.close_dropdowns = function (view)
@@ -1785,112 +1755,78 @@ return function (opts)
     end
   end
 
+  M.clear_snacks = function (view)
+    if view and view.snack_list then
+      for i = 1, #view.snack_list do
+        local snack = view.snack_list[i]
+        M.post_exit_snack(snack)
+      end
+    end
+  end
+
   M.clear_panes = function (view)
     if view and view.page and view.page.panes then
       for _, pane in it.pairs(view.page.panes) do
-        if pane.active_view then
-          M.post_exit_pane(pane.active_view)
-          pane.active_view = nil
+        if pane.main then
+          M.post_exit_pane(pane.main)
+          pane.main = nil
         end
       end
     end
   end
 
-  M.post_enter_pane = function (view, next_view)
-    view.el.classList:remove("tk-transition")
-    M.setup_ripples(next_view.el)
+  M.post_exit_banner = function (banner)
+    banner.el:remove()
+    banner.events.emit("destroy")
+    M.destroy_dynamic(banner)
   end
 
-  M.post_enter_modal = function (view, next_view)
-    view.el.classList:remove("tk-transition")
-    M.setup_ripples(next_view.el)
-  end
-
-  M.post_enter_switch = function (view, next_view)
-    view.el.classList:remove("tk-transition")
-    M.setup_ripples(next_view.el)
+  M.post_exit_snack = function (snack)
+    snack.el:remove()
+    snack.events.emit("destroy")
+    M.destroy_dynamic(snack)
   end
 
   M.post_exit_pane = function (last_view)
     last_view.el:remove()
-    if last_view.page.destroy then
-      last_view.page.destroy(last_view, opts)
-    end
-    M.clear_panes(last_view)
+    last_view.events.emit("destroy")
+    M.destroy_dynamic(last_view)
   end
 
   M.post_exit_modal = function (last_view)
     last_view.el:remove()
-    if last_view.page.destroy then
-      last_view.page.destroy(last_view, opts)
-    end
-    M.clear_panes(last_view)
+    last_view.events.emit("destroy")
+    M.destroy_dynamic(last_view)
   end
 
   M.post_exit_switch = function (last_view)
     last_view.el:remove()
-    if last_view.page.destroy then
-      last_view.page.destroy(last_view, opts)
-    end
-    M.clear_panes(last_view)
+    last_view.events.emit("destroy")
+    M.destroy_dynamic(last_view)
   end
 
   M.post_exit = function (last_view)
-    if last_view.active_view then
-      M.post_exit_switch(last_view.active_view)
+    if last_view.main then
+      M.post_exit_switch(last_view.main)
     end
     last_view.el:remove()
-    if last_view.page.destroy then
-      last_view.page.destroy(last_view, opts)
-    end
-    M.clear_panes(last_view)
-  end
-
-  M.post_enter = function (next_view)
-
-    active_view.el.classList:remove("tk-transition")
-
-    if next_view.page.post_append then
-      next_view.page.post_append(next_view, opts)
-    end
-
-    local e_back = next_view.el:querySelector("section > header > button.tk-back")
-
-    if e_back then
-      e_back:addEventListener("click", function ()
-        history:back()
-      end)
-    end
-
-    local e_menu = next_view.el:querySelector("section > header > button.tk-menu")
-
-    if e_menu then
-      e_menu:addEventListener("click", function ()
-        M.toggle_nav_state()
-      end)
-    end
-
-    if next_view.e_header then
-      next_view.curr_scrolly = nil
-      next_view.last_scrolly = nil
-      next_view.scroll_listener = M.scroll_listener(next_view)
-      document.body:addEventListener("scroll", next_view.scroll_listener, false)
-    end
-
-    M.setup_ripples(next_view.el)
-
+    last_view.events.emit("destroy")
+    M.clear_snacks(last_view)
+    M.destroy_dynamic(last_view)
   end
 
   M.enter_pane = function (view_pane, next_view, last_view, init, ...)
 
     M.close_dropdowns(last_view)
 
-    next_view.el = util.clone(next_view.page.template)
+    next_view.el, next_view.e = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
+    next_view.el.classList:add("tk-pane")
+    if type(next_view.name) == "string" then
+      next_view.el.classList:add("tk-pane-" .. next_view.name)
+    end
 
-    M.setup_panes(next_view, init)
-    M.setup_dropdowns(next_view, init)
-    M.setup_header_links(next_view)
+    M.setup_dynamic(next_view, init)
     M.style_main_transition_pane(next_view, "enter", last_view, init)
 
     if next_view.page.init then
@@ -1901,7 +1837,7 @@ return function (opts)
     view_pane.el:append(next_view.el)
 
     M.after_transition(function ()
-      return M.post_enter_pane(view_pane, next_view)
+      view_pane.el.classList:remove("tk-transition")
     end)
 
   end
@@ -1910,24 +1846,26 @@ return function (opts)
 
     M.close_dropdowns(last_view)
 
-    next_view.el = util.clone(next_view.page.template)
+    next_view.el, next_view.e = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
     next_view.e_modal_overlay = util.clone(t_modal_overlay, nil, next_view.el)
+    next_view.el.classList:add("tk-modal")
+    if type(next_view.name) == "string" then
+      next_view.el.classList:add("tk-modal-" .. next_view.name)
+    end
 
-    M.setup_panes(next_view, init)
-    M.setup_dropdowns(next_view, init)
+    M.setup_dynamic(next_view, init)
     M.style_modal_transition(next_view, "enter", direction, last_view, init)
 
     if next_view.page.init then
-      next_view.page.init(next_view, opts)
+      next_view.page.init(next_view)
     end
 
     view.el.classList:add("tk-transition")
-    next_view.el.classList:add("tk-modal")
     view.el:append(next_view.el)
 
     M.after_transition(function ()
-      return M.post_enter_modal(view, next_view)
+      view.el.classList:remove("tk-transition")
     end)
 
   end
@@ -1936,34 +1874,95 @@ return function (opts)
 
     M.close_dropdowns(last_view)
 
-    next_view.el = util.clone(next_view.page.template)
+    next_view.el, next_view.e = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
     next_view.e_main_header = next_view.el:querySelector("section > header")
+    next_view.el.classList:add("tk-switch")
+    if type(next_view.name) == "string" then
+      next_view.el.classList:add("tk-switch-" .. next_view.name)
+    end
 
-    M.setup_panes(next_view, init)
-    M.setup_dropdowns(next_view, init)
-    M.setup_header_links(next_view)
+    if next_view.e_main_header then
+      next_view.e_main_header.classList:add("tk-header")
+    end
+
+    next_view.e_header = next_view.el:querySelector("section > header")
+    next_view.e_main = next_view.el:querySelector("section > main")
+    M.setup_dynamic(next_view, init)
     M.style_main_header_transition_switch(next_view, "enter", direction, last_view, init)
     M.style_main_transition_switch(next_view, "enter", direction, last_view, init)
 
     if next_view.page.init then
-      next_view.page.init(next_view, opts)
+      next_view.page.init(next_view)
     end
 
     view.el.classList:add("tk-transition")
     view.e_main:append(next_view.el)
 
     M.after_transition(function ()
-      return M.post_enter_switch(view, next_view)
+      view.el.classList:remove("tk-transition")
     end)
 
   end
 
+  M.enter_banner = function (view, banner, data)
+    if view.banner_list_index[banner.name] then
+      return
+    end
+    banner.el, banner.e = util.clone(banner.page.template, data)
+    banner.e_main = banner.el:querySelector("section > main")
+    banner.el.classList:add("tk-banner")
+    if type(banner.name) == "string" then
+      banner.el.classList:add("tk-banner-" .. banner.name)
+    end
+    M.setup_dynamic(banner)
+    arr.push(view.banner_list, banner)
+    view.banner_list_index[banner.name] = #view.banner_list
+    view.el:append(banner.el)
+  end
+
+  M.exit_banner = function (view, banner)
+    local idx = view.banner_list_index[banner.name]
+    view.banner_list_index[banner.name] = nil
+    view.banner_remove[banner.name] = nil
+    arr.remove(view.banner_list, idx, idx)
+    M.after_transition(function ()
+      return M.post_exit_banner(banner)
+    end)
+  end
+
+  M.enter_snack = function (view, snack, data)
+    if view.snack_list_index[snack.name] then
+      return
+    end
+    snack.el, snack.e = util.clone(snack.page.template, data)
+    snack.e_main = snack.el:querySelector("section > main")
+    snack.el.classList:add("tk-snack")
+    snack.el.style.opacity = 0
+    if type(snack.name) == "string" then
+      snack.el.classList:add("tk-snack-" .. snack.name)
+    end
+    M.setup_dynamic(snack)
+    arr.push(view.snack_list, snack)
+    view.snack_list_index[snack.name] = #view.snack_list
+    view.el:append(snack.el)
+  end
+
+  M.exit_snack = function (view, snack)
+    local idx = view.snack_list_index[snack.name]
+    view.snack_list_index[snack.name] = nil
+    view.snack_remove[snack.name] = nil
+    arr.remove(view.snack_list, idx, idx)
+    M.after_transition(function ()
+      return M.post_exit_snack(snack)
+    end)
+  end
+
   M.exit_pane = function (last_view, next_view)
     if last_view.el.parentElement:getAttribute("tk-scroll-link") then
-      last_view.el.style.marginLeft = -e_body.scrollLeft .. "px"
-      last_view.el.style.marginTop = -e_body.scrollTop .. "px"
-      e_body:scrollTo({ top = 0, left = 0, behavior = "instant" })
+      last_view.el.style.marginLeft = -e_container.scrollLeft .. "px"
+      last_view.el.style.marginTop = -e_container.scrollTop .. "px"
+      e_container:scrollTo({ top = 0, left = 0, behavior = "instant" })
     end
     M.style_main_transition_pane(next_view, "exit", last_view)
     M.after_transition(function ()
@@ -1983,9 +1982,9 @@ return function (opts)
     view.header_offset = 0
     M.style_header(view, true)
 
-    last_view.el.style.marginLeft = -e_body.scrollLeft .. "px"
-    last_view.el.style.marginTop = -e_body.scrollTop .. "px"
-    e_body:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    last_view.el.style.marginLeft = -e_container.scrollLeft .. "px"
+    last_view.el.style.marginTop = -e_container.scrollTop .. "px"
+    e_container:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.style_main_header_transition_switch(next_view, "exit", direction, last_view)
     M.style_main_transition_switch(next_view, "exit", direction, last_view)
@@ -2000,62 +1999,78 @@ return function (opts)
 
     M.close_dropdowns(last_view)
 
-    next_view.el = util.clone(next_view.page.template)
+    next_view.el, next_view.e = util.clone(next_view.page.template)
     next_view.e_header = next_view.el:querySelector("section > header")
     next_view.e_main = next_view.el:querySelector("section > main")
 
-    M.setup_observer(next_view)
+    next_view.el.classList:add("tk-main")
+    if type(next_view.name) == "string" then
+      next_view.el.classList:add("tk-main-" .. next_view.name)
+    end
+
+    if next_view.e_header then
+      next_view.e_header.classList:add("tk-header")
+    end
+
     M.setup_nav(next_view, direction, init, explicit)
-    M.setup_fabs(next_view, last_view)
     M.setup_snacks(next_view)
-    M.setup_panes(next_view, init)
-    M.setup_dropdowns(next_view, init)
-    M.setup_header_links(next_view)
+    M.setup_dynamic(next_view, init)
     M.style_header_transition(next_view, "enter", direction, last_view)
     M.style_nav_transition(next_view, "enter", direction, last_view)
-    M.style_fabs_transition(next_view, "enter", direction, last_view)
+    -- M.style_fabs_transition(next_view, "enter", direction, last_view)
     M.style_snacks_transition(next_view, "enter", direction, last_view)
 
-    -- NOTE: No need to handle the active_view exist case, since it's handled by
+    -- NOTE: No need to handle the main exist case, since it's handled by
     -- setup_nav above
-    if not next_view.active_view then
+    if not next_view.main then
       M.style_main_transition(next_view, "enter", direction, last_view)
     end
 
     if next_view.page.init then
-      next_view.page.init(next_view, opts)
+      next_view.page.init(next_view)
     end
 
-    active_view.el.classList:add("tk-transition")
-    active_view.e_main:append(next_view.el)
+    root.el.classList:add("tk-transition")
+    root.e_main:append(next_view.el)
 
     M.after_transition(function ()
-      return M.post_enter(next_view)
+      root.el.classList:remove("tk-transition")
+      local e_menu = next_view.el:querySelector("section > header > button.tk-menu")
+      if e_menu then
+        e_menu:addEventListener("click", function ()
+          M.toggle_nav_state()
+        end)
+      end
+      if next_view.e_header then
+        next_view.curr_scrolly = nil
+        next_view.last_scrolly = nil
+        next_view.scroll_listener = M.scroll_listener(next_view)
+        document.body:addEventListener("scroll", next_view.scroll_listener, false)
+      end
     end)
 
   end
 
   M.exit = function (last_view, direction, next_view)
 
-    if last_view.active_view then
-      last_view.active_view.e_main.style.marginLeft = -e_body.scrollLeft .. "px"
-      last_view.active_view.e_main.style.marginTop = -e_body.scrollTop .. "px"
+    if last_view.main then
+      last_view.main.e_main.style.marginLeft = -e_container.scrollLeft .. "px"
+      last_view.main.e_main.style.marginTop = -e_container.scrollTop .. "px"
     else
-      last_view.e_main.style.marginLeft = -e_body.scrollLeft .. "px"
-      last_view.e_main.style.marginTop = -e_body.scrollTop .. "px"
+      last_view.e_main.style.marginLeft = -e_container.scrollLeft .. "px"
+      last_view.e_main.style.marginTop = -e_container.scrollTop .. "px"
     end
 
-    e_body:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    e_container:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
-    M.setup_fabs(last_view, next_view)
     M.style_header_transition(next_view, "exit", direction, last_view)
     M.style_nav_transition(next_view, "exit", direction, last_view)
-    M.style_fabs_transition(next_view, "exit", direction, last_view)
+    -- M.style_fabs_transition(next_view, "exit", direction, last_view)
     M.style_snacks_transition(next_view, "exit", direction, last_view)
 
-    if last_view.active_view then
-      M.style_main_header_transition_switch(nil, "exit", direction, last_view.active_view)
-      M.style_main_transition_switch(nil, "exit", direction, last_view.active_view)
+    if last_view.main then
+      M.style_main_header_transition_switch(nil, "exit", direction, last_view.main)
+      M.style_main_transition_switch(nil, "exit", direction, last_view.main)
     else
       M.style_main_transition(next_view, "exit", direction, last_view)
     end
@@ -2067,16 +2082,44 @@ return function (opts)
 
     last_view.el.classList:add("tk-exit", direction)
     M.after_transition(function ()
-      return M.post_exit(last_view, opts)
+      return M.post_exit(last_view)
     end, true)
 
   end
 
-  M.setup_dynamic = function (view, el)
+  M.destroy_dynamic = function (view)
+    M.clear_panes(view)
+    M.close_dropdowns(view)
+    M.destroy_header_links(view)
+    if view.active_snacks and next(view.active_snacks) then
+      for n in pairs(view.active_snacks) do
+        root.main.snack_remove[n] = true
+      end
+      M.style_snacks(root.main, true)
+    end
+    if view.active_banners and next(view.active_banners) then
+      for n in pairs(view.active_banners) do
+        root.main.banner_remove[n] = true
+      end
+      M.style_banners(root.main, true)
+    end
+  end
+
+  M.setup_back = function (el)
+    el:querySelectorAll(".tk-back"):forEach(function (_, el)
+      el:addEventListener("click", function ()
+        history:back()
+      end)
+    end)
+  end
+
+  M.setup_dynamic = function (view, init, el)
+    el = el or view.el
+    M.setup_back(el)
     M.setup_ripples(el)
-    M.setup_panes(view, nil, el)
-    M.setup_dropdowns(view, nil, el)
-    M.setup_header_links(view)
+    M.setup_panes(view, init, el)
+    M.setup_dropdowns(view, el)
+    M.setup_header_links(view, el)
   end
 
   M.mark = function (tag)
@@ -2091,10 +2134,8 @@ return function (opts)
 
   M.route_tag = function (...)
     local s = M.get_route_spec(...)
-    if #s > 0 then
-      return M.route_tag(s[1])
-    end
-    return M.get_url(s, false), s
+    local s0 = #s > 0 and s[1] or s
+    return M.get_url(s0, false), s
   end
 
   M.forward_tag = function (tag, ...)
@@ -2138,7 +2179,12 @@ return function (opts)
     err.assert(name ~= "default", "view name can't be default")
 
     local view = {
+      page = page,
+      name = name,
+      state = state,
+      events = async.events(),
       parent = parent,
+      mark = M.mark,
       data = M.data,
       replace = M.replace,
       encode_param = M.encode_param,
@@ -2154,18 +2200,28 @@ return function (opts)
       backward_modal = M.backward_modal,
       replace_forward_modal = M.replace_forward_modal,
       replace_backward_modal = M.replace_backward_modal,
-      mark = M.mark,
       forward_mark = M.forward_mark,
       backward_mark = M.backward_mark,
       forward_tag = M.forward_tag,
       backward_tag = M.backward_tag,
-      add_listener = M.add_listener,
-      remove_listener = M.remove_listener,
-      emit = M.emit,
-      page = page,
-      name = name,
-      state = state
+      fab = M.fab
     }
+
+    view.snack = function (...)
+      return M.snack(view, ...)
+    end
+
+    view.banner = function (...)
+      return M.banner(view, ...)
+    end
+
+    view.cleanup = function (fn)
+      return view.events.on("destroy", fn)
+    end
+
+    view.update = function (fn)
+      return view.events.on("update", fn)
+    end
 
     view.toggle_nav = function ()
       return M.toggle_nav_state(not view.el.classList:contains("tk-showing-nav"), true, true)
@@ -2179,10 +2235,16 @@ return function (opts)
     view.after_frame = util.after_frame
 
     local clone_all_wrap_opts
-    clone_all_wrap_opts = function (view, opts)
+    clone_all_wrap_opts = function (view, events, opts)
       return setmetatable({
+        done = function (...)
+          events.emit("done")
+          if opts.done then
+            return opts.done(...)
+          end
+        end,
         map_el = function (el, data, clone_all)
-          M.setup_dynamic(view, el)
+          M.setup_dynamic(view, nil, el)
           if opts.map_el then
             return opts.map_el(el, data, function (opts0)
               return clone_all(clone_all_wrap_opts(view, opts0))
@@ -2193,17 +2255,36 @@ return function (opts)
     end
 
     view.clone_all = function (opts)
-      return util.clone_all(clone_all_wrap_opts(view, opts))
+      local events = async.events()
+      local cancel = util.clone_all(clone_all_wrap_opts(view, events, opts))
+      view.events.on("destroy", cancel)
+      events.on("done", function ()
+        view.events.off("destroy", cancel)
+      end)
+      return cancel
     end
 
     view.clone = function (template, data, parent, before, pre_append)
       return util.clone(template, data, parent, before, function (el)
-        M.setup_dynamic(view, el)
+        M.setup_dynamic(view, nil, el)
         if pre_append then
           return pre_append(el)
         end
       end)
     end
+
+    view.http = tbl.merge({
+      get = function (...)
+        local req = util.request(...)
+        req.view = view
+        return http.get(req)
+      end,
+      post = function (...)
+        local req = util.request(...)
+        req.view = view
+        return http.post(req)
+      end
+    }, http)
 
     return view
 
@@ -2245,46 +2326,6 @@ return function (opts)
     end
   end
 
-  local function wrap (el)
-    local t = document:createElement("template")
-    local s = document:createElement("section")
-    local m = document:createElement("main")
-    if el then
-      m:append(el)
-    end
-    s:append(m)
-    t.content:append(s)
-    return t
-  end
-
-  local function maybe_wrap (page)
-
-    local template
-
-    if page.tagName == "TEMPLATE" then
-      template = page
-      page = {
-        init = function (view, data)
-          if data then
-            util.populate(view.el, data)
-          end
-        end
-      }
-    else
-      template = page.template
-    end
-
-    local sect = template and template.content and template.content.firstElementChild
-    if (not sect) or sect.tagName ~= "SECTION" then
-      page.template = wrap(sect and util.clone(template) or nil)
-      return page
-    end
-
-    page.template = template
-    return page
-
-  end
-
   M.get_page = function (pages, name, parent_name)
     if pages then
       local page = pages[name]
@@ -2301,23 +2342,19 @@ return function (opts)
     page_name = M.resolve_default(view_pane, page_name)
     local pane_page = M.get_page(view_pane.pages, page_name, name)
 
-    if view_pane.active_view and pane_page == view_pane.active_view.page then
-      if pane_page.update then
-        util.after_frame(function ()
-          pane_page.update(view_pane.active_view)
-        end)
-      end
+    if page_name == tbl.get(view_pane, "main", "name") then
+      view_pane.main.events.emit("update")
       return
     end
 
-    local last_view_pane = view_pane.active_view
+    local last_view_pane = view_pane.main
 
-    view_pane.active_view = M.init_view(page_name, pane_page, view)
+    view_pane.main = M.init_view(page_name, pane_page, view)
 
-    M.enter_pane(view_pane, view_pane.active_view, last_view_pane, init, ...)
+    M.enter_pane(view_pane, view_pane.main, last_view_pane, init, ...)
 
     if last_view_pane then
-      M.exit_pane(last_view_pane, view_pane.active_view)
+      M.exit_pane(last_view_pane, view_pane.main)
     end
 
   end
@@ -2340,12 +2377,8 @@ return function (opts)
       return
     end
 
-    if view.active_modal and page == view.active_modal.page then
-      if page.update then
-        util.after_frame(function ()
-          page.update(view.active_modal)
-        end)
-      end
+    if name == tbl.get(view, "active_modal", "name") then
+      view.events.emit("update")
       return
     end
 
@@ -2371,34 +2404,36 @@ return function (opts)
       return
     end
 
-    if view.active_view and page == view.active_view.page then
-      if page.update then
-        util.after_frame(function ()
-          page.update(view.active_view)
-        end)
-      end
+    if name == tbl.get(view, "main", "name") then
+      view.events.emit("update")
       return
     end
 
-    local last_view = view.active_view
-    view.active_view = M.init_view(name, page, view)
+    local last_view = view.main
+    view.main = M.init_view(name, page, view)
 
     if view.e_nav then
       view.e_nav_buttons:forEach(function (_, el)
         if M.get_nav_button_page(el) == name then
           el.classList:add("tk-active")
         else
-          el.classList:remove("tk-active")
+          if el.classList:contains("tk-active") then
+            el.classList:add("tk-transition")
+            window:setTimeout(function ()
+              el.classList:remove("tk-transition")
+            end, tonumber(opts.transition_time) * 4)
+            el.classList:remove("tk-active")
+          end
         end
       end)
     end
 
-    dir = M.switch_dir(view, view.active_view, last_view, dir)
+    dir = M.switch_dir(view, view.main, last_view, dir)
 
-    M.enter_switch(view, view.active_view, dir, last_view, init)
+    M.enter_switch(view, view.main, dir, last_view, init)
 
     if last_view then
-      M.exit_switch(view, last_view, dir, view.active_view)
+      M.exit_switch(view, last_view, dir, view.main)
     end
 
   end
@@ -2434,7 +2469,7 @@ return function (opts)
   end
 
   M.assign_persisted = function (path, modal, params)
-    local v = active_view.page
+    local v = root.page
     local m
     local i = 1
     while v do
@@ -2451,7 +2486,7 @@ return function (opts)
   end
 
   M.fill_defaults = function (path, modal, params)
-    local v = active_view.page
+    local v = root.page
     if #path < 1 then
       M.find_default(v, path, 1)
       M.assign_persisted(path, modal, params)
@@ -2477,38 +2512,34 @@ return function (opts)
 
     util.after_frame(function ()
 
-      local page = M.get_page(active_view.page.pages, state.path[1], "(main)")
+      local page = M.get_page(root.page.pages, state.path[1], "(main)")
 
-      if M.maybe_redirect(active_view, page, init, explicit) then
+      if M.maybe_redirect(root, page, init, explicit) then
         return
       end
 
-      if not active_view.active_view or page ~= active_view.active_view.page then
-        local last_view = active_view.active_view
-        active_view.active_view = M.init_view(state.path[1], page)
-        M.enter(active_view.active_view, dir, last_view, init, explicit)
+      if not root.main or page ~= root.main.page then
+        local last_view = root.main
+        root.main = M.init_view(state.path[1], page)
+        M.enter(root.main, dir, last_view, init, explicit)
         if last_view then
-          M.exit(last_view, dir, active_view.active_view)
+          M.exit(last_view, dir, root.main)
         end
       else
-        if active_view.active_view.page.update then
-          util.after_frame(function ()
-            active_view.active_view.page.update(active_view.active_view)
-          end)
-        end
+        root.events.emit("update")
         if state.path[2] then
-          M.switch(active_view.active_view, state.path[2], dir, init, explicit)
+          M.switch(root.main, state.path[2], dir, init, explicit)
         end
       end
 
-      M.modal(active_view.active_view, state.modal, dir, init, explicit)
+      M.modal(root.main, state.modal, dir, init, explicit)
 
     end)
 
   end
 
   M.toggle_nav_state = function (open, animate, restyle)
-    local view = active_view.active_view
+    local view = root.main
     if size == "lg" or size == "md" then
       open = true
     end
@@ -2523,7 +2554,7 @@ return function (opts)
       view.nav_slide = 0
       view.nav_offset = view.header_offset
       view.nav_overlay_opacity = (size == "lg" or size == "md")
-        and 0 or 0.5
+        and 0 or 1
       M.style_header_hide(view, false, restyle)
     else
       view.nav_slide = -opts.nav_width
@@ -2539,54 +2570,52 @@ return function (opts)
     vh = math.max(document.documentElement.clientHeight or 0, window.innerHeight or 0)
     local vwpx = vw .. "px"
     local vhpx = vh .. "px"
-    active_view.el.style.height = vhpx
-    active_view.el.style.minHeight = vhpx
-    active_view.el.style.maxHeight = vhpx
-    active_view.el.style.width = vwpx
-    active_view.el.style.minWidth = vwpx
-    active_view.el.style.maxWidth = vwpx
+    root.el.style.height = vhpx
+    root.el.style.minHeight = vhpx
+    root.el.style.maxHeight = vhpx
+    root.el.style.width = vwpx
+    root.el.style.minWidth = vwpx
+    root.el.style.maxWidth = vwpx
     local newsize =
       (vw > opts.lg_threshold and "lg") or
       (vw > opts.md_threshold and "md") or "sm"
     if size then
-      active_view.el.classList:remove("tk-" .. size)
+      root.el.classList:remove("tk-" .. size)
     end
     local oldsize = size
     size = newsize
-    active_view.el.classList:add("tk-" .. newsize)
-    if active_view.active_view then
+    root.el.classList:add("tk-" .. newsize)
+    if root.main then
       if newsize == "lg" or newsize == "md" then
         M.toggle_nav_state(true)
       elseif oldsize == "lg" or oldsize == "md" then
         M.toggle_nav_state(false)
       end
-      M.style_nav(active_view.active_view, true)
-      M.style_snacks(active_view.active_view, true)
-      M.style_fabs(active_view.active_view, true)
-      if active_view.active_view.active_view then
-        M.style_main_header_switch(active_view.active_view.active_view, true)
-        M.style_main_switch(active_view.active_view.active_view, true)
+      M.style_nav(root.main, true)
+      M.style_snacks(root.main, true)
+      -- M.style_fabs(root.main, true)
+      if root.main.main then
+        M.style_main_header_switch(root.main.main, true)
+        M.style_main_switch(root.main.main, true)
       else
-        M.style_main(active_view.active_view, true)
+        M.style_main(root.main, true)
       end
     end
   end
 
-  M.setup_active_view = function ()
+  M.setup_main = function ()
 
-    active_view = M.init_view(nil, opts.main)
+    root = M.init_view(nil, opts.main)
+    root.el, root.e = util.clone(opts.main.template)
+    root.e_main = root.el:querySelector("section > main")
+    M.setup_banners(root)
+    M.setup_dynamic(root)
 
-    active_view.el = util.clone(opts.main.template)
-    active_view.e_main = active_view.el:querySelector("section > main")
-    M.setup_observer(active_view)
-    M.setup_banners(active_view)
-
-    if active_view.page.init then
-      active_view.page.init(active_view, opts)
+    if root.page.init then
+      root.page.init(root)
     end
 
-    e_body:append(active_view.el)
-    M.setup_ripples(active_view.el)
+    e_container:append(root.el)
 
   end
 
@@ -2628,13 +2657,14 @@ return function (opts)
               print("Updated service worker installing")
             end
           elseif reg.waiting then
+            root.events.emit("update-worker")
             if opts.verbose then
               print("Updated service worker installed")
             end
           elseif reg.active then
             if installing then
               installing = false
-              active_view.el.classList:add("tk-update-worker")
+              root.events.emit("update-worker")
             end
             if opts.verbose then
               print("Updated service worker active")
@@ -2677,7 +2707,7 @@ return function (opts)
 
   M.get_url = function (s, params)
     s = s or state
-    return base_path .. "#" .. util.encode_path(s, params)
+    return base_path .. "#" .. util.encode_path(s, params, opts.modal_separator)
   end
 
   M.get_modal_spec = function (...)
@@ -2701,6 +2731,18 @@ return function (opts)
 
   M.get_route_spec = function (...)
     if type(...) == "table" then
+      local t = ...
+      if #t > 0 then
+        for i = 1, #t do
+          local n = t[i]
+          if n and #n > 0 then
+            t[i] = M.get_route_spec(arr.spread(n))
+          else
+            t[i] = M.get_route_spec(n)
+          end
+        end
+        return t
+      end
       local spec = ...
       spec.path = spec.path or {}
       spec.params = spec.params or {}
@@ -2866,7 +2908,7 @@ return function (opts)
   end
 
   window:addEventListener("popstate", function (_, ev)
-    local state0 = util.parse_path(str.match(location.hash, "^#(.*)"))
+    local state0 = util.parse_path(str.match(location.hash, "^#(.*)"), nil, nil, opts.modal_separator)
     local id = ev.state and ev.state.id and tonumber(ev.state.id)
     local dir = state.popdir or (id and state.current_id and id < state.current_id) and "backward" or "forward"
     if state.popmark then
@@ -2885,7 +2927,7 @@ return function (opts)
   end)
 
   history.scrollRestoration = "manual"
-  M.setup_active_view()
+  M.setup_main()
   M.on_resize()
   M.set_default_route()
   M.transition("forward", true, true)

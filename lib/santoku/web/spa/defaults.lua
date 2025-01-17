@@ -5,8 +5,10 @@ return {
     theme_color = "#f3f4f6",
     background_color = "#f3f4f6",
     header_height = "64",
-    header_bg = "#1f2937",
+    header_bg = "#1e293b",
     header_fg = "#ffffff",
+    subheader_bg = "#ffffff",
+    subheader_fg = "#1e293b",
     header_border = "1px solid #f3f4f6",
     nav_bg = "#ffffff",
     modal_bg = "#ffffff",
@@ -30,7 +32,7 @@ return {
     fab_shadow_transparent = "0 4px 6px -1px rgb(0 0 0 / 0), 0 2px 4px -2px rgb(0 0 0 / 0)",
     snack_height = "40",
     snack_radius = "6",
-    snack_bg = "#1f2937df",
+    snack_bg = "#1e293b7f",
     snack_fg = "#ffffff",
     snack_shadow = "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
     nav_width = "270",
@@ -52,7 +54,6 @@ return {
     padding = "16",
     transition_time = "250",
     transition_time_main = "250",
-    transition_time_wave = "500",
     easing = "cubic-bezier(0.4, 0, 0.2, 1)",
     header_hide_minimum = "128",
     header_hide_threshold = "128",
@@ -60,6 +61,9 @@ return {
     service_worker_poll_time_ms = 1000 * 60 * 5, -- 5 minutes
     lg_threshold = 1537,
     md_threshold = 1024,
+    nav_overlay_bg = "#0000007f",
+    modal_overlay_bg = "#0000007f",
+    modal_separator = "+",
   },
 
   sw = {
