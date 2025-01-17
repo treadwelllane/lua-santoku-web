@@ -1,6 +1,7 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local err = require("santoku.error")
+local async = require("santoku.async")
 local str = require("santoku.string")
 local varg = require("santoku.varg")
 local arr = require("santoku.array")
@@ -35,8 +36,8 @@ M.request = function (url, opts, done, retries, backoffs, retry_until, raw)
     req.params = url.params
     req.headers = url.headers
     req.done = done or url.done
-    req.retries = retries or url.retries
-    req.backoffs = backoffs or url.backoffs
+    req.retries = retries or url.retries or 3
+    req.backoffs = backoffs or url.backoffs or 1
     req.retry_until = retry_until or url.retry_until
     req.raw = raw or url.raw
   elseif opts then
@@ -45,13 +46,18 @@ M.request = function (url, opts, done, retries, backoffs, retry_until, raw)
     req.params = opts.params
     req.headers = opts.headers
     req.done = done or url.done
-    req.retries = retries or opts.retries
-    req.backoffs = backoffs or opts.backoffs
+    req.retries = retries or opts.retries or 3
+    req.backoffs = backoffs or opts.backoffs or 1
     req.retry_until = retry_until or opts.retry_until
     req.raw = raw or opts.raw
   end
   req.qstr = req.params and M.query_string(req.params) or ""
   req.done = req.done or done or fun.noop
+  req.events = async.events()
+  req.ctrl = AbortController:new()
+  req.cancel = function ()
+    return req.ctrl:abort()
+  end
   return req
 end
 
@@ -68,7 +74,7 @@ M.response = function (done, ok, resp, ...)
     return resp:text():await(function (_, ok0, data, ...)
       if ok0 then
         result.body = json.decode(data)
-        return done(ok, result)
+        return done(result.ok, result)
       else
         return done(ok0, data, ...)
       end
@@ -77,35 +83,46 @@ M.response = function (done, ok, resp, ...)
     return resp:text():await(function (_, ok0, data, ...)
       if ok0 then
         result.body = data
-        return done(ok, result)
+        return done(result.ok, result)
       else
         return done(ok0, data, ...)
       end
     end)
   else
-    return done(ok, result, ...)
+    return done(result.ok, result, ...)
   end
 end
 
-M.fetch = function (url, opts, retries, backoffs, retry_until, raw, done)
-  retries = retries or 3
-  backoffs = backoffs or 1
+M.fetch = function (url, opts, req)
   return global:fetch(url, val(opts, true)):await(function (_, ok, resp, ...)
     if not ok and resp and resp.name == "AbortError" then
       return
     end
-    if raw then
-      return done(true, resp, ...)
+    if req.raw then
+      if req.events then
+        return req.events.process("response", nil, req.done, ok, resp, ...)
+      else
+        return req.done(ok, resp, ...)
+      end
     end
-    return M.response(function (ok, resp, ...)
-      if ok and resp and resp.ok then
-        return done(true, resp, ...)
-      elseif retries <= 0 or (retry_until and retry_until(resp)) then
-        return done(false, resp, ...)
+    local function fetch_helper (ok, resp, ...)
+      if ok or
+        (req.retry_until and req.retry_until(resp)) or
+        (not req.retry_until and req.retries <= 0)
+      then
+        return req.done(ok, resp, ...)
       else
         return global:setTimeout(function ()
-          return M.fetch(url, opts, retries - 1, backoffs, retry_until, raw, done)
-        end, backoffs * 1000)
+          req.retries = req.retries - 1
+          return M.fetch(url, opts, req)
+        end, req.backoffs * 1000)
+      end
+    end
+    return M.response(function (...)
+      if req.events then
+        return req.events.process("response", nil, fetch_helper, ...)
+      else
+        return fetch_helper(...)
       end
     end, ok, resp, ...)
   end)
@@ -199,70 +216,62 @@ end
 
 M.get = function (...)
   local req = M.request(...)
-  local ctrl = AbortController:new()
   M.fetch(req.url .. req.qstr, {
     method = "GET",
     headers = req.headers,
-    signal = ctrl.signal,
-  }, req.retries, req.backoffs, req.retry_until, req.raw, req.done)
-  return function ()
-    return ctrl:abort()
-  end
+    signal = req.ctrl.signal,
+  }, req)
+  return req.cancel
 end
 
 M.post = function (...)
   local req = M.request(...)
   req.headers = req.headers or {}
   req.headers["content-type"] = req.headers["content-type"] or "application/json"
-  local ctrl = AbortController:new()
   M.fetch(req.url, {
     method = "POST",
     headers = req.headers,
     body = req.body and json.encode(req.body) or nil,
-    signal = ctrl.signal,
-  }, req.retries, req.backoffs, req.retry_until, req.raw, req.done)
-  return function ()
-    return ctrl:abort()
-  end
+    signal = req.ctrl.signal,
+  }, req)
+  return req.cancel
 end
 
-local intercept = function (fn, opts)
+local intercept = function (fn, events)
+  local req
   return function (...)
-    if not opts.on_response then
-      return fn(...)
-    end
-    local req = M.request(...)
-    local retry_until = req.retry_until
-    local done = req.done
-    if opts.match_response then
-      req.retry_until = function (resp, ...)
-        return opts.match_response(false, req, resp, ...)
+    events.process("request", nil, function (req0)
+      req = req0
+      req0.events.on("response", function (done0, ok0, ...)
+        return events.process("response", function (done1, ok1, req1, ...)
+          if ok1 == "retry" then
+            return fn(req0)
+          else
+            return done1(ok1, req1, ...)
+          end
+        end, function (ok2, _, ...)
+          return done0(ok2, ...)
+        end, ok0, req0, ...)
+      end, true)
+      return fn(req0)
+    end, M.request(...))
+    return function ()
+      if req then
+        return req.cancel()
       end
     end
-    req.done = function (ok, resp, ...)
-      if opts.match_response and not opts.match_response(ok, req, resp, ...) then
-        return done(ok, resp, ...)
-      end
-      return opts.on_response(function (result, ...)
-        if result == "retry" then
-          req.retry_until = retry_until
-          req.done = done
-          return M.get(req)
-        else
-          return done(ok, result, resp, ...)
-        end
-      end, ok, req, resp, ...)
-    end
-    return fn(req)
   end
 end
 
 -- TODO: extend to support ws
 -- TODO: allow match/on_request for intercepting pre-request
-M.http_client = function (opts)
+M.http_client = function ()
+  local events = async.events()
   return {
-    get = intercept(M.get, opts),
-    post = intercept(M.post, opts)
+    on = events.on,
+    off = events.off,
+    get = intercept(M.get, events),
+    post = intercept(M.post, events)
   }
 end
 
@@ -280,7 +289,12 @@ end
 
 M.clone = function (template, data, parent, before, pre_append)
   local clone = template.content:cloneNode(true)
-  local el = M.populate(clone.firstElementChild, data)
+  local el, els
+  if data == nil then
+    el = clone.firstElementChild
+  else
+    el, els = M.populate(clone.firstElementChild, data)
+  end
   if pre_append then
     pre_append(el)
   end
@@ -291,34 +305,40 @@ M.clone = function (template, data, parent, before, pre_append)
       parent:append(el)
     end
   end
-  return el
+  return el, els
 end
 
 M.after_frame = function (fn)
   return global:requestAnimationFrame(function ()
-    global:requestAnimationFrame(fn)
+    return global:requestAnimationFrame(fn)
   end)
 end
 
 local function clone_all (items, wait, done, set_timeout)
   if not items then
+    set_timeout()
     done()
     return
   end
   local parent, before, template, data, map_data, map_el = items()
   if not parent then
+    set_timeout()
     done()
     return
   end
   if map_data then
-    if map_data(data) == false then
+    local data0 = map_data(data)
+    if data0 == false then
+      set_timeout()
       done()
       return
+    elseif data0 ~= nil then
+      data = data0
     end
   end
-  local el = M.clone(template, data)
+  local el, els = M.clone(template, data)
   if map_el then
-    if map_el(el, data, function (opts)
+    local el0 = map_el(el, data, function (opts)
       items = it.chain(opts.items or it.map(function (data)
         return
           opts.parent,
@@ -328,9 +348,13 @@ local function clone_all (items, wait, done, set_timeout)
           opts.map_data,
           opts.map_el
       end, it.ivals(opts.data)), items)
-    end) == false then
+    end, els)
+    if el0 == false then
+      set_timeout()
       done()
       return
+    elseif el0 ~= nil then
+      el = el0
     end
   end
   if before then
@@ -339,7 +363,7 @@ local function clone_all (items, wait, done, set_timeout)
     parent:append(el)
   end
   return set_timeout(global:setTimeout(function ()
-    return clone_all(items, wait, done, set_timeout)
+    clone_all(items, wait, done, set_timeout)
   end, wait))
 end
 
@@ -349,19 +373,21 @@ M.clone_all = function (opts)
   local function set_timeout (t)
     timeout = t
   end
-  clone_all(
-    opts.items or it.map(function (data)
-      return
-        opts.parent,
-        opts.before,
-        opts.template,
-        data,
-        opts.map_data,
-        opts.map_el
-    end, it.ivals(opts.data)),
-    opts.wait or 0,
-    opts.done or function () end,
-    set_timeout)
+  set_timeout(global:setTimeout(function ()
+    clone_all(
+      opts.items or it.map(function (data)
+        return
+          opts.parent,
+          opts.before,
+          opts.template,
+          data,
+          opts.map_data,
+          opts.map_el
+      end, it.ivals(opts.data)),
+      opts.wait or 0,
+      opts.done or function () end,
+      set_timeout)
+  end, 0))
   return function ()
     if timeout then
       global:clearTimeout(timeout)
@@ -440,13 +466,11 @@ local function parse_attr_show_hide (attr)
   end
 end
 
-M.populate = function (el, data, root)
+M.populate = function (el, data, root, els)
 
+  els = els or {}
+  data = data or {}
   root = root or data
-
-  if not data then
-    return el
-  end
 
   local recurse = true
 
@@ -519,7 +543,7 @@ M.populate = function (el, data, root)
         for i = 1, #items do
           local r0 = el:cloneNode(true)
           local item = items[i]
-          M.populate(r0, item, root)
+          M.populate(r0, item, root, els)
           el.parentNode:insertBefore(r0, el_before)
           el_before = r0
         end
@@ -532,7 +556,20 @@ M.populate = function (el, data, root)
       local target = shadow and el:attachShadow({ mode = shadow }) or el
 
       Array:from(el.attributes):forEach(function (_, attr)
-        if attr.name == "tk-text" then
+        if attr.name == "tk-id" then
+          local ik = it.collect(str.gmatch(attr.value, "[^.]+"))
+          arr.push(ik, el)
+          tbl.set(els, arr.spread(ik))
+        elseif str.match(attr.name, "^tk%-on%:") then
+          local ev = str.sub(attr.name, 7, #attr.name)
+          local fn = tbl.get(data, arr.spread(it.collect(str.gmatch(attr.value, "[^.]+"))))
+          -- TODO: allow passing true/false/etc to addEventListener
+          if fn then
+            el:addEventListener(ev, function (_, ev)
+              return fn(ev)
+            end)
+          end
+        elseif attr.name == "tk-text" then
           target:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
           el:removeAttribute(attr.name)
         elseif attr.name == "tk-html" then
@@ -566,12 +603,12 @@ M.populate = function (el, data, root)
     end)
 
     Array:from(el.children):forEach(function (_, child)
-      M.populate(child, data, root)
+      M.populate(child, data, root, els)
     end)
 
   end
 
-  return el
+  return el, els
 
 end
 
@@ -667,7 +704,7 @@ M.query_string = function (data, out)
   end
 end
 
-M.parse_path = function (url, path, params)
+M.parse_path = function (url, path, params, modal)
   local result = { path = path or {}, params = params or {} }
   tbl.clear(result.path)
   tbl.clear(result.params)
@@ -680,8 +717,8 @@ M.parse_path = function (url, path, params)
       arr.push(result.path, segment)
     end
   end
-  if result.path[#result.path] then
-    local s, m = str.match(result.path[#result.path], "^([^%$]*)%$?(.*)$")
+  if modal and result.path[#result.path] then
+    local s, m = str.match(result.path[#result.path], "^([^%$]*)%" .. str.sub(modal, 1, 1) .. "?(.*)$")
     if s and m and m ~= "" then
       result.path[#result.path] = s
       result.modal = m
@@ -693,7 +730,7 @@ M.parse_path = function (url, path, params)
   return result
 end
 
-M.encode_path = function (t, params)
+M.encode_path = function (t, params, modal)
   local out = {}
   for i = 1, #t.path do
     if type(t.path[i]) == "table" then
@@ -701,8 +738,8 @@ M.encode_path = function (t, params)
     end
     arr.push(out, "/", js:decodeURIComponent(t.path[i]))
   end
-  if t.modal then
-    arr.push(out, "$", t.modal)
+  if modal and t.modal then
+    arr.push(out, modal, t.modal)
   end
   if (params or params == nil) and t.params and next(t.params) then
     M.query_string(t.params, out)

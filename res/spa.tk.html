@@ -81,25 +81,13 @@
     <meta name="layoutmode" content="fitscreen">
     <meta name="imagemode" content="force">
 
-    <template class="tk-ripple">
-      <div class="tk-ripple-container">
-        <div class="tk-ripple-wave"></div>
-      </div>
-    </template>
-
-    <template class="tk-nav-overlay">
-      <div class="tk-nav-overlay"></div>
-    </template>
-
-    <template class="tk-modal-overlay">
-      <div class="tk-modal-overlay"></div>
-    </template>
-
     <style>
 
       :root {
         --header-bg: <% return opts.header_bg %>;
         --header-fg: <% return opts.header_fg %>;
+        --subheader-bg: <% return opts.subheader_bg %>;
+        --subheader-fg: <% return opts.subheader_fg %>;
         --nav-bg: <% return opts.nav_bg %>;
         --nav-active-bg: <% return opts.nav_active_bg %>;
         --modal-bg: <% return opts.modal_bg %>;
@@ -112,30 +100,32 @@
         --nav-focus-bg: <% return opts.nav_focus_bg %>;
         --banner-bg: <% return opts.banner_bg %>;
         --banner-fg: <% return opts.banner_fg %>;
-        --fab-bg: <% return opts.fab_bg %>;
-        --fab-fg: <% return opts.fab_fg %>;
-        --fab-shadow: <% return opts.fab_shadow %>;
-        --fab-shadow-transparent: <% return opts.fab_shadow_transparent %>;
+        /*--fab-bg: <% return opts.fab_bg %>;
+         *--fab-fg: <% return opts.fab_fg %>;
+         *--fab-shadow: <% return opts.fab_shadow %>;
+         *--fab-shadow-transparent: <% return opts.fab_shadow_transparent %>;*/
         --snack-bg: <% return opts.snack_bg %>;
         --snack-fg: <% return opts.snack_fg %>;
         --snack-shadow: <% return opts.snack_shadow %>;
         --banner-height: <% return opts.banner_height %>;
         --banner-height-px: <% return opts.banner_height %>px;
         --banner-index: <% return opts.banner_index %>;
-        --fab-radius-large: <% return opts.fab_radius_large %>;
-        --fab-radius-large-px: <% return opts.fab_radius_large %>px;
-        --fab-radius-small: <% return opts.fab_radius_small %>;
-        --fab-radius-small-px: <% return opts.fab_radius_small %>px;
+        /*--fab-radius-large: <% return opts.fab_radius_large %>;
+         *--fab-radius-large-px: <% return opts.fab_radius_large %>px;
+         *--fab-radius-small: <% return opts.fab_radius_small %>;
+         *--fab-radius-small-px: <% return opts.fab_radius_small %>px;
+         *--fab-width-small: <% return opts.fab_width_small %>;
+         *--fab-width-small-px: <% return opts.fab_width_small %>px;*/
         --fab-width-large: <% return opts.fab_width_large %>;
         --fab-width-large-px: <% return opts.fab_width_large %>px;
-        --fab-width-small: <% return opts.fab_width_small %>;
-        --fab-width-small-px: <% return opts.fab_width_small %>px;
         --header-border: <% return opts.header_border %>;
         --header-height: <% return opts.header_height %>;
         --header-height-px: <% return opts.header_height %>px;
         --modal-overlay-index: <% return opts.modal_overlay_index %>;
+        --modal-overlay-bg: <% return opts.modal_overlay_bg %>;
         --modal-index: <% return opts.modal_index %>;
         --nav-overlay-index: <% return opts.nav_overlay_index %>;
+        --nav-overlay-bg: <% return opts.nav_overlay_bg %>;
         --nav-width: <% return opts.nav_width %>;
         --nav-width-px: <% return opts.nav_width %>px;
         --snack-height: <% return opts.snack_height %>;
@@ -146,8 +136,6 @@
         --transition-time-ms: <% return opts.transition_time %>ms;
         --transition-time-main: <% return opts.transition_time_main %>;
         --transition-time-main-ms: <% return opts.transition_time_main %>ms;
-        --transition-time-wave: <% return opts.transition_time_wave %>;
-        --transition-time-wave-ms: <% return opts.transition_time_wave %>ms;
         --ease: <% return opts.easing %>;
       }
 
@@ -160,7 +148,7 @@
         background: var(--page-bg);
       }
 
-      body > section > aside {
+      body > section > section.tk-banner {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -179,12 +167,26 @@
         height: var(--banner-height-px);
         top: calc(var(--banner-height-px) * -1);
         left: 0;
-        color: var(--banner-fg);
-        background: var(--banner-bg);
         transition: transform var(--transition-time-ms) var(--ease);
       }
 
-      body > section > aside > button {
+      body > section > section.tk-banner > main {
+        position: relative;
+        display: flex;
+        flex-direction: row;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+        color: var(--banner-fg);
+        background: var(--banner-bg);
+      }
+
+      body > section > section.tk-banner > main > button {
+        display: flex;
+        flex-direction: row;
         max-height: 100%;
         max-width: 100%;
         min-height: 100%;
@@ -198,6 +200,8 @@
         background: none;
         outline: none;
         flex-direction: row;
+        align-items: center;
+        justify-content: center;
       }
 
       body > section,
@@ -403,13 +407,13 @@
         max-width: 100dvw;
         z-index: var(--nav-overlay-index);
         opacity: 0;
-        background: black;
+        background: var(--modal-overlay-bg);
         pointer-events: none;
         transition: opacity var(--transition-time-ms) var(--ease);
       }
 
       body > section:not(.tk-lg):not(.tk-md) > main > section.tk-showing-nav > .tk-nav-overlay {
-        opacity: 0.5;
+        opacity: 1;
         pointer-events: all;
       }
 
@@ -431,53 +435,56 @@
         height: var(--header-height-px);
       }
 
-      body > section > main > section > nav > button.tk-clicked {
-        transition: background var(--transition-time-ms) var(--ease);
-        background: var(--nav-ripple-bg);
-      }
-
+      body > section > main > section > nav > button.tk-clicked,
       body > section > main > section > nav > button.tk-active {
-        animation: none;
-        background: var(--nav-ripple-bg);
+        background: var(--nav-active-bg);
       }
 
-      body > section > main > section > button {
-        position: fixed;
-        flex-shrink: 0;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        pointer-events: all;
-        fill: var(--fab-fg);
-        color: var(--fab-fg);
-        background: var(--fab-bg);
-        bottom: 0;
-        left: calc(100dvw - var(--fab-width-large-px) - 16px);
-        height: var(--fab-width-large-px);
-        width: var(--fab-width-large-px);
-        border-radius: var(--fab-radius-large-px);
-        box-shadow: var(--fab-shadow);
-        transition: box-shadow var(--transition-time-ms) var(--ease),
-                    transform var(--transition-time-ms) var(--ease),
-                    opacity var(--transition-time-ms) var(--ease);
+      body > section > main > section > nav > button.tk-transition {
+        transition: background var(--transition-time-ms) var(--ease);
       }
 
-      body > section > main > section > button.tk-top {
-        top: 0;
-      }
+      /* body > section > main > section > button {
+       *   position: fixed;
+       *   flex-shrink: 0;
+       *   border: none;
+       *   display: flex;
+       *   align-items: center;
+       *   justify-content: center;
+       *   cursor: pointer;
+       *   pointer-events: all;
+       *   fill: var(--fab-fg);
+       *   color: var(--fab-fg);
+       *   background: var(--fab-bg);
+       *   bottom: 0;
+       *   left: calc(100dvw - var(--fab-width-large-px) - 16px);
+       *   height: var(--fab-width-large-px);
+       *   width: var(--fab-width-large-px);
+       *   border-radius: var(--fab-radius-large-px);
+       *   box-shadow: var(--fab-shadow);
+       *   transition: box-shadow var(--transition-time-ms) var(--ease),
+       *               transform var(--transition-time-ms) var(--ease),
+       *               opacity var(--transition-time-ms) var(--ease);
+       * }
+       */
 
-      body > section > main > section > button.tk-small {
-        height: var(--fab-width-small-px);
-        width: var(--fab-width-small-px);
-        border-radius: var(--fab-radius-small-px);
-        left: calc(100dvw - var(--fab-width-small-px) - 24px);
-      }
+      /* body > section > main > section > button.tk-top {
+       *   top: 0;
+       * }
+       */
 
-      body > section > main > section > button > svg {
-        transition: transform var(--transition-time-ms) var(--ease);
-      }
+      /* body > section > main > section > button.tk-small {
+       *   height: var(--fab-width-small-px);
+       *   width: var(--fab-width-small-px);
+       *   border-radius: var(--fab-radius-small-px);
+       *   left: calc(100dvw - var(--fab-width-small-px) - 24px);
+       * }
+       */
+
+      /* body > section > main > section > button > svg {
+       *   transition: transform var(--transition-time-ms) var(--ease);
+       * }
+       */
 
       body > section > main > section > main {
         flex-grow: 1;
@@ -530,7 +537,8 @@
         padding-top: 0.75em;
         padding-bottom: 0.75em;
         border-bottom: var(--header-border);
-        background: var(--page-bg);
+        background: var(--subheader-bg);
+        color: var(--subheader-fg);
         overflow-x: auto;
         overflow-y: hidden;
         overscroll-behavior: contain;
@@ -553,43 +561,19 @@
                     opacity var(--transition-time-main-ms) var(--ease);
       }
 
-      body > section > main > section > aside {
-        position: fixed;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        text-overflow: ellipsis;
-        padding-top: 0.5em;
-        padding-bottom: 0.5em;
-        padding-left: 0.75em;
-        padding-right: 0.75em;
-        pointer-events: all;
-        color: var(--snack-fg);
-        background: var(--snack-bg);
-        min-height: var(--snack-height-px);
-        max-width: calc(100dvw - 16px - var(--fab-width-large-px) - 56px);
-        bottom: 0;
-        left: 16px;
-        border-radius: var(--snack-radius-px);
-        box-shadow: var(--snack-shadow);
-        transition: box-shadow var(--transition-time-ms) var(--ease),
-                    transform var(--transition-time-ms) var(--ease),
-                    opacity var(--transition-time-ms) var(--ease);
-      }
-
       body .tk-transition *,
       body .tk-animated * {
         pointer-events: none;
       }
 
-      body > section > main > section > aside * {
+      body > section > main > section > section.tk-snack * {
         font-size: 1em;
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
       }
 
-      body > section > main > section > aside > button {
+      body > section > main > section > section.tk-snack > button {
         border: none;
         background: none;
         flex-shrink: 0;
@@ -602,15 +586,15 @@
         fill: rgba(255, 255, 255, 1);
       }
 
-      body > section > main > section > aside > button:first-child {
+      body > section > main > section > section.tk-snack > button:first-child {
         margin-right: 0.75em;
       }
 
-      body > section > main > section > aside > button:last-child {
+      body > section > main > section > section.tk-snack > button:last-child {
         margin-left: 0.75em;
       }
 
-      body > section > main > section > aside > button:first-child:last-child {
+      body > section > main > section > section.tk-snack > button:first-child:last-child {
         margin: -0.75em;
       }
 
@@ -646,28 +630,31 @@
         border-radius: 20px;
       }
 
-      body .tk-ripple-container .tk-ripple-wave {
-        backface-visibility: hidden;
-        position: absolute;
-        border-radius: 50%;
-        transform: scale(0.7);
-        opacity: 0.45;
-        background: var(--ripple-bg);
-        transition: background var(--transition-time-wave-ms) var(--ease);
-        animation: tk-ripple-wave var(--transition-time-wave-ms) forwards var(--ease);
-      }
-
-      body > section > main > section > nav > button:not(.tk-active) .tk-ripple-container .tk-ripple-wave,
-      body > section > main > section > nav > button.tk-clicked .tk-ripple-container .tk-ripple-wave {
+      body .tk-ripple-dark .tk-ripple-wave {
         background: var(--nav-ripple-bg);
       }
 
-      body .tk-ripple-dark .tk-ripple-container .tk-ripple-wave {
+      body .tk-ripple-wave {
+        backface-visibility: hidden;
+        position: absolute;
+        border-radius: 50%;
+        transform: scale(0);
+        opacity: 0;
+        background: var(--ripple-bg);
+        transition: background calc(var(--transition-time-ms) * 2) var(--ease);
+        animation: tk-ripple-wave calc(var(--transition-time-ms) * 2) forwards var(--ease);
+      }
+
+      body > section > main > section > nav > button.tk-active .tk-ripple-wave {
+        background: var(--ripple-bg);
+      }
+
+      body > section > main > section > nav > button:not(.tk-active) .tk-ripple-wave {
         background: var(--nav-ripple-bg);
       }
 
       body > section > main > section > main button,
-      body > section > main > section > aside button,
+      body > section > main > section > section.tk-snack button,
       body > section > main > section > header button {
         position: relative;
         white-space: nowrap;
@@ -769,6 +756,39 @@
         max-width: 100dvw;
       }
 
+      body > section > main > section > section.tk-snack {
+        position: fixed;
+        min-height: var(--snack-height-px);
+        max-width: calc(100dvw - 16px - var(--fab-width-large-px) - 56px);
+        bottom: 0;
+        left: 16px;
+        box-shadow: var(--snack-shadow);
+        transition: box-shadow var(--transition-time-ms) var(--ease),
+                    transform var(--transition-time-ms) var(--ease),
+                    opacity var(--transition-time-ms) var(--ease);
+      }
+
+      body > section > main > section > section.tk-snack > main {
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        text-overflow: ellipsis;
+        padding-top: 0.5em;
+        padding-bottom: 0.5em;
+        padding-left: 0.75em;
+        padding-right: 0.75em;
+        pointer-events: all;
+        color: var(--snack-fg);
+        background: var(--snack-bg);
+        border-radius: var(--snack-radius-px);
+      }
+
       body > section > main > section > section.tk-modal > .tk-modal-overlay {
         position: fixed;
         top: 0;
@@ -780,8 +800,7 @@
         min-width: 100dvw;
         max-width: 100dvw;
         z-index: var(--modal-overlay-index);
-        opacity: 0;
-        background: black;
+        background: var(--modal-overlay-bg);
         pointer-events: all;
         transition: opacity var(--transition-time-ms) var(--ease);
       }
@@ -801,7 +820,17 @@
       }
 
       @keyframes tk-ripple-wave {
-        to { transform: scale(24); opacity:0; }
+        0% {
+          opacity: 0;
+          transform: scale(0);
+        }
+        50% {
+          opacity: 0.3;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 0;
+        }
       }
 
     </style>
@@ -811,6 +840,17 @@
   </head>
 
   <body <% return opts.body_attrs %>>
+    <template class="tk-ripple">
+      <div class="tk-ripple-container">
+        <div class="tk-ripple-wave"></div>
+      </div>
+    </template>
+    <template class="tk-nav-overlay">
+      <div class="tk-nav-overlay"></div>
+    </template>
+    <template class="tk-modal-overlay">
+      <div class="tk-modal-overlay"></div>
+    </template>
     <% push(opts.index_js) %>
     <script src="<% return opts.index_js %>"></script>
     <% pop() %>

@@ -117,7 +117,11 @@ return function (opts)
           if opts.verbose then
             print("Cache miss", request.url)
           end
-          return util.fetch(request, nil, 0, 0, 0, true, done)
+          return util.fetch(request, nil, {
+            done = done,
+            retries = 0,
+            raw = true,
+          })
         else
           return done(true, resp:clone())
         end
