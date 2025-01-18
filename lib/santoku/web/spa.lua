@@ -107,7 +107,7 @@ return function (opts)
 
       local e_wave = e_ripple:querySelector(".tk-ripple-wave")
       local rect = el:getBoundingClientRect()
-      local dia = num.min(num.max(rect.height, rect.width, 100), 400)
+      local dia = num.min(num.max(rect.height, rect.width, 100), 200)
       local x = ev.clientX - rect.left
       local y = ev.clientY - rect.top
 
