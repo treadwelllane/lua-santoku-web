@@ -638,8 +638,8 @@
         backface-visibility: hidden;
         position: absolute;
         border-radius: 50%;
-        transform: scale(0);
-        opacity: 0;
+        transform: scale(0.7);
+        opacity: 0.45;
         background: var(--ripple-bg);
         transition: background calc(var(--transition-time-ms) * 2) var(--ease);
         animation: tk-ripple-wave calc(var(--transition-time-ms) * 2) forwards var(--ease);
@@ -820,17 +820,7 @@
       }
 
       @keyframes tk-ripple-wave {
-        0% {
-          opacity: 0;
-          transform: scale(0);
-        }
-        50% {
-          opacity: 0.3;
-        }
-        100% {
-          transform: scale(1);
-          opacity: 0;
-        }
+        to { transform: scale(24); opacity: 0; }
       }
 
     </style>

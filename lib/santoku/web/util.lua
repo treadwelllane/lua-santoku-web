@@ -718,7 +718,9 @@ M.parse_path = function (url, path, params, modal)
     end
   end
   if modal and result.path[#result.path] then
-    local s, m = str.match(result.path[#result.path], "^([^%$]*)%" .. str.sub(modal, 1, 1) .. "?(.*)$")
+    modal = str.sub(modal, 1, 1)
+    local pat = "^([^%" .. modal .. "]*)%" .. modal .. "?(.*)$"
+    local s, m = str.match(result.path[#result.path], pat)
     if s and m and m ~= "" then
       result.path[#result.path] = s
       result.modal = m

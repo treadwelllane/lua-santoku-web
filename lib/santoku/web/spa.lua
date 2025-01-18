@@ -117,7 +117,7 @@ return function (opts)
       e_wave.style.top = (y - dia / 2) .. "px"
 
       el.classList:add("tk-clicked")
-      el:insertBefore(e_ripple, el.firstElementChild)
+      el:append(e_ripple)
 
     end, false)
 
