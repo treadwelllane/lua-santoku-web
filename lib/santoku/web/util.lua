@@ -23,8 +23,9 @@ local M = {}
 
 local reqs = setmetatable({}, { __mode = "k" })
 
--- TODO: metatable on headers that lowercases keys
-M.request = function (url, opts, done, retries, backoffs, retry_until, raw)
+-- TODO: consider retry-after header
+-- TODO: lowercase headers?
+M.request = function (url, opts, done, retry, raw)
   if url and reqs[url] then
     return url
   end
@@ -36,9 +37,7 @@ M.request = function (url, opts, done, retries, backoffs, retry_until, raw)
     req.params = url.params
     req.headers = url.headers
     req.done = done or url.done
-    req.retries = retries or url.retries or 3
-    req.backoffs = backoffs or url.backoffs or 1
-    req.retry_until = retry_until or url.retry_until
+    req.retry = retry or url.retry
     req.raw = raw or url.raw
   elseif opts then
     req.url = url
@@ -46,15 +45,35 @@ M.request = function (url, opts, done, retries, backoffs, retry_until, raw)
     req.params = opts.params
     req.headers = opts.headers
     req.done = done or url.done
-    req.retries = retries or opts.retries or 3
-    req.backoffs = backoffs or opts.backoffs or 1
-    req.retry_until = retry_until or opts.retry_until
+    req.retry = retry or opts.retry
     req.raw = raw or opts.raw
   end
   req.qstr = req.params and M.query_string(req.params) or ""
   req.done = req.done or done or fun.noop
   req.events = async.events()
   req.ctrl = AbortController:new()
+  req.retry = req.retry == nil and {} or req.retry
+  if req.retry then
+    local retry = type(req.retry) == "table" and req.retry or {}
+    local times = retry.times or 3
+    local backoff = retry.backoff or 1
+    local multiplier = retry.multiplier or 3
+    local filter = retry.filter or function (ok, resp)
+      local s = resp and resp.status
+      return not ok and (s == 500 or s == 503 or s == 429)
+    end
+    req.events.on("response", function (k, ...)
+      if times > 0 and filter(...) then
+        return global:setTimeout(function ()
+          times = times - 1
+          backoff = backoff * multiplier
+          return M.fetch(url, opts, req)
+        end, backoff * 1000)
+      else
+        return k(...)
+      end
+    end, true)
+  end
   req.cancel = function ()
     return req.ctrl:abort()
   end
@@ -105,22 +124,9 @@ M.fetch = function (url, opts, req)
         return req.done(ok, resp, ...)
       end
     end
-    local function fetch_helper (ok, resp, ...)
-      if ok or
-        (req.retry_until and req.retry_until(resp)) or
-        (not req.retry_until and req.retries <= 0)
-      then
-        return req.done(ok, resp, ...)
-      else
-        return global:setTimeout(function ()
-          req.retries = req.retries - 1
-          return M.fetch(url, opts, req)
-        end, req.backoffs * 1000)
-      end
-    end
     return M.response(function (...)
       if req.events then
-        return req.events.process("response", nil, fetch_helper, ...)
+        return req.events.process("response", nil, req.done, ...)
       else
         return fetch_helper(...)
       end
