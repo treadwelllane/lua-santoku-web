@@ -19,6 +19,8 @@ return function (callback, global, opts, run, ...)
       return x
     elseif x and x.constructor and x.constructor.name == "ErrorEvent" then
       return format_one(x.error)
+    elseif x and x.constructor and x.constructor.name == "PromiseRejectionEvent" then
+      return format_one(x.reason)
     elseif x and x.constructor and x.constructor.name == "DOMException" then
       return { name = x.name, message = x.message, code = x.code }
     elseif x and x.constructor and x.constructor.name == "Error" then
