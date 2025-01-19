@@ -24,6 +24,16 @@ local M = {}
 
 local reqs = setmetatable({}, { __mode = "k" })
 
+local function fetch_request (req)
+  return M.fetch(req.url, {
+    method = req.method,
+    headers = req.headers or nil,
+    body = (req.method == "POST" and req.body) and json.encode(req.body) or nil,
+    params = req.method == "GET" and req.params or nil,
+    signal = req.ctrl and req.ctrl.signal or nil,
+  }, req)
+end
+
 -- TODO: consider retry-after header
 -- TODO: lowercase headers?
 M.request = function (url, opts, done, retry, raw)
@@ -67,9 +77,9 @@ M.request = function (url, opts, done, retry, raw)
       if times > 0 and filter(...) then
         return global:setTimeout(function ()
           times = times - 1
-          backoff = (backoff * multiplier) + (backoff * rand.num())
-          return M.fetch(url, opts, req)
-        end, backoff * 1000)
+          backoff = backoff * multiplier
+          return fetch_request(req)
+        end, (backoff + (backoff * rand.num())) * 1000)
       else
         return k(...)
       end
@@ -223,24 +233,17 @@ end
 
 M.get = function (...)
   local req = M.request(...)
-  M.fetch(req.url .. req.qstr, {
-    method = "GET",
-    headers = req.headers,
-    signal = req.ctrl.signal,
-  }, req)
+  req.method = "GET"
+  fetch_request(req)
   return req.cancel
 end
 
 M.post = function (...)
   local req = M.request(...)
+  req.method = "POST"
   req.headers = req.headers or {}
   req.headers["content-type"] = req.headers["content-type"] or "application/json"
-  M.fetch(req.url, {
-    method = "POST",
-    headers = req.headers,
-    body = req.body and json.encode(req.body) or nil,
-    signal = req.ctrl.signal,
-  }, req)
+  fetch_request(req)
   return req.cancel
 end
 
