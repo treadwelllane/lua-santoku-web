@@ -1,5 +1,6 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
+local rand = require("santoku.random")
 local err = require("santoku.error")
 local async = require("santoku.async")
 local str = require("santoku.string")
@@ -66,7 +67,7 @@ M.request = function (url, opts, done, retry, raw)
       if times > 0 and filter(...) then
         return global:setTimeout(function ()
           times = times - 1
-          backoff = backoff * multiplier
+          backoff = (backoff * multiplier) + (backoff * rand.num())
           return M.fetch(url, opts, req)
         end, backoff * 1000)
       else
