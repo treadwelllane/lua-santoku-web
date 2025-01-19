@@ -855,7 +855,7 @@ return function (opts)
       local snack = view.snack_list[i]
       local e_snack = snack.el
       if root.main.active_modal then
-        e_snack.style["z-index"] = view.snack_index - opts.snack_index + opts.modal_overlay_index + 1
+        e_snack.style["z-index"] = view.snack_index - opts.snack_index + opts.modal_index + 2
       else
         e_snack.style["z-index"] = view.snack_index
       end
