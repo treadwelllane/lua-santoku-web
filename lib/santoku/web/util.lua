@@ -129,7 +129,7 @@ M.fetch = function (url, opts, req)
       if req.events then
         return req.events.process("response", nil, req.done, ...)
       else
-        return fetch_helper(...)
+        return req.done(...)
       end
     end, ok, resp, ...)
   end)
