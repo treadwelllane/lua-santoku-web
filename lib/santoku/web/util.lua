@@ -25,12 +25,24 @@ local M = {}
 local reqs = setmetatable({}, { __mode = "k" })
 
 local function fetch_request (req)
-  return M.fetch(req.url, {
-    method = req.method,
-    headers = req.headers or nil,
-    body = (req.method == "POST" and req.body) and json.encode(req.body) or nil,
-    params = req.method == "GET" and req.params or nil,
-    signal = req.ctrl and req.ctrl.signal or nil,
+  local url, method, headers = req.url, req.method, req.headers
+  local signal = req.ctrl and req.ctrl.signal or nil
+  local body, params
+  if method == "GET" and req.qstr then
+    url = url .. req.qstr
+  end
+  if method == "GET" and req.params then
+    params = req.params
+  end
+  if method == "POST" and req.body then
+    body = json.encode(req.body)
+  end
+  return M.fetch(url, {
+    method = method,
+    headers = headers,
+    body = body,
+    params = params,
+    signal = signal,
   }, req)
 end
 
