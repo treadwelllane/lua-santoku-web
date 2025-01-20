@@ -87,6 +87,11 @@ return function (opts)
     return page
   end
 
+  local function same_view (view, name, m)
+    m = m or "main"
+    return name == tbl.get(view, m, "name")
+  end
+
   M.setup_ripple = function (el)
 
     el:addEventListener("mousedown", function (_, ev)
@@ -2179,6 +2184,7 @@ return function (opts)
     err.assert(name ~= "default", "view name can't be default")
 
     local view = {
+      root = root,
       page = page,
       name = name,
       state = state,
@@ -2342,7 +2348,7 @@ return function (opts)
     page_name = M.resolve_default(view_pane, page_name)
     local pane_page = M.get_page(view_pane.pages, page_name, name)
 
-    if page_name == tbl.get(view_pane, "main", "name") then
+    if same_view(view_pane, page_name) then
       view_pane.main.events.emit("update")
       return
     end
@@ -2377,8 +2383,8 @@ return function (opts)
       return
     end
 
-    if name == tbl.get(view, "active_modal", "name") then
-      view.events.emit("update")
+    if same_view(view, name, "active_modal") then
+      view.active_modal.events.emit("update")
       return
     end
 
@@ -2404,8 +2410,8 @@ return function (opts)
       return
     end
 
-    if name == tbl.get(view, "main", "name") then
-      view.events.emit("update")
+    if same_view(view, name) then
+      view.main.events.emit("update")
       return
     end
 
