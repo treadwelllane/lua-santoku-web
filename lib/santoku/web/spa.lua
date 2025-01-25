@@ -37,6 +37,8 @@ return function (opts)
   local http = util.http_client()
   local root
   local size, vw, vh
+  local bottom_offset_total = 0
+  local banner_offset_total = 0
 
   local M = {}
 
@@ -190,6 +192,9 @@ return function (opts)
   end
 
   M.destroy_header_links = function (view)
+    if not (root and root.main) then
+      return
+    end
     while true do
       local el = next(view.self_header_links)
       if not el then
@@ -202,7 +207,7 @@ return function (opts)
 
   M.setup_header_links = function (view, el)
     el = el or view.el
-    if not el or not root.main then
+    if not el or not (root and root.main) then
       return
     end
     view.self_header_links = {}
@@ -357,7 +362,7 @@ return function (opts)
   end
 
   M.get_base_header_offset = function ()
-    return (root.banner_offset_total or 0)
+    return banner_offset_total or 0
   end
 
   M.get_base_footer_offset = function ()
@@ -621,139 +626,9 @@ return function (opts)
     view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
+    view.e_main.style.paddingBottom = bottom_offset_total .. "px"
 
   end
-
-  -- M.style_fabs = function (view, animate)
-
-  --   if not view.e_fabs or view.e_fabs.length <= 0 then
-  --     return
-  --   end
-
-  --   if animate then
-  --     view.e_fabs:forEach(function (_, e_fab)
-  --       e_fab.classList:add("tk-animated")
-  --     end)
-  --     if view.fabs_animation then
-  --       window:clearTimeout(view.fabs_animation)
-  --       view.fabs_animation = nil
-  --     end
-  --     view.fabs_animation = M.after_transition(function ()
-  --       view.e_fabs:forEach(function (_, e_fab)
-  --         e_fab.classList:remove("tk-animated")
-  --       end)
-  --       view.fabs_animation = nil
-  --     end)
-  --   end
-
-  --   local subheader_offset = M.get_subheader_offset(view)
-
-  --   local bottom_offset_total = opts.padding
-  --   local top_offset_total = opts.padding
-
-  --   arr.each(view.e_fabs_shared, function (el)
-
-  --     local offset = -view.fab_shared_offset
-
-  --     el.style["z-index"] = view.fab_shared_index
-
-  --     if not M.should_show(view, el) then
-  --       el.style.opacity = 0
-  --       el.style["box-shadow"] = view.fab_shared_shadow
-  --       el.style["pointer-events"] = "none"
-  --       el.style.transform =
-  --         "scale(" .. opts.fab_scale .. ") " ..
-  --         "translateY(" .. offset .. "px)"
-  --       return
-  --     end
-
-  --     local e_svg = el:querySelector("svg")
-
-  --     el.style["z-index"] = view.fab_shared_index
-  --     el.style.opacity = view.fab_shared_opacity
-  --     el.style["pointer-events"] = "all"
-  --     el.style["box-shadow"] = view.fab_shared_shadow
-
-  --     el.style.transform =
-  --       "scale(" .. view.fab_shared_scale .. ") " ..
-  --       "translateY(" .. offset .. "px)"
-
-  --     e_svg.style.transform =
-  --       "translateY(" .. view.fab_shared_svg_offset .. "px)"
-
-  --     bottom_offset_total = bottom_offset_total +
-  --       (el.classList:contains("tk-small") and
-  --         opts.fab_width_small or
-  --         opts.fab_width_large) + opts.padding
-
-  --   end)
-
-  --   local bottom_cutoff = subheader_offset + opts.padding
-  --   local last_bottom_top = 0
-
-  --   arr.each(view.e_fabs_bottom, function (el)
-
-  --     local offset = view.fabs_bottom_offset - bottom_offset_total
-
-  --     local height = el.classList:contains("tk-small") and
-  --       opts.fab_width_small or
-  --       opts.fab_width_large
-
-  --     el.style["z-index"] = view.fabs_bottom_index
-
-  --     last_bottom_top = (e_container.clientHeight + offset - height - opts.padding)
-
-  --     if last_bottom_top <= bottom_cutoff or not M.should_show(view, el)
-  --     then
-  --       el.style.opacity = 0
-  --       el.style["pointer-events"] = "none"
-  --       el.style.transform =
-  --         "scale(" .. opts.fab_scale .. ") " ..
-  --         "translateY(" .. offset .. "px)"
-  --       return
-  --     end
-
-  --     el.style["pointer-events"] = "all"
-  --     el.style.opacity = view.fabs_bottom_opacity
-  --     el.style.transform =
-  --       "scale(" .. view.fabs_bottom_scale .. ") " ..
-  --       "translateY(" .. offset .. "px)"
-
-  --     bottom_offset_total = bottom_offset_total + height + opts.padding
-
-  --   end)
-
-  --   arr.each(view.e_fabs_top, function (el)
-
-  --     local offset = subheader_offset + view.fabs_top_offset + top_offset_total
-
-  --     local height = el.classList:contains("tk-small") and
-  --       opts.fab_width_small or
-  --       opts.fab_width_large
-
-  --     el.style["z-index"] = view.fabs_top_index
-
-  --     if (offset + height) >= last_bottom_top or not M.should_show(view, el)
-  --     then
-  --       el.style.opacity = 0
-  --       el.style["pointer-events"] = "none"
-  --       el.style.transform =
-  --         "scale(" .. opts.fab_scale .. ") " ..
-  --         "translateY(" .. offset .. "px)"
-  --       return
-  --     end
-
-  --     el.style["pointer-events"] = "all"
-  --     el.style.opacity = view.fabs_top_opacity or 0
-  --     el.style.transform =
-  --       "scale(" .. (view.fabs_top_scale or 1) .. ") " ..
-  --       "translateY(" .. offset .. "px)"
-
-  --     top_offset_total = top_offset_total + height + opts.padding
-
-  --   end)
-
-  -- end
 
   M.setup_banners = function (view)
     view.banner_add = {}
@@ -770,6 +645,9 @@ return function (opts)
   end
 
   M.banner = function (view, name, page, data)
+    if not (root and root.main) then
+      return
+    end
     local banner
     if page == nil then
       if name then
@@ -789,9 +667,8 @@ return function (opts)
     end
     M.style_banners(root, true)
     M.style_header(root.main, true)
-    M.style_nav(root.main, true)
-    -- M.style_fabs(view, true)
     M.style_header_links(root.main, true)
+    M.style_nav(root.main, true)
     if root.main.main then
       M.style_main_header_switch(root.main.main, true)
       M.style_main_switch(root.main.main, true)
@@ -802,6 +679,9 @@ return function (opts)
   end
 
   M.snack = function (view, name, page, data)
+    if not (root and root.main) then
+      return
+    end
     local snack
     if page == nil then
       if name then
@@ -820,12 +700,17 @@ return function (opts)
       tbl.set(view, "active_snacks", name, true)
     end
     M.style_snacks(root.main, true)
+    M.on_resize()
     if snack and snack.el then
       return snack
     end
   end
 
   M.style_snacks = function (view, animate)
+
+    if not (root and root.main) then
+      return
+    end
 
     for i = 1, #view.snack_add do
       M.enter_snack(view, view.snack_add[i].snack, view.snack_add[i].data)
@@ -851,7 +736,7 @@ return function (opts)
       end)
     end
 
-    local bottom_offset_total = opts.padding
+    bottom_offset_total = opts.padding
 
     local nav_push = (view.e_nav and (size == "lg" or size == "md"))
       and opts.nav_width or 0
@@ -893,6 +778,10 @@ return function (opts)
 
   M.style_banners = function (view, animate)
 
+    if not (root and root.main) then
+      return
+    end
+
     for i = 1, #view.banner_add do
       M.enter_banner(view, view.banner_add[i].banner, view.banner_add[i].data)
     end
@@ -917,7 +806,7 @@ return function (opts)
       end)
     end
 
-    view.banner_offset_total = 0
+    banner_offset_total = 0
 
     local shown_index = opts.banner_index + #view.banner_list
 
@@ -925,7 +814,7 @@ return function (opts)
       local banner = view.banner_list[i]
       if view.banner_remove[banner.name] then
         if view.banner_list_index[banner.name] then
-          local transform = "translateY(" .. view.banner_offset_total .. "px)"
+          local transform = "translateY(" .. banner_offset_total .. "px)"
           view.after_frame(function ()
             banner.el.style["z-index"] = shown_index
             banner.el_banner.style.transform = transform
@@ -938,9 +827,11 @@ return function (opts)
         if banner.should_update then
           banner.events.emit("update")
         end
+        local height = banner.el:getBoundingClientRect().height
         banner.should_update = true
-        view.banner_offset_total = view.banner_offset_total + opts.banner_height
-        local transform = "translateY(" .. view.banner_offset_total .. "px)"
+        banner.el.style.top = (height * -1) .. "px"
+        banner_offset_total = banner_offset_total + height
+        local transform = "translateY(" .. banner_offset_total .. "px)"
         view.after_frame(function ()
           banner.el.style["z-index"] = shown_index
           banner.el.style.transform = transform
@@ -1381,252 +1272,6 @@ return function (opts)
 
   end
 
-  -- M.style_fabs_transition = function (next_view, transition, direction, last_view)
-
-  --   local is_shared =
-  --     (next_view and next_view.e_fabs and next_view.e_fabs.length > 0) and
-  --     (last_view and last_view.e_fabs and last_view.e_fabs.length > 0)
-
-  --   if not last_view and transition == "enter" then
-
-  --     next_view.fab_shared_index = opts.fab_index + 1
-  --     next_view.fab_shared_scale = 1
-  --     next_view.fab_shared_opacity = 1
-  --     next_view.fab_shared_shadow = opts.fab_shadow
-  --     next_view.fab_shared_offset = opts.padding
-  --     next_view.fab_shared_svg_offset = 0
-
-  --     next_view.fabs_bottom_index = opts.fab_index - 1
-  --     next_view.fabs_bottom_scale = 1
-  --     next_view.fabs_bottom_opacity = 1
-  --     next_view.fabs_bottom_offset = 0
-
-  --     next_view.fabs_top_index = opts.fab_index - 1
-  --     next_view.fabs_top_scale = 1
-  --     next_view.fabs_top_opacity = 1
-  --     next_view.fabs_top_offset = 0
-
-  --     M.style_fabs(next_view)
-
-  --   elseif is_shared and transition == "enter" and direction == "forward" then
-
-  --     next_view.fab_shared_index = opts.fab_index + 1
-  --     next_view.fab_shared_scale = 1
-  --     next_view.fab_shared_opacity = 0
-  --     next_view.fab_shared_shadow = opts.fab_shadow
-  --     next_view.fab_shared_offset = opts.padding
-  --     next_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
-
-  --     next_view.fabs_bottom_index = opts.fab_index - 1
-  --     next_view.fabs_bottom_scale = opts.fab_scale
-  --     next_view.fabs_bottom_opacity = 0
-  --     next_view.fabs_bottom_offset = opts.transition_forward_height
-
-  --     next_view.fabs_top_index = opts.fab_index - 1
-  --     next_view.fabs_top_scale = 1
-  --     next_view.fabs_top_opacity = 0
-  --     next_view.fabs_top_offset = opts.transition_forward_height
-
-  --     M.style_fabs(next_view)
-
-  --     util.after_frame(function ()
-  --       next_view.fab_shared_svg_offset = 0
-  --       next_view.fab_shared_opacity = 1
-  --       next_view.fabs_bottom_scale = 1
-  --       next_view.fabs_bottom_opacity = 1
-  --       next_view.fabs_bottom_offset = 0
-  --       next_view.fabs_top_scale = 1
-  --       next_view.fabs_top_opacity = 1
-  --       next_view.fabs_top_offset = 0
-  --       M.style_fabs(next_view, true)
-  --     end)
-
-  --   elseif is_shared and transition == "exit" and direction == "forward" then
-
-  --     last_view.fab_shared_index = opts.fab_index + 1
-  --     last_view.fab_shared_scale = 1
-  --     last_view.fab_shared_opacity = 1
-  --     last_view.fab_shared_shadow = opts.fab_shadow_transparent
-  --     last_view.fab_shared_offset = opts.padding
-  --     last_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
-
-  --     last_view.fabs_bottom_index = opts.fab_index - 2
-  --     last_view.fabs_bottom_scale = 1
-  --     last_view.fabs_bottom_opacity = 0
-  --     last_view.fabs_bottom_offset = 0
-
-  --     last_view.fabs_top_index = opts.fab_index - 2
-  --     last_view.fabs_top_scale = 1
-  --     last_view.fabs_top_opacity = 0
-  --     last_view.fabs_top_offset = 0
-
-  --     M.style_fabs(last_view, true)
-
-  --   elseif is_shared and transition == "enter" and direction == "backward" then
-
-  --     next_view.fab_shared_index = opts.fab_index + 1
-  --     next_view.fab_shared_scale = 1
-  --     next_view.fab_shared_opacity = 0
-  --     next_view.fab_shared_shadow = opts.fab_shadow
-  --     next_view.fab_shared_offset = opts.padding
-  --     next_view.fab_shared_svg_offset = - opts.fab_shared_svg_transition_height
-
-  --     next_view.fabs_bottom_index = opts.fab_index - 2
-  --     next_view.fabs_bottom_scale = opts.fab_scale
-  --     next_view.fabs_bottom_opacity = 0
-  --     next_view.fabs_bottom_offset = 0
-
-  --     next_view.fabs_top_index = opts.fab_index - 2
-  --     next_view.fabs_top_scale = 1
-  --     next_view.fabs_top_opacity = 0
-  --     next_view.fabs_top_offset = 0
-
-  --     M.style_fabs(next_view)
-
-  --     util.after_frame(function ()
-  --       next_view.fab_shared_svg_offset = 0
-  --       next_view.fab_shared_opacity = 1
-  --       next_view.fabs_bottom_scale = 1
-  --       next_view.fabs_bottom_opacity = 1
-  --       next_view.fabs_top_scale = 1
-  --       next_view.fabs_top_opacity = 1
-  --       M.style_fabs(next_view, true)
-  --     end)
-
-  --   elseif is_shared and transition == "exit" and direction == "backward" then
-
-  --     last_view.fab_shared_index = opts.fab_index + 1
-  --     last_view.fab_shared_scale = 1
-  --     last_view.fab_shared_opacity = 1
-  --     last_view.fab_shared_shadow = opts.fab_shadow_transparent
-  --     last_view.fab_shared_offset = opts.padding
-  --     last_view.fab_shared_svg_offset = opts.fab_shared_svg_transition_height
-
-  --     last_view.fabs_bottom_index = opts.fab_index - 1
-  --     last_view.fabs_bottom_scale = opts.fab_scale
-  --     last_view.fabs_bottom_opacity = 0
-  --     last_view.fabs_bottom_offset = opts.transition_forward_height
-
-  --     last_view.fabs_top_index = opts.fab_index + 2
-  --     last_view.fabs_top_scale = 1
-  --     last_view.fabs_top_opacity = 0
-  --     last_view.fabs_top_offset = opts.transition_forward_height
-
-  --     M.style_fabs(last_view, true)
-
-  --   elseif transition == "enter" and direction == "forward" then
-
-  --     next_view.fab_shared_index = opts.fab_index - 1
-  --     next_view.fab_shared_scale = opts.fab_scale
-  --     next_view.fab_shared_opacity = 0
-  --     next_view.fab_shared_shadow = opts.fab_shadow
-  --     next_view.fab_shared_offset = opts.padding + opts.transition_forward_height
-  --     next_view.fab_shared_svg_offset = 0
-
-  --     next_view.fabs_bottom_index = opts.fab_index - 1
-  --     next_view.fabs_bottom_scale = opts.fab_scale
-  --     next_view.fabs_bottom_opacity = 0
-  --     next_view.fabs_bottom_offset = opts.transition_forward_height
-
-  --     next_view.fabs_top_index = opts.fab_index - 1
-  --     next_view.fabs_top_scale = 1
-  --     next_view.fabs_top_opacity = 0
-  --     next_view.fabs_top_offset = opts.transition_forward_height
-
-  --     M.style_fabs(next_view)
-
-  --     util.after_frame(function ()
-  --       next_view.fab_shared_scale = 1
-  --       next_view.fab_shared_opacity = 1
-  --       next_view.fab_shared_offset = opts.padding
-  --       next_view.fabs_bottom_scale = 1
-  --       next_view.fabs_bottom_opacity = 1
-  --       next_view.fabs_bottom_offset = 0
-  --       next_view.fabs_top_scale = 1
-  --       next_view.fabs_top_opacity = 1
-  --       next_view.fabs_top_offset = 0
-  --       M.style_fabs(next_view, true)
-  --     end)
-
-  --   elseif transition == "enter" and direction == "backward" then
-
-  --     next_view.fab_shared_index = opts.fab_index - 2
-  --     next_view.fab_shared_scale = 1
-  --     next_view.fab_shared_opacity = 0
-  --     next_view.fab_shared_shadow = opts.fab_shadow
-  --     next_view.fab_shared_offset = opts.padding
-  --     next_view.fab_shared_svg_offset = 0
-
-  --     next_view.fabs_bottom_index = opts.fab_index - 2
-  --     next_view.fabs_bottom_scale = 1
-  --     next_view.fabs_bottom_opacity = 0
-  --     next_view.fabs_bottom_offset = 0
-
-  --     next_view.fabs_top_index = opts.fab_index - 2
-  --     next_view.fabs_top_scale = 1
-  --     next_view.fabs_top_opacity = 0
-  --     next_view.fabs_top_offset = 0
-
-  --     M.style_fabs(next_view)
-
-  --     util.after_frame(function ()
-  --       next_view.fab_shared_scale = 1
-  --       next_view.fab_shared_opacity = 1
-  --       next_view.fabs_bottom_scale = 1
-  --       next_view.fabs_bottom_opacity = 1
-  --       next_view.fabs_top_scale = 1
-  --       next_view.fabs_top_opacity = 1
-  --       M.style_fabs(next_view, true)
-  --     end)
-
-  --   elseif transition == "exit" and direction == "forward" then
-
-  --     last_view.fab_shared_index = opts.fab_index - 2
-  --     last_view.fab_shared_scale = 1
-  --     last_view.fab_shared_opacity = 0
-  --     last_view.fab_shared_shadow = opts.fab_shadow
-  --     last_view.fab_shared_offset = opts.padding
-  --     last_view.fab_shared_svg_offset = 0
-
-  --     last_view.fabs_bottom_index = opts.fab_index - 2
-  --     last_view.fabs_bottom_scale = 1
-  --     last_view.fabs_bottom_opacity = 0
-  --     last_view.fabs_bottom_offset = 0
-
-  --     last_view.fabs_top_index = opts.fab_index - 2
-  --     last_view.fabs_top_scale = 1
-  --     last_view.fabs_top_opacity = 0
-  --     last_view.fabs_top_offset = 0
-
-  --     M.style_fabs(last_view, true)
-
-  --   elseif transition == "exit" and direction == "backward" then
-
-  --     last_view.fab_shared_index = opts.fab_index - 1
-  --     last_view.fab_shared_scale = opts.fab_scale
-  --     last_view.fab_shared_opacity = 0
-  --     last_view.fab_shared_shadow = opts.fab_shadow
-  --     last_view.fab_shared_offset = opts.padding + opts.transition_forward_height
-  --     last_view.fab_shared_svg_offset = 0
-
-  --     last_view.fabs_bottom_index = opts.fab_index - 1
-  --     last_view.fabs_bottom_scale = opts.fab_scale
-  --     last_view.fabs_bottom_opacity = 0
-  --     last_view.fabs_bottom_offset = opts.transition_forward_height
-
-  --     last_view.fabs_top_index = opts.fab_index - 1
-  --     last_view.fabs_top_scale = opts.fab_scale
-  --     last_view.fabs_top_opacity = 0
-  --     last_view.fabs_top_offset = opts.transition_forward_height
-
-  --     M.style_fabs(last_view, true)
-
-  --   else
-  --     err.error("invalid state", "fabs transition")
-  --   end
-
-  -- end
-
   M.style_snacks_transition = function (next_view, transition, direction, last_view)
 
     if not last_view and transition == "enter" then
@@ -1692,13 +1337,11 @@ return function (opts)
     end
     if view.main then
       view.main.main_header_offset = view.header_offset
-      -- view.main.main_offset = view.header_offset
     end
     view.nav_offset = view.header_offset
     if restyle ~= false then
       M.style_header(view, true)
       M.style_nav(view, true)
-      -- M.style_fabs(view, true)
       M.style_header_links(view, true)
       if view.main then
         M.style_main_header_switch(view.main, true)
@@ -2022,7 +1665,6 @@ return function (opts)
     M.setup_dynamic(next_view, init)
     M.style_header_transition(next_view, "enter", direction, last_view)
     M.style_nav_transition(next_view, "enter", direction, last_view)
-    -- M.style_fabs_transition(next_view, "enter", direction, last_view)
     M.style_snacks_transition(next_view, "enter", direction, last_view)
 
     -- NOTE: No need to handle the main exist case, since it's handled by
@@ -2070,7 +1712,6 @@ return function (opts)
 
     M.style_header_transition(next_view, "exit", direction, last_view)
     M.style_nav_transition(next_view, "exit", direction, last_view)
-    -- M.style_fabs_transition(next_view, "exit", direction, last_view)
     M.style_snacks_transition(next_view, "exit", direction, last_view)
 
     if last_view.main then
@@ -2096,13 +1737,13 @@ return function (opts)
     M.clear_panes(view)
     M.close_dropdowns(view)
     M.destroy_header_links(view)
-    if view.active_snacks and next(view.active_snacks) then
+    if root and root.main and view.active_snacks and next(view.active_snacks) then
       for n in pairs(view.active_snacks) do
         root.main.snack_remove[n] = true
       end
       M.style_snacks(root.main, true)
     end
-    if view.active_banners and next(view.active_banners) then
+    if root and root.main and view.active_banners and next(view.active_banners) then
       for n in pairs(view.active_banners) do
         root.main.banner_remove[n] = true
       end
@@ -2210,7 +1851,6 @@ return function (opts)
       backward_mark = M.backward_mark,
       forward_tag = M.forward_tag,
       backward_tag = M.backward_tag,
-      fab = M.fab
     }
 
     view.snack = function (...)
@@ -2545,33 +2185,38 @@ return function (opts)
   end
 
   M.toggle_nav_state = function (open, animate, restyle)
-    local view = root.main
+    if not (root and root.main) then
+      return
+    end
     if size == "lg" or size == "md" then
       open = true
     end
     if open == true then
-      view.el.classList:add("tk-showing-nav")
+      root.main.el.classList:add("tk-showing-nav")
     elseif open == false then
-      view.el.classList:remove("tk-showing-nav")
+      root.main.el.classList:remove("tk-showing-nav")
     else
-      view.el.classList:toggle("tk-showing-nav")
+      root.main.el.classList:toggle("tk-showing-nav")
     end
-    if view.el.classList:contains("tk-showing-nav") then
-      view.nav_slide = 0
-      view.nav_offset = view.header_offset
-      view.nav_overlay_opacity = (size == "lg" or size == "md")
+    if root.main.el.classList:contains("tk-showing-nav") then
+      root.main.nav_slide = 0
+      root.main.nav_offset = root.main.header_offset
+      root.main.nav_overlay_opacity = (size == "lg" or size == "md")
         and 0 or 1
-      M.style_header_hide(view, false, restyle)
+      M.style_header_hide(root.main, false, restyle)
     else
-      view.nav_slide = -opts.nav_width
-      view.nav_overlay_opacity = 0
+      root.main.nav_slide = -opts.nav_width
+      root.main.nav_overlay_opacity = 0
     end
     if restyle ~= false then
-      M.style_nav(view, animate ~= false)
+      M.style_nav(root.main, animate ~= false)
     end
   end
 
   M.on_resize = function ()
+    if not root then
+      return
+    end
     vw = math.max(document.documentElement.clientWidth or 0, window.innerWidth or 0)
     vh = math.max(document.documentElement.clientHeight or 0, window.innerHeight or 0)
     local vwpx = vw .. "px"
@@ -2597,10 +2242,12 @@ return function (opts)
       elseif oldsize == "lg" or oldsize == "md" then
         M.toggle_nav_state(false)
       end
-      M.style_nav(root.main, true)
+      M.style_banners(root, true)
       M.style_snacks(root.main, true)
-      -- M.style_fabs(root.main, true)
-      if root.main.main then
+      M.style_header(root.main, true)
+      M.style_header_links(root.main, true)
+      M.style_nav(root.main, true)
+      if root.main and root.main.main then
         M.style_main_header_switch(root.main.main, true)
         M.style_main_switch(root.main.main, true)
       else
