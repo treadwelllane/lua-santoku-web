@@ -1,5 +1,7 @@
 # Now
 
+- remove styling code related to a page without a switch (style_main(...)?)
+
 - specify switch/dropdown via tk-switch and tk-dropdown attributes
 
 - replace element tags with tk-section, tk-main, tk-header, etc. using custom

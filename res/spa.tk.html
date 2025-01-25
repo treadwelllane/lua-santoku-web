@@ -100,24 +100,12 @@
         --nav-focus-bg: <% return opts.nav_focus_bg %>;
         --banner-bg: <% return opts.banner_bg %>;
         --banner-fg: <% return opts.banner_fg %>;
-        /*--fab-bg: <% return opts.fab_bg %>;
-         *--fab-fg: <% return opts.fab_fg %>;
-         *--fab-shadow: <% return opts.fab_shadow %>;
-         *--fab-shadow-transparent: <% return opts.fab_shadow_transparent %>;*/
         --snack-bg: <% return opts.snack_bg %>;
         --snack-fg: <% return opts.snack_fg %>;
         --snack-shadow: <% return opts.snack_shadow %>;
         --banner-height: <% return opts.banner_height %>;
         --banner-height-px: <% return opts.banner_height %>px;
         --banner-index: <% return opts.banner_index %>;
-        /*--fab-radius-large: <% return opts.fab_radius_large %>;
-         *--fab-radius-large-px: <% return opts.fab_radius_large %>px;
-         *--fab-radius-small: <% return opts.fab_radius_small %>;
-         *--fab-radius-small-px: <% return opts.fab_radius_small %>px;
-         *--fab-width-small: <% return opts.fab_width_small %>;
-         *--fab-width-small-px: <% return opts.fab_width_small %>px;*/
-        --fab-width-large: <% return opts.fab_width_large %>;
-        --fab-width-large-px: <% return opts.fab_width_large %>px;
         --header-border: <% return opts.header_border %>;
         --header-height: <% return opts.header_height %>;
         --header-height-px: <% return opts.header_height %>px;
@@ -149,7 +137,6 @@
       }
 
       body > section > section.tk-banner {
-        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         border-radius: 0;
@@ -164,8 +151,8 @@
         position: fixed;
         width: 100%;
         z-index: var(--banner-index);
-        height: var(--banner-height-px);
-        top: calc(var(--banner-height-px) * -1);
+        min-height: var(--banner-height-px);
+        top: 0;
         left: 0;
         transition: transform var(--transition-time-ms) var(--ease);
       }
@@ -444,48 +431,6 @@
         transition: background var(--transition-time-ms) var(--ease);
       }
 
-      /* body > section > main > section > button {
-       *   position: fixed;
-       *   flex-shrink: 0;
-       *   border: none;
-       *   display: flex;
-       *   align-items: center;
-       *   justify-content: center;
-       *   cursor: pointer;
-       *   pointer-events: all;
-       *   fill: var(--fab-fg);
-       *   color: var(--fab-fg);
-       *   background: var(--fab-bg);
-       *   bottom: 0;
-       *   left: calc(100dvw - var(--fab-width-large-px) - 16px);
-       *   height: var(--fab-width-large-px);
-       *   width: var(--fab-width-large-px);
-       *   border-radius: var(--fab-radius-large-px);
-       *   box-shadow: var(--fab-shadow);
-       *   transition: box-shadow var(--transition-time-ms) var(--ease),
-       *               transform var(--transition-time-ms) var(--ease),
-       *               opacity var(--transition-time-ms) var(--ease);
-       * }
-       */
-
-      /* body > section > main > section > button.tk-top {
-       *   top: 0;
-       * }
-       */
-
-      /* body > section > main > section > button.tk-small {
-       *   height: var(--fab-width-small-px);
-       *   width: var(--fab-width-small-px);
-       *   border-radius: var(--fab-radius-small-px);
-       *   left: calc(100dvw - var(--fab-width-small-px) - 24px);
-       * }
-       */
-
-      /* body > section > main > section > button > svg {
-       *   transition: transform var(--transition-time-ms) var(--ease);
-       * }
-       */
-
       body > section > main > section > main {
         flex-grow: 1;
         display: flex;
@@ -564,13 +509,6 @@
       body .tk-transition *,
       body .tk-animated * {
         pointer-events: none;
-      }
-
-      body > section > main > section > section.tk-snack * {
-        font-size: 1em;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
       }
 
       body > section > main > section > section.tk-snack > button {
@@ -701,9 +639,7 @@
 
       body > section > main > section > header ~ main > section > main {
         top: 0;
-        height: calc(100svh - var(--header-height-px));
         min-height: calc(100svh - var(--header-height-px));
-        max-height: calc(100svh - var(--header-height-px));
         width: 100dvw;
         min-width: 100dvw;
         max-width: 100dvw;
@@ -759,7 +695,7 @@
       body > section > main > section > section.tk-snack {
         position: fixed;
         min-height: var(--snack-height-px);
-        max-width: calc(100dvw - 16px - var(--fab-width-large-px) - 56px);
+        max-width: calc(100dvw - 32px);
         bottom: 0;
         left: 16px;
         box-shadow: var(--snack-shadow);
@@ -769,16 +705,6 @@
       }
 
       body > section > main > section > section.tk-snack > main {
-        width: 100%;
-        min-width: 100%;
-        max-width: 100%;
-        height: 100%;
-        min-height: 100%;
-        max-height: 100%;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        text-overflow: ellipsis;
         padding-top: 0.5em;
         padding-bottom: 0.5em;
         padding-left: 0.75em;
