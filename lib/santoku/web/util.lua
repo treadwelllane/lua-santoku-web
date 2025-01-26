@@ -362,35 +362,37 @@ local function clone_all (items, wait, done, set_timeout, events)
     end
   end
   local el, els = M.clone(template, data)
-  if map_el then
-    local el0 = map_el(el, data, function (opts)
-      items = it.chain(opts.items or it.map(function (data)
+  return events.process("cloned-element", nil, function (el)
+    if map_el then
+      local el0 = map_el(el, data, function (opts)
+        items = it.chain(opts.items or it.map(function (data)
+          return
+            opts.parent,
+            opts.before,
+            opts.template,
+            data,
+            opts.map_data,
+            opts.map_el
+        end, it.ivals(opts.data)), items)
+      end, els)
+      if el0 == false then
+        set_timeout()
+        events.emit("done")
+        done()
         return
-          opts.parent,
-          opts.before,
-          opts.template,
-          data,
-          opts.map_data,
-          opts.map_el
-      end, it.ivals(opts.data)), items)
-    end, els)
-    if el0 == false then
-      set_timeout()
-      events.emit("done")
-      done()
-      return
-    elseif el0 ~= nil then
-      el = el0
+      elseif el0 ~= nil then
+        el = el0
+      end
     end
-  end
-  if before then
-    parent:insertBefore(el, before)
-  else
-    parent:append(el)
-  end
-  return set_timeout(global:setTimeout(function ()
-    clone_all(items, wait, done, set_timeout, events)
-  end, wait))
+    if before then
+      parent:insertBefore(el, before)
+    else
+      parent:append(el)
+    end
+    return set_timeout(global:setTimeout(function ()
+      clone_all(items, wait, done, set_timeout, events)
+    end, wait))
+  end, el)
 end
 
 M.clone_all = function (opts)
