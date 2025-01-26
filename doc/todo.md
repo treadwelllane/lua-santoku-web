@@ -1,5 +1,7 @@
 # Now
 
+- consider replacing map_data, and map_el with events.on("data", ..., true) or
+  similar
 - remove styling code related to a page without a switch (style_main(...)?)
 
 - specify switch/dropdown via tk-switch and tk-dropdown attributes
