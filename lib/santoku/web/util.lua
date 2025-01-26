@@ -336,15 +336,17 @@ M.after_frame = function (fn)
   end)
 end
 
-local function clone_all (items, wait, done, set_timeout)
+local function clone_all (items, wait, done, set_timeout, events)
   if not items then
     set_timeout()
+    events.emit("done")
     done()
     return
   end
   local parent, before, template, data, map_data, map_el = items()
   if not parent then
     set_timeout()
+    events.emit("done")
     done()
     return
   end
@@ -352,6 +354,7 @@ local function clone_all (items, wait, done, set_timeout)
     local data0 = map_data(data)
     if data0 == false then
       set_timeout()
+      events.emit("done")
       done()
       return
     elseif data0 ~= nil then
@@ -373,6 +376,7 @@ local function clone_all (items, wait, done, set_timeout)
     end, els)
     if el0 == false then
       set_timeout()
+      events.emit("done")
       done()
       return
     elseif el0 ~= nil then
@@ -385,11 +389,12 @@ local function clone_all (items, wait, done, set_timeout)
     parent:append(el)
   end
   return set_timeout(global:setTimeout(function ()
-    clone_all(items, wait, done, set_timeout)
+    clone_all(items, wait, done, set_timeout, events)
   end, wait))
 end
 
 M.clone_all = function (opts)
+  local events = async.events()
   opts = opts or {}
   local timeout
   local function set_timeout (t)
@@ -408,14 +413,15 @@ M.clone_all = function (opts)
       end, it.ivals(opts.data)),
       opts.wait or 0,
       opts.done or function () end,
-      set_timeout)
+      set_timeout,
+      events)
   end, 0))
   return function ()
     if timeout then
       global:clearTimeout(timeout)
       timeout = nil
     end
-  end
+  end, events
 end
 
 local function parse_attr_value (data, attr, attrs)
