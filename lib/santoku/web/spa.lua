@@ -1880,29 +1880,8 @@ return function (opts)
     view.after_transition = M.after_transition
     view.after_frame = util.after_frame
 
-    local clone_all_wrap_opts
-    clone_all_wrap_opts = function (view, events, opts)
-      return setmetatable({
-        done = function (...)
-          events.emit("done")
-          if opts.done then
-            return opts.done(...)
-          end
-        end,
-        map_el = function (el, data, clone_all)
-          M.setup_dynamic(view, nil, el)
-          if opts.map_el then
-            return opts.map_el(el, data, function (opts0)
-              return clone_all(clone_all_wrap_opts(view, opts0))
-            end)
-          end
-        end
-      }, { __index = opts })
-    end
-
-    view.clone_all = function (opts)
-      local events = async.events()
-      local cancel = util.clone_all(clone_all_wrap_opts(view, events, opts))
+    view.clone_all = function (...)
+      local cancel, events = util.clone_all(...)
       view.events.on("destroy", cancel)
       events.on("done", function ()
         view.events.off("destroy", cancel)
