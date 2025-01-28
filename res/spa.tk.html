@@ -143,8 +143,8 @@
         border: none;
         display: flex;
         flex-direction: row;
-        align-items: center;
-        justify-content: center;
+        align-items: stretch;
+        justify-content: stretch;
         min-width: 0;
         margin: 0;
         padding: 0;
@@ -161,11 +161,8 @@
         position: relative;
         display: flex;
         flex-direction: row;
-        height: 100%;
-        min-height: 100%;
-        max-height: 100%;
         width: 100%;
-        min-width: 100%;
+        max-height: 100%;
         max-width: 100%;
         color: var(--banner-fg);
         background: var(--banner-bg);
@@ -193,16 +190,23 @@
 
       body > section,
       body > section > main,
-      body > section > main > section {
+      body > section > main > section,
+      body > section > main > section > main,
+      body > section > main > section > main > section,
+      body > section > main > section > main > section > main {
         position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
         min-height: 100%;
         max-width: 100%;
       }
 
       body > section > main > section > header {
-        width: 100dvw;
-        min-width: 100dvw;
-        max-width: 100dvw;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
         height: var(--header-height-px);
         min-height: var(--header-height-px);
         max-height: var(--header-height-px);
@@ -386,12 +390,12 @@
         position: fixed;
         top: 0;
         left: 0;
-        height: calc(100svh + var(--header-height-px));
-        min-height: calc(100svh + var(--header-height-px));
-        max-height: calc(100svh + var(--header-height-px));
-        width: 100dvw;
-        min-width: 100dvw;
-        max-width: 100dvw;
+        height: calc(100% + var(--header-height-px));
+        min-height: calc(100% + var(--header-height-px));
+        max-height: calc(100% + var(--header-height-px));
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
         z-index: var(--nav-overlay-index);
         opacity: 0;
         background: var(--modal-overlay-bg);
@@ -428,7 +432,7 @@
       }
 
       body > section > main > section > nav > button.tk-transition {
-        transition: background var(--transition-time-ms) var(--ease);
+        transition: background calc(var(--transition-time-ms) * 2) var(--ease);
       }
 
       body > section > main > section > main {
@@ -468,9 +472,9 @@
       }
 
       body > section > main > section > main > section > header {
-        width: 100dvw;
-        max-width: 100dvw;
-        min-width: 100dvw;
+        width: 100%;
+        max-width: 100%;
+        min-width: 100%;
         height: var(--header-height-px);
         min-height: var(--header-height-px);
         max-height: var(--header-height-px);
@@ -600,56 +604,64 @@
 
       html, body {
         position: relative;
-        overflow: auto;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+      }
+
+      body {
+        overflow-y: scroll;
         overscroll-behavior: contain;
-        height: 100svh;
-        min-height: 100svh;
-        max-height: 100svh;
-        width: 100dvw;
-        min-width: 100dvw;
-        max-width: 100dvw;
       }
 
       body > section,
       body > section > main {
-        height: 100svh;
-        min-height: 100svh;
-        max-height: 100svh;
-        width: 100dvw;
-        min-width: 100dvw;
-        max-width: 100dvw;
+        overflow: visible;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
       }
 
       body > section > main > section > main {
         top: 0;
-        height: calc(100svh);
-        min-height: calc(100svh);
-        max-height: calc(100svh);
-        width: 100dvw;
-        min-width: 100dvw;
-        max-width: 100dvw;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
       }
 
       body > section > main > section > header ~ main {
-        top: calc(var(--header-height-px));
-        height: calc(100svh - var(--header-height-px));
-        min-height: calc(100svh - var(--header-height-px));
-        max-height: calc(100svh - var(--header-height-px));
+        top: var(--header-height-px);
+        height: calc(100% - var(--header-height-px));
+        min-height: calc(100% - var(--header-height-px));
+        max-height: calc(100% - var(--header-height-px));
+        width: 100%;
+        min-width: 100%;
       }
 
       body > section > main > section > header ~ main > section > main {
         top: 0;
-        min-height: calc(100svh - var(--header-height-px));
-        width: 100dvw;
-        min-width: 100dvw;
-        max-width: 100dvw;
+        height: calc(100% - var(--header-height-px));
+        min-height: calc(100% - var(--header-height-px));
+        width: 100%;
+        min-width: 100%;
       }
 
       body > section > main > section > header ~ main > section > header ~ main {
         top: calc(var(--header-height-px) * 1);
-        height: calc(100svh - var(--header-height-px) * 2);
-        min-height: calc(100svh - var(--header-height-px) * 2);
-        max-height: calc(100svh - var(--header-height-px) * 2);
+        height: calc(100% - var(--header-height-px) * 2);
+        min-height: calc(100% - var(--header-height-px) * 2);
+        max-height: calc(100% - var(--header-height-px) * 2);
+        width: 100%;
+        min-width: 100%;
       }
 
       body [tk-pane] {
@@ -684,18 +696,18 @@
         position: absolute;
         top: 0;
         left: 0;
-        height: 100dvh;
-        min-height: 100dvh;
-        max-height: 100dvh;
-        width: 100dvw;
-        min-width: 100dvw;
-        max-width: 100dvw;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
       }
 
       body > section > main > section > section.tk-snack {
         position: fixed;
         min-height: var(--snack-height-px);
-        max-width: calc(100dvw - 32px);
+        max-width: calc(100% - 32px);
         bottom: 0;
         left: 16px;
         box-shadow: var(--snack-shadow);
@@ -719,12 +731,12 @@
         position: fixed;
         top: 0;
         left: 0;
-        height: 100lvh;
-        min-height: 100lvh;
-        max-height: 100lvh;
-        width: 100dvw;
-        min-width: 100dvw;
-        max-width: 100dvw;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
         z-index: var(--modal-overlay-index);
         background: var(--modal-overlay-bg);
         pointer-events: all;
@@ -735,14 +747,25 @@
         position: fixed;
         top: 50%;
         left: 50%;
-        max-height: calc(100svh - 1em);
-        max-width: calc(100dvw - 1em);
+        max-height: calc(100% - 1em);
+        max-width: calc(100% - 1em);
         z-index: var(--modal-index);
         opacity: 0;
         border-radius: var(--modal-radius-px);
         box-shadow: var(--modal-shadow);
         transition: transform var(--transition-time-ms) var(--ease),
                     opacity var(--transition-time-ms) var(--ease);
+      }
+
+      body > section > main > section > main > section > .tk-spacer {
+        position: absolute;
+        content: " ";
+        height: 1px;
+        width: 1px;
+        opacity: 0;
+        pointer-events: none;
+        top: calc(100% - 1px);
+        transition: transform var(--transition-time-ms) var(--ease);
       }
 
       @keyframes tk-ripple-wave {
@@ -756,6 +779,9 @@
   </head>
 
   <body <% return opts.body_attrs %>>
+    <template class="tk-spacer">
+      <div class="tk-spacer"></div>
+    </template>
     <template class="tk-ripple">
       <div class="tk-ripple-container">
         <div class="tk-ripple-wave"></div>

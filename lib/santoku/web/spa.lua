@@ -24,8 +24,11 @@ return function (opts)
   local document = window.document
   local location = window.location
 
-  local e_container = opts.container or document.body
+  local e_container = document.body
+  local e_scroll_pane = document.documentElement
+  local e_scroll_container = window
 
+  local t_spacer = e_container:querySelector("template.tk-spacer")
   local t_ripple = e_container:querySelector("template.tk-ripple")
   local t_nav_overlay = e_container:querySelector("template.tk-nav-overlay")
   local t_modal_overlay = e_container:querySelector("template.tk-modal-overlay")
@@ -148,7 +151,7 @@ return function (opts)
           e_dropdown.classList:remove("tk-open")
         end
       end)
-      document.body:addEventListener("scroll", function (_, ev)
+      e_scroll_container:addEventListener("scroll", function (_, ev)
         if ev.e_dropdown ~= e_dropdown then
           e_dropdown.classList:remove("tk-open")
         end
@@ -481,7 +484,7 @@ return function (opts)
     view.e_main.style.transform =
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
 
-    view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
+    view.e_main.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
 
@@ -540,9 +543,9 @@ return function (opts)
     view.e_main_header.style.transform =
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_header_offset) .. "px)"
 
-    view.e_main_header.style["width"] = "calc(100dvw - " .. nav_push .. "px)"
-    view.e_main_header.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
-    view.e_main_header.style["max-width"] = "calc(100dvw - " .. nav_push .. "px)"
+    view.e_main_header.style["width"] = "calc(100% - " .. nav_push .. "px)"
+    view.e_main_header.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
+    view.e_main_header.style["max-width"] = "calc(100% - " .. nav_push .. "px)"
     view.e_main_header.style.opacity = view.main_header_opacity
     view.e_main_header.style["z-index"] = view.main_header_index
 
@@ -622,11 +625,10 @@ return function (opts)
     view.e_main.style.transform =
       "translate(" .. nav_push .. "px," .. (M.get_base_header_offset() + view.main_offset) .. "px)"
 
-    view.e_main.style["width"] = "calc(100dvw - " .. nav_push .. "px)"
-    view.e_main.style["min-width"] = "calc(100dvw - " .. nav_push .. "px)"
+    view.e_main.style["width"] = "calc(100% - " .. nav_push .. "px)"
+    view.e_main.style["min-width"] = "calc(100% - " .. nav_push .. "px)"
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style["z-index"] = view.main_index
-    view.e_main.style.paddingBottom = bottom_offset_total .. "px"
 
   end
 
@@ -773,6 +775,11 @@ return function (opts)
     end
 
     tbl.clear(view.snack_remove)
+
+    local e_spacer = tbl.get(root, "main", "main", "e_spacer")
+    if e_spacer then
+      e_spacer.style.transform = "translateY(" .. (bottom_offset_total - opts.padding) .. "px)"
+    end
 
   end
 
@@ -1034,6 +1041,7 @@ return function (opts)
       next_view.main_scale = opts.modal_scale
       next_view.main_opacity = 0
       if not last_view and next_view.modal_event then
+        -- TODO: better calculation, use transform-origin instead of translateX
         next_view.main_offset_x = next_view.modal_event.pageX - vw / 2
         next_view.main_offset_y = next_view.modal_event.pageY - vh / 2
         local td = math.abs(next_view.main_offset_x) + math.abs(next_view.main_offset_x)
@@ -1353,11 +1361,11 @@ return function (opts)
   M.scroll_listener = function (view)
 
     local scroll_distance = 0
-    local last_scroll_top = e_container.scrollTop
+    local last_scroll_top = e_scroll_pane.scrollTop
 
     return function ()
 
-      local curr_scroll_top = e_container.scrollTop
+      local curr_scroll_top = e_scroll_pane.scrollTop
 
       if curr_scroll_top > last_scroll_top then
         scroll_distance =
@@ -1525,6 +1533,7 @@ return function (opts)
     next_view.el, next_view.e = util.clone(next_view.page.template)
     next_view.e_main = next_view.el:querySelector("section > main")
     next_view.e_main_header = next_view.el:querySelector("section > header")
+    next_view.e_spacer = util.clone(t_spacer, nil, next_view.el)
     next_view.el.classList:add("tk-switch")
     if type(next_view.name) == "string" then
       next_view.el.classList:add("tk-switch-" .. next_view.name)
@@ -1608,9 +1617,9 @@ return function (opts)
 
   M.exit_pane = function (last_view, next_view)
     if last_view.el.parentElement:getAttribute("tk-scroll-link") then
-      last_view.el.style.marginLeft = -e_container.scrollLeft .. "px"
-      last_view.el.style.marginTop = -e_container.scrollTop .. "px"
-      e_container:scrollTo({ top = 0, left = 0, behavior = "instant" })
+      last_view.el.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
+      last_view.el.style.marginTop = -e_scroll_pane.scrollTop .. "px"
+      e_scroll_pane:scrollTo({ top = 0, left = 0, behavior = "instant" })
     end
     M.style_main_transition_pane(next_view, "exit", last_view)
     M.after_transition(function ()
@@ -1630,9 +1639,9 @@ return function (opts)
     view.header_offset = 0
     M.style_header(view, true)
 
-    last_view.el.style.marginLeft = -e_container.scrollLeft .. "px"
-    last_view.el.style.marginTop = -e_container.scrollTop .. "px"
-    e_container:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    last_view.el.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
+    last_view.el.style.marginTop = -e_scroll_pane.scrollTop .. "px"
+    e_scroll_pane:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.style_main_header_transition_switch(next_view, "exit", direction, last_view)
     M.style_main_transition_switch(next_view, "exit", direction, last_view)
@@ -1692,7 +1701,7 @@ return function (opts)
         next_view.curr_scrolly = nil
         next_view.last_scrolly = nil
         next_view.scroll_listener = M.scroll_listener(next_view)
-        document.body:addEventListener("scroll", next_view.scroll_listener, false)
+        e_scroll_container:addEventListener("scroll", next_view.scroll_listener, false)
       end
     end)
 
@@ -1701,14 +1710,14 @@ return function (opts)
   M.exit = function (last_view, direction, next_view)
 
     if last_view.main then
-      last_view.main.e_main.style.marginLeft = -e_container.scrollLeft .. "px"
-      last_view.main.e_main.style.marginTop = -e_container.scrollTop .. "px"
+      last_view.main.e_main.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
+      last_view.main.e_main.style.marginTop = -e_scroll_pane.scrollTop .. "px"
     else
-      last_view.e_main.style.marginLeft = -e_container.scrollLeft .. "px"
-      last_view.e_main.style.marginTop = -e_container.scrollTop .. "px"
+      last_view.e_main.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
+      last_view.e_main.style.marginTop = -e_scroll_pane.scrollTop .. "px"
     end
 
-    e_container:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    e_scroll_pane:scrollTo({ top = 0, left = 0, behavior = "instant" })
 
     M.style_header_transition(next_view, "exit", direction, last_view)
     M.style_nav_transition(next_view, "exit", direction, last_view)
@@ -1722,7 +1731,7 @@ return function (opts)
     end
 
     if last_view.scroll_listener then
-      document.body:removeEventListener("scroll", last_view.scroll_listener)
+      e_scroll_container:removeEventListener("scroll", last_view.scroll_listener)
       last_view.scroll_listener = nil
     end
 
@@ -2202,14 +2211,6 @@ return function (opts)
     end
     vw = math.max(document.documentElement.clientWidth or 0, window.innerWidth or 0)
     vh = math.max(document.documentElement.clientHeight or 0, window.innerHeight or 0)
-    local vwpx = vw .. "px"
-    local vhpx = vh .. "px"
-    root.el.style.height = vhpx
-    root.el.style.minHeight = vhpx
-    root.el.style.maxHeight = vhpx
-    root.el.style.width = vwpx
-    root.el.style.minWidth = vwpx
-    root.el.style.maxWidth = vwpx
     local newsize =
       (vw > opts.lg_threshold and "lg") or
       (vw > opts.md_threshold and "md") or "sm"
