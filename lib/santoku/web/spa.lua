@@ -40,7 +40,7 @@ return function (opts)
   local http = util.http_client()
   local root
   local size, vw, vh
-  local bottom_offset_total = 0
+  local bottom_offset_total = opts.padding
   local banner_offset_total = 0
 
   local M = {}
@@ -593,8 +593,10 @@ return function (opts)
     view.e_main.style.transform =
       "translate(" ..
         "calc(" .. view.main_offset_x .. "px - 50%)," ..
-        "calc(" .. (M.get_base_header_offset() + view.main_offset_y) .. "px - 50%))" ..
+        "calc(" .. ((M.get_base_header_offset() / 2) + view.main_offset_y - ((bottom_offset_total - opts.padding) / 2)) .. "px - 50%))" ..
       "scale(" .. view.main_scale or 1 .. ")"
+
+    view.e_main.style.maxHeight = "calc(100% - 2em - " .. (M.get_base_header_offset() + bottom_offset_total - opts.padding) .. "px)"
 
     view.e_modal_overlay.style["z-index"] = view.overlay_index
     view.e_modal_overlay.style.opacity = view.overlay_opacity
@@ -668,13 +670,7 @@ return function (opts)
       tbl.set(view, "active_banners", name, true)
     end
     M.style_banners(root, true)
-    M.style_header(root.main, true)
-    M.style_header_links(root.main, true)
-    M.style_nav(root.main, true)
-    if root.main.main then
-      M.style_main_header_switch(root.main.main, true)
-      M.style_main_switch(root.main.main, true)
-    end
+    M.on_resize()
     if banner and banner.el then
       return banner
     end
@@ -2236,6 +2232,9 @@ return function (opts)
         M.style_main_switch(root.main.main, true)
       else
         M.style_main(root.main, true)
+      end
+      if root.main and root.main.active_modal then
+        M.style_modal(root.main.active_modal, true)
       end
     end
   end
