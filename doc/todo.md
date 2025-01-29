@@ -1,5 +1,10 @@
 # Now
 
+- re-introduce fabs
+- fancy snack overflow: max total snack height as config option, hide snacks
+  that pass this threshold with a button that opens a modal-like interface where
+  all snacks are visible and scrollable.
+
 - consider: use the tk-spacer div to match heights during transition?
 
 - standardize the view.page.panes[x] = y pattern so that
