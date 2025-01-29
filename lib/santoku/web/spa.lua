@@ -1449,6 +1449,7 @@ return function (opts)
     last_view.el:remove()
     last_view.events.emit("destroy")
     M.destroy_dynamic(last_view)
+    M.on_resize()
   end
 
   M.post_exit_switch = function (last_view)
