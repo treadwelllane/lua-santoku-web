@@ -588,15 +588,22 @@ return function (opts)
       end)
     end
 
+    local translate_y =
+      (M.get_base_header_offset() / 2) +
+      (view.main_offset_y) -
+      ((bottom_offset_total - opts.padding) / 2)
+
     view.e_main.style["z-index"] = view.main_index
     view.e_main.style.opacity = view.main_opacity
     view.e_main.style.transform =
       "translate(" ..
         "calc(" .. view.main_offset_x .. "px - 50%)," ..
-        "calc(" .. ((M.get_base_header_offset() / 2) + view.main_offset_y - ((bottom_offset_total - opts.padding) / 2)) .. "px - 50%))" ..
+        "calc(" .. translate_y .. "px - 50%))" ..
       "scale(" .. view.main_scale or 1 .. ")"
 
-    view.e_main.style.maxHeight = "calc(100% - 2em - " .. (M.get_base_header_offset() + bottom_offset_total - opts.padding) .. "px)"
+    local height_adjust = M.get_base_header_offset() + bottom_offset_total - opts.padding
+
+    view.e_main.style.maxHeight = "calc(100% - 2em - " .. height_adjust .. "px)"
 
     view.e_modal_overlay.style["z-index"] = view.overlay_index
     view.e_modal_overlay.style.opacity = view.overlay_opacity
@@ -1361,6 +1368,10 @@ return function (opts)
 
     return function ()
 
+      if M.scroll_frozen() then
+        return
+      end
+
       local curr_scroll_top = e_scroll_pane.scrollTop
 
       if curr_scroll_top > last_scroll_top then
@@ -1521,6 +1532,16 @@ return function (opts)
       view.el.classList:remove("tk-transition")
     end)
 
+    if not last_view and not view.modal_scroll_save then
+      view.modal_scroll_save = true
+      view.modal_scroll_save_left = e_scroll_pane.scrollLeft
+      view.modal_scroll_save_top = e_scroll_pane.scrollTop
+      view.e_main.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
+      view.e_main.style.marginTop = -e_scroll_pane.scrollTop .. "px"
+      view.e_main.style.overflow = "hidden"
+      e_scroll_pane:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    end
+
   end
 
   M.enter_switch = function (view, next_view, direction, last_view, init)
@@ -1624,12 +1645,52 @@ return function (opts)
     end, true)
   end
 
-  M.exit_modal = function (last_view, direction, next_view)
+  M.scroll_frozen = function ()
+    local m = tbl.get(root, "main", "main") or tbl.get(root, "main")
+    if m and m.scroll_freeze then
+      return true
+    end
+  end
+
+  M.scroll_freeze = function ()
+    local m = tbl.get(root, "main", "main") or tbl.get(root, "main")
+    if m and m.scroll_freeze then
+      return
+    end
+    m.scroll_freeze = {}
+    m.scroll_freeze.left = e_scroll_pane.scrollLeft
+    m.scroll_freeze.top = e_scroll_pane.scrollTop
+    m.e_main.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
+    m.e_main.style.marginTop = -e_scroll_pane.scrollTop .. "px"
+    m.el.style.overflow = "hidden"
+  end
+
+  M.scroll_thaw = function ()
+    local m = tbl.get(root, "main", "main") or tbl.get(root, "main")
+    if not m or not m.scroll_freeze then
+      return
+    end
+    m.e_main.style.marginLeft = "0px"
+    m.e_main.style.marginTop = "0px"
+    m.el.style.overflow = "visible"
+    e_scroll_pane:scrollTo({
+      top = m.scroll_freeze.top,
+      left = m.scroll_freeze.left,
+      behavior = "instant"
+    })
+    m.scroll_freeze = nil
+  end
+
+  M.exit_modal = function (view, last_view, direction, next_view)
+    if not next_view and view.modal_scroll_save then
+      M.scroll_freeze(view, view.modal_scroll_save)
+    end
     M.style_modal_transition(next_view, "exit", direction, last_view)
     M.after_transition(function ()
       return M.post_exit_modal(last_view)
     end, true)
   end
+
 
   M.exit_switch = function (view, last_view, direction, next_view)
 
@@ -1998,7 +2059,7 @@ return function (opts)
 
     if not name then
       if view.active_modal then
-        M.exit_modal(view.active_modal, dir)
+        M.exit_modal(view, view.active_modal, dir)
         view.active_modal = nil
       end
       return
@@ -2024,7 +2085,7 @@ return function (opts)
     M.enter_modal(view, view.active_modal, dir, last_modal, init)
 
     if last_modal then
-      M.exit_modal(last_modal, dir, view.active_modal)
+      M.exit_modal(view, last_modal, dir, view.active_modal)
     end
 
   end
@@ -2187,15 +2248,20 @@ return function (opts)
     else
       root.main.el.classList:toggle("tk-showing-nav")
     end
-    if root.main.el.classList:contains("tk-showing-nav") then
+    local showing_nav = root.main.el.classList:contains("tk-showing-nav")
+    local show_overlay = showing_nav and size == "sm"
+    if showing_nav then
       root.main.nav_slide = 0
       root.main.nav_offset = root.main.header_offset
-      root.main.nav_overlay_opacity = (size == "lg" or size == "md")
-        and 0 or 1
+      root.main.nav_overlay_opacity = show_overlay and 1 or 0
       M.style_header_hide(root.main, false, restyle)
+      if show_overlay then
+        M.scroll_freeze()
+      end
     else
       root.main.nav_slide = -opts.nav_width
       root.main.nav_overlay_opacity = 0
+      M.scroll_thaw()
     end
     if restyle ~= false then
       M.style_nav(root.main, animate ~= false)
