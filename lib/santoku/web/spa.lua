@@ -1043,14 +1043,7 @@ return function (opts)
       next_view.overlay_opacity = 0
       next_view.main_scale = opts.modal_scale
       next_view.main_opacity = 0
-      if not last_view and next_view.modal_event then
-        -- TODO: better calculation, use transform-origin instead of translateX
-        next_view.main_offset_x = next_view.modal_event.pageX - vw / 2
-        next_view.main_offset_y = next_view.modal_event.pageY - vh / 2
-        local td = math.abs(next_view.main_offset_x) + math.abs(next_view.main_offset_x)
-        next_view.main_offset_x = opts.transition_forward_height * next_view.main_offset_x / td
-        next_view.main_offset_y = opts.transition_forward_height * next_view.main_offset_y / td
-      elseif last_view then
+      if last_view then
         next_view.overlay_opacity = 1
         next_view.main_offset_x = opts.transition_forward_height
         next_view.main_offset_y = 0
@@ -1532,14 +1525,8 @@ return function (opts)
       view.el.classList:remove("tk-transition")
     end)
 
-    if not last_view and not view.modal_scroll_save then
-      view.modal_scroll_save = true
-      view.modal_scroll_save_left = e_scroll_pane.scrollLeft
-      view.modal_scroll_save_top = e_scroll_pane.scrollTop
-      view.e_main.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
-      view.e_main.style.marginTop = -e_scroll_pane.scrollTop .. "px"
-      view.e_main.style.overflow = "hidden"
-      e_scroll_pane:scrollTo({ top = 0, left = 0, behavior = "instant" })
+    if not last_view then
+      M.scroll_freeze()
     end
 
   end
@@ -1662,6 +1649,12 @@ return function (opts)
     m.scroll_freeze.top = e_scroll_pane.scrollTop
     m.e_main.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
     m.e_main.style.marginTop = -e_scroll_pane.scrollTop .. "px"
+    if m.scroll_links then
+      for el in pairs(m.scroll_links) do
+        el.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
+        el.style.marginTop = -e_scroll_pane.scrollTop .. "px"
+      end
+    end
     m.el.style.overflow = "hidden"
   end
 
@@ -1672,6 +1665,12 @@ return function (opts)
     end
     m.e_main.style.marginLeft = "0px"
     m.e_main.style.marginTop = "0px"
+    if m.scroll_links then
+      for el in pairs(m.scroll_links) do
+        el.style.marginLeft = "0px"
+        el.style.marginTop = "0px"
+      end
+    end
     m.el.style.overflow = "visible"
     e_scroll_pane:scrollTo({
       top = m.scroll_freeze.top,
@@ -1682,8 +1681,8 @@ return function (opts)
   end
 
   M.exit_modal = function (view, last_view, direction, next_view)
-    if not next_view and view.modal_scroll_save then
-      M.scroll_freeze(view, view.modal_scroll_save)
+    if not next_view then
+      M.scroll_thaw()
     end
     M.style_modal_transition(next_view, "exit", direction, last_view)
     M.after_transition(function ()
@@ -1833,6 +1832,9 @@ return function (opts)
     M.setup_panes(view, init, el)
     M.setup_dropdowns(view, el)
     M.setup_header_links(view, el)
+    el:querySelectorAll("[tk-scroll-link]"):forEach(function (_, el)
+      tbl.set(view, "scroll_links", el, true)
+    end)
   end
 
   M.mark = function (tag)
@@ -2080,7 +2082,6 @@ return function (opts)
 
     local last_modal = view.active_modal
     view.active_modal = M.init_view(name, page, view)
-    view.active_modal.modal_event = state.modal_event or (last_modal and last_modal.modal_event) or nil
 
     M.enter_modal(view, view.active_modal, dir, last_modal, init)
 
@@ -2489,7 +2490,6 @@ return function (opts)
     state.path = spec.path
     state.params = spec.params
     state.modal = spec.modal
-    state.modal_event = spec.event
     local url = M.get_url(state)
     if policy == "push" then
       local hstate = { id = (history.state and history.state.id or 0) + 1 }
