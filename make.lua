@@ -1,14 +1,14 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.244-1",
+  version = "0.0.245-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,
 
   dependencies = {
     "lua >= 5.1",
-    "santoku >= 0.0.218-1",
+    "santoku >= 0.0.219-1",
     "santoku-sqlite >= 0.0.17-1", -- only for sqlite wrapper, move to separate lib
     "santoku-fs >= 0.0.32-1", -- only for strip extensions, remove
     "santoku-fs >= 0.0.32-1", -- only for strip extensions, remove
