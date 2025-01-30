@@ -1883,10 +1883,16 @@ return function (opts)
       setmetatable(panes, { __index = page.panes })
     end
 
+    local shared = {}
+    if parent then
+      setmetatable(shared, { __index = parent.shared })
+    end
+
     local view = {
       root = root,
       page = page,
       panes = panes,
+      shared = shared,
       name = name,
       state = state,
       events = async.events(),
