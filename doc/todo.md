@@ -8,11 +8,6 @@
 - consider: instead of margin left/top + overflow hidden, can we use overflow: clip?
 - consider: use the tk-spacer div to match heights during transition?
 
-- standardize the view.page.panes[x] = y pattern so that
-  dynamically added panes are not attached to the view.page, which is expected
-  to be immutable. Consider view.add_pane("x", ...) instead. This should allow
-  dynamically added panes to be deleted after the view is collected
-
 - consider replacing map_data, and map_el with events.on("data", ..., true) or
   similar
 - remove styling code related to a page without a switch (style_main(...)?)
