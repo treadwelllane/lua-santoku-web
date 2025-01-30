@@ -1913,6 +1913,12 @@ return function (opts)
       backward_tag = M.backward_tag,
     }
 
+    if view.parent and view.parent.events then
+      view.events.on(nil, function (...)
+        view.parent.events.emit(...)
+      end)
+    end
+
     view.snack = function (...)
       return M.snack(view, ...)
     end
