@@ -1649,13 +1649,7 @@ return function (opts)
     m.scroll_freeze.top = e_scroll_pane.scrollTop
     m.e_main.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
     m.e_main.style.marginTop = -e_scroll_pane.scrollTop .. "px"
-    if m.scroll_links then
-      for el in pairs(m.scroll_links) do
-        el.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
-        el.style.marginTop = -e_scroll_pane.scrollTop .. "px"
-      end
-    end
-    m.el.style.overflow = "hidden"
+    m.el.style.overflow = "clip"
   end
 
   M.scroll_thaw = function ()
@@ -1665,12 +1659,6 @@ return function (opts)
     end
     m.e_main.style.marginLeft = "0px"
     m.e_main.style.marginTop = "0px"
-    if m.scroll_links then
-      for el in pairs(m.scroll_links) do
-        el.style.marginLeft = "0px"
-        el.style.marginTop = "0px"
-      end
-    end
     m.el.style.overflow = "visible"
     e_scroll_pane:scrollTo({
       top = m.scroll_freeze.top,
@@ -1832,9 +1820,6 @@ return function (opts)
     M.setup_panes(view, init, el)
     M.setup_dropdowns(view, el)
     M.setup_header_links(view, el)
-    el:querySelectorAll("[tk-scroll-link]"):forEach(function (_, el)
-      tbl.set(view, "scroll_links", el, true)
-    end)
   end
 
   M.mark = function (tag)

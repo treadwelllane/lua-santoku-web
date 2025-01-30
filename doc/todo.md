@@ -5,6 +5,7 @@
   that pass this threshold with a button that opens a modal-like interface where
   all snacks are visible and scrollable.
 
+- consider: instead of margin left/top + overflow hidden, can we use overflow: clip?
 - consider: use the tk-spacer div to match heights during transition?
 
 - standardize the view.page.panes[x] = y pattern so that
