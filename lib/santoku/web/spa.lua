@@ -39,7 +39,7 @@ return function (opts)
   -- TODO: make properties of state
   local http = util.http_client()
   local root
-  local size, vw, vh
+  local size, vw
   local bottom_offset_total = opts.padding
   local banner_offset_total = 0
 
@@ -173,12 +173,12 @@ return function (opts)
 
   M.setup_panes = function (view, init, el)
     el = el or view.el
-    if not el or not tbl.get(view, "page", "panes") then
+    if not el or not tbl.get(view, "panes") then
       return
     end
     el:querySelectorAll("[tk-pane]"):forEach(function (_, el0)
       local name = el0:getAttribute("tk-pane")
-      local pane = view.page.panes[name]
+      local pane = view.panes[name]
       if pane then
         pane.el = el0
         M.pane(view, name, pane.pages.default, init)
@@ -1421,8 +1421,8 @@ return function (opts)
   end
 
   M.clear_panes = function (view)
-    if view and view.page and view.page.panes then
-      for _, pane in it.pairs(view.page.panes) do
+    if view and view.page and view.panes then
+      for pane in it.chain(it.vals(view.page.panes or {}), it.vals(view.panes or {})) do
         if pane.main then
           M.post_exit_pane(pane.main)
           pane.main = nil
@@ -1668,7 +1668,7 @@ return function (opts)
     m.scroll_freeze = nil
   end
 
-  M.exit_modal = function (view, last_view, direction, next_view)
+  M.exit_modal = function (_, last_view, direction, next_view)
     if not next_view then
       M.scroll_thaw()
     end
@@ -1878,9 +1878,15 @@ return function (opts)
 
     err.assert(name ~= "default", "view name can't be default")
 
+    local panes = {}
+    if page.panes then
+      setmetatable(panes, { __index = page.panes })
+    end
+
     local view = {
       root = root,
       page = page,
+      panes = panes,
       name = name,
       state = state,
       events = async.events(),
@@ -1929,6 +1935,14 @@ return function (opts)
 
     view.pane = function (name, page_name, ...)
       return M.pane(view, name, page_name, false, ...)
+    end
+
+    view.add_pane = function (...)
+      return M.add_pane(view, ...)
+    end
+
+    view.remove_pane = function (...)
+      return M.remove_pane(view, ...)
     end
 
     view.after_transition = M.after_transition
@@ -2021,7 +2035,7 @@ return function (opts)
 
   M.pane = function (view, name, page_name, init, ...)
 
-    local view_pane = view.page.panes and view.page.panes[name]
+    local view_pane = tbl.get(view, "panes", name)
     page_name = M.resolve_default(view_pane, page_name)
     local pane_page = M.get_page(view_pane.pages, page_name, name)
 
@@ -2259,7 +2273,6 @@ return function (opts)
       return
     end
     vw = math.max(document.documentElement.clientWidth or 0, window.innerWidth or 0)
-    vh = math.max(document.documentElement.clientHeight or 0, window.innerHeight or 0)
     local newsize =
       (vw > opts.lg_threshold and "lg") or
       (vw > opts.md_threshold and "md") or "sm"
@@ -2546,6 +2559,14 @@ return function (opts)
 
   M.encode_param = function (v)
     return str.to_base64_url(json.encode(v))
+  end
+
+  M.add_pane = function (view, id, spec)
+    tbl.set(view, "panes", id, spec)
+  end
+
+  M.remove_pane = function (view, id)
+    tbl.set(view, "panes", id, nil)
   end
 
   M.get_param = function (p, decode)
