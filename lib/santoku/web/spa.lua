@@ -2413,7 +2413,6 @@ return function (opts)
         path = state.path,
         modal = spec.modal,
         params = spec.params,
-        event = spec.event,
       }
     end
   end
