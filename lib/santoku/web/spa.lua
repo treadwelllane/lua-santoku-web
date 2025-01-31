@@ -219,6 +219,7 @@ return function (opts)
       view.self_header_links[el] = true
       root.main.header_links[el] = true
     end)
+    M.style_header_links(view)
   end
 
   M.setup_nav = function (view, dir, init, explicit)
@@ -1388,7 +1389,8 @@ return function (opts)
         scroll_distance > tonumber(opts.header_hide_threshold)
       then
         M.style_header_hide(view, true)
-      elseif curr_scroll_top < tonumber(opts.header_hide_minimum) or
+      elseif
+        curr_scroll_top < tonumber(opts.header_hide_minimum) or
         -scroll_distance > tonumber(opts.header_hide_threshold)
       then
         M.style_header_hide(view, false)
@@ -1620,11 +1622,10 @@ return function (opts)
     end)
   end
 
-  M.exit_pane = function (last_view, next_view)
-    if last_view.el.parentElement:getAttribute("tk-scroll-link") then
-      last_view.el.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
-      last_view.el.style.marginTop = -e_scroll_pane.scrollTop .. "px"
-      e_scroll_pane:scrollTo({ top = 0, left = 0, behavior = "instant" })
+  M.exit_pane = function (view_pane, last_view, next_view)
+    if view_pane.el:getAttribute("tk-scroll-link") then
+      M.style_header_hide(root.main, false)
+      M.unscroll_pane(last_view)
     end
     M.style_main_transition_pane(next_view, "exit", last_view)
     M.after_transition(function ()
@@ -1632,10 +1633,28 @@ return function (opts)
     end, true)
   end
 
+  M.unscroll_pane = function (last_pane)
+    local frozen = M.scroll_frozen()
+    if frozen then
+      M.scroll_thaw()
+    end
+    last_pane.el.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
+    last_pane.el.style.marginTop = -e_scroll_pane.scrollTop .. "px"
+    e_scroll_pane:scrollTo({
+      top = 0,
+      left = 0,
+      behavior = "instant"
+    })
+    if frozen then
+      M.scroll_freeze()
+    end
+  end
+
   M.scroll_frozen = function ()
     local m = tbl.get(root, "main", "main") or tbl.get(root, "main")
-    if m and m.scroll_freeze then
-      return true
+    local frozen = m and m.scroll_freeze
+    if frozen then
+      return frozen, m
     end
   end
 
@@ -2057,7 +2076,7 @@ return function (opts)
     M.enter_pane(view_pane, view_pane.main, last_view_pane, init, ...)
 
     if last_view_pane then
-      M.exit_pane(last_view_pane, view_pane.main)
+      M.exit_pane(view_pane, last_view_pane, view_pane.main)
     end
 
   end
