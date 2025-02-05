@@ -2055,7 +2055,9 @@ return function (opts)
         return maybe_wrap(page)
       end
     end
-    err.error("no page found", parent_name or "(none)", name or "(none)")
+    if parent_name then
+      err.error("no page found", parent_name or "(none)", name or "(none)")
+    end
   end
 
   M.pane = function (view, name, page_name, init, ...)
@@ -2091,9 +2093,20 @@ return function (opts)
       return
     end
 
-    local page = type(name) == "table"
-      and name
-      or M.get_page(view.page.modals, name, "(modal)")
+    local parent
+    local page = type(name) == "table" and name
+
+    if page then
+      parent = view
+    else
+      page = M.get_page(tbl.get(view, "page", "modals"), name)
+      if page then
+        parent = view
+      else
+        page = M.get_page(tbl.get(view, "main", "page", "modals"), name, "(modal)")
+        parent = view.main
+      end
+    end
 
     if M.maybe_redirect(view, page, init, explicit) then
       return
@@ -2105,7 +2118,7 @@ return function (opts)
     end
 
     local last_modal = view.active_modal
-    view.active_modal = M.init_view(name, page, view)
+    view.active_modal = M.init_view(name, page, parent)
 
     M.enter_modal(view, view.active_modal, dir, last_modal, init)
 
@@ -2191,18 +2204,15 @@ return function (opts)
 
   M.assign_persisted = function (path, modal, params)
     local v = root.page
-    local m
     local i = 1
     while v do
       assign_persisted(v, params)
-      v = v and path[i] and v.pages and v.pages[path[i]]
-      if i == 1 then
-        m = v and modal and v.modals and v.modals[modal]
+      local m = modal and v.modals and v.modals[modal]
+      if m then
+        assign_persisted(m, params)
       end
+      v = v and path[i] and v.pages and v.pages[path[i]]
       i = i + 1
-    end
-    if m then
-      assign_persisted(m, params)
     end
   end
 
