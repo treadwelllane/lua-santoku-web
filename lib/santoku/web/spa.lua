@@ -2625,6 +2625,7 @@ return function (opts)
       local v0 = M.encode_param(v)
       state.params[p] = v0
     end
+    M.replace()
     return v
   end
 
