@@ -83,7 +83,8 @@ M.request = function (url, opts, done, retry, raw)
     local multiplier = retry.multiplier or 3
     local filter = retry.filter or function (ok, resp)
       local s = resp and resp.status
-      return not ok and (s == 500 or s == 503 or s == 429)
+      -- Should 408 (request timeout) be included?
+      return not ok and (s == 502 or s == 503 or s == 504 or s == 429)
     end
     req.events.on("response", function (k, ...)
       if times > 0 and filter(...) then
