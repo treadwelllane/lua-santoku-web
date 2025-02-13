@@ -1,6 +1,7 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local rand = require("santoku.random")
+local num = require("santoku.num")
 local err = require("santoku.error")
 local async = require("santoku.async")
 local str = require("santoku.string")
@@ -794,6 +795,17 @@ M.get_local = function (k)
   if localStorage then
     return localStorage:getItem(tostring(k))
   end
+end
+
+
+M.utc_date = function (seconds)
+  local date = Date:new(0)
+  date:setUTCSeconds(seconds)
+  return date
+end
+
+M.date_utc = function (date)
+  return num.trunc(date:getTime() / 1000, 0)
 end
 
 return M
