@@ -499,7 +499,7 @@ static inline void number_to_lua (lua_State *L, val v) {
   if (isInteger) {
 
     int64_t x = v.as<int64_t>();
-    lua_pushinteger(L, x);
+    lua_pushnumber(L, x);
 
   } else {
 

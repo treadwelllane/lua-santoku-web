@@ -50,6 +50,11 @@ test("number to lua via val.lua()", function ()
   assert(teq({ 1 }, { val.lua(1) }))
 end)
 
+test("date gettime", function ()
+  local t = 1652745600000
+  assert(eq(js.Date:new(t):getTime(), t))
+end)
+
 val.global("setTimeout"):call(nil, function ()
 
   collectgarbage("collect")
