@@ -181,7 +181,7 @@ return function (opts)
       local pane = view.panes[name]
       if pane then
         pane.el = el0
-        M.pane(view, name, pane.pages.default, init)
+        M.pane(view, name, pane.pages.default, false, init)
       end
     end)
   end
@@ -1960,8 +1960,18 @@ return function (opts)
       return M.toggle_nav_state(not view.el.classList:contains("tk-showing-nav"), true, true)
     end
 
-    view.pane = function (name, page_name, ...)
-      return M.pane(view, name, page_name, false, ...)
+    local function pane_args (...)
+      if type(...) == "table" then
+        local t = ...
+        return t.name, t.page, t.replace, false, varg.sel(2, ...)
+      else
+        local name, page_name = ...
+        return name, page_name, false, false, varg.sel(3, ...)
+      end
+    end
+
+    view.pane = function (...)
+      return M.pane(view, pane_args(...))
     end
 
     view.add_pane = function (...)
@@ -2062,13 +2072,13 @@ return function (opts)
     end
   end
 
-  M.pane = function (view, name, page_name, init, ...)
+  M.pane = function (view, name, page_name, replace, init, ...)
 
     local view_pane = tbl.get(view, "panes", name)
     page_name = M.resolve_default(view_pane, page_name)
     local pane_page = M.get_page(view_pane.pages, page_name, name)
 
-    if same_view(view_pane, page_name) then
+    if not replace and same_view(view_pane, page_name) then
       view_pane.main.events.emit("update")
       return
     end
