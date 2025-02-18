@@ -351,7 +351,7 @@ return function (opts)
     end)
 
     if el.classList:contains("tk-ripple") or
-      (el.tagName == "button" and not el.classList:contains("tk-no-ripple"))
+      (el.tagName == "BUTTON" and not el.classList:contains("tk-no-ripple"))
     then
       el._ripple = true
       M.setup_ripple(el)
