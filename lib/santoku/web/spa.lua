@@ -1712,6 +1712,8 @@ return function (opts)
     M.style_main_header_transition_switch(next_view, "exit", direction, last_view)
     M.style_main_transition_switch(next_view, "exit", direction, last_view)
 
+    M.modal(last_view, nil, direction)
+
     M.after_transition(function ()
       return M.post_exit_switch(last_view)
     end, true)
@@ -1795,6 +1797,8 @@ return function (opts)
     else
       M.style_main_transition(next_view, "exit", direction, last_view)
     end
+
+    M.modal(last_view, nil, direction)
 
     if last_view.scroll_listener then
       e_scroll_container:removeEventListener("scroll", last_view.scroll_listener)
