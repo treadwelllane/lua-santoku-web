@@ -1699,8 +1699,7 @@ return function (opts)
     end, true)
   end
 
-
-  M.exit_switch = function (view, last_view, direction, next_view)
+  local function _exit_switch (view, last_view, direction, next_view)
 
     view.header_offset = 0
     M.style_header(view, true)
@@ -1712,12 +1711,20 @@ return function (opts)
     M.style_main_header_transition_switch(next_view, "exit", direction, last_view)
     M.style_main_transition_switch(next_view, "exit", direction, last_view)
 
-    M.modal(last_view, nil, direction)
-
     M.after_transition(function ()
       return M.post_exit_switch(last_view)
     end, true)
 
+  end
+
+  M.exit_switch = function (view, last_view, direction, next_view)
+    if M.modal(last_view, nil, direction) then
+      util.after_frame(function ()
+        _exit_switch(view, last_view, direction, next_view)
+      end)
+    else
+      _exit_switch(view, last_view, direction, next_view)
+    end
   end
 
   M.enter = function (next_view, direction, last_view, init, explicit)
@@ -1775,7 +1782,7 @@ return function (opts)
 
   end
 
-  M.exit = function (last_view, direction, next_view)
+  local function _exit (last_view, direction, next_view)
 
     if last_view.main then
       last_view.main.e_main.style.marginLeft = -e_scroll_pane.scrollLeft .. "px"
@@ -1798,8 +1805,6 @@ return function (opts)
       M.style_main_transition(next_view, "exit", direction, last_view)
     end
 
-    M.modal(last_view, nil, direction)
-
     if last_view.scroll_listener then
       e_scroll_container:removeEventListener("scroll", last_view.scroll_listener)
       last_view.scroll_listener = nil
@@ -1810,6 +1815,16 @@ return function (opts)
       return M.post_exit(last_view)
     end, true)
 
+  end
+
+  M.exit = function (last_view, direction, next_view)
+    if M.modal(last_view, nil, direction) then
+      util.after_frame(function ()
+        _exit(last_view, direction, next_view)
+      end)
+    else
+      _exit(last_view, direction, next_view)
+    end
   end
 
   M.destroy_dynamic = function (view)
@@ -2105,8 +2120,10 @@ return function (opts)
       if view.active_modal then
         M.exit_modal(view, view.active_modal, dir)
         view.active_modal = nil
+        return true
+      else
+        return false
       end
-      return
     end
 
     local parent
