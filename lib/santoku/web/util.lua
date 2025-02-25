@@ -72,7 +72,7 @@ M.request = function (url, opts, done, retry, raw)
     req.retry = retry or opts.retry
     req.raw = raw or opts.raw
   end
-  req.qstr = req.params and M.query_string(req.params) or ""
+  req.qstr = req.params and str.to_query(req.params) or ""
   req.done = req.done or done or fun.noop
   req.events = async.events()
   req.ctrl = AbortController:new()
@@ -706,36 +706,6 @@ M.component = function (tag, callback)
   return class
 end
 
-M.parse_query = function (query, out)
-  out = out or {}
-  for param, value in str.gmatch(query, "([^&=?]+)=([^&=?]+)") do
-    param = str.from_url(param)
-    value = str.from_url(value)
-    param = tonumber(param) or param
-    value = tonumber(value) or value
-    out[param] = value
-  end
-  return out
-end
-
-M.query_string = function (data, out)
-  local should_concat = out == nil
-  out = out or {}
-  arr.push(out, "?")
-  local ks = it.collect(it.keys(data))
-  arr.sort(ks)
-  for k in it.vals(ks) do
-    local v = data[k]
-    arr.push(out, str.to_url(k), "=", str.to_url(v), "&")
-  end
-  out[#out] = nil
-  if should_concat then
-    return arr.concat(out)
-  else
-    return out
-  end
-end
-
 M.parse_path = function (url, path, params, modal)
   local result = { path = path or {}, params = params or {} }
   tbl.clear(result.path)
@@ -759,7 +729,7 @@ M.parse_path = function (url, path, params, modal)
     end
   end
   if query then
-    M.parse_query(query, result.params)
+    str.from_query(query, result.params)
   end
   return result
 end
@@ -776,7 +746,7 @@ M.encode_path = function (t, params, modal)
     arr.push(out, modal, t.modal)
   end
   if (params or params == nil) and t.params and next(t.params) then
-    M.query_string(t.params, out)
+    str.to_query(t.params, out)
   end
   return arr.concat(out)
 end
