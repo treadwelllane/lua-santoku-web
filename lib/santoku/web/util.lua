@@ -709,8 +709,8 @@ end
 M.parse_query = function (query, out)
   out = out or {}
   for param, value in str.gmatch(query, "([^&=?]+)=([^&=?]+)") do
-    param = js:decodeURIComponent(param)
-    value = js:decodeURIComponent(value)
+    param = str.from_url(param)
+    value = str.from_url(value)
     param = tonumber(param) or param
     value = tonumber(value) or value
     out[param] = value
@@ -726,7 +726,7 @@ M.query_string = function (data, out)
   arr.sort(ks)
   for k in it.vals(ks) do
     local v = data[k]
-    arr.push(out, js:encodeURIComponent(k), "=", js:encodeURIComponent(v), "&")
+    arr.push(out, str.to_url(k), "=", str.to_url(v), "&")
   end
   out[#out] = nil
   if should_concat then
@@ -770,7 +770,7 @@ M.encode_path = function (t, params, modal)
     if type(t.path[i]) == "table" then
       break
     end
-    arr.push(out, "/", js:decodeURIComponent(t.path[i]))
+    arr.push(out, "/", str.from_url(t.path[i]))
   end
   if modal and t.modal then
     arr.push(out, modal, t.modal)
