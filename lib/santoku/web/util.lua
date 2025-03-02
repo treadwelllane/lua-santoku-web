@@ -515,12 +515,17 @@ M.populate = function (el, data, root, els)
   if el.hasAttributes and el:hasAttributes() then
 
     local add_attrs = {}
-    local shadow, remove, repeat_
+    local shadow, remove, repeat_, repeat_idx_
 
     Array:from(el.attributes):forEach(function (_, attr)
       if attr.name == "tk-repeat" then
         el:removeAttribute(attr.name)
         repeat_ = attr
+        repeat_idx_ = el:getAttribute("tk-repeat-idx")
+        if repeat_idx_ then
+          repeat_idx_ = repeat_idx_ == "" and "idx" or repeat_idx_
+          el:removeAttribute("tk-repeat-idx")
+        end
         return
       end
       if attr.name == "tk-shadow" then
@@ -564,10 +569,6 @@ M.populate = function (el, data, root, els)
       end
     end
 
-    Array:from(el.attributes):forEach(function (_, attr)
-      el:setAttribute(attr.name, str.interp(attr.value, data))
-    end)
-
     if repeat_ then
 
       recurse = false
@@ -581,6 +582,9 @@ M.populate = function (el, data, root, els)
         for i = 1, #items do
           local r0 = el:cloneNode(true)
           local item = items[i]
+          if repeat_idx_ then
+            item[repeat_idx_] = i
+          end
           M.populate(r0, item, root, els)
           el.parentNode:insertBefore(r0, el_before)
           el_before = r0
@@ -591,6 +595,10 @@ M.populate = function (el, data, root, els)
 
     else
 
+      Array:from(el.attributes):forEach(function (_, attr)
+        el:setAttribute(attr.name, str.interp(attr.value, data))
+      end)
+
       local target = shadow and el:attachShadow({ mode = shadow }) or el
 
       Array:from(el.attributes):forEach(function (_, attr)
@@ -598,6 +606,7 @@ M.populate = function (el, data, root, els)
           local ik = it.collect(str.gmatch(attr.value, "[^.]+"))
           arr.push(ik, el)
           tbl.set(els, arr.spread(ik))
+          el:removeAttribute(attr.name)
         elseif str.match(attr.name, "^tk%-on%:") then
           local ev = str.sub(attr.name, 7, #attr.name)
           local fn = parse_attr_value(data, attr, el.attributes, root)
@@ -608,6 +617,7 @@ M.populate = function (el, data, root, els)
               return fn(ev, el)
             end)
           end
+          el:removeAttribute(attr.name)
         elseif attr.name == "tk-text" then
           target:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes, root)))
           el:removeAttribute(attr.name)
