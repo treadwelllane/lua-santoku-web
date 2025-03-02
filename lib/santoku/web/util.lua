@@ -515,16 +515,21 @@ M.populate = function (el, data, root, els)
   if el.hasAttributes and el:hasAttributes() then
 
     local add_attrs = {}
-    local shadow, remove, repeat_, repeat_idx_
+    local shadow, remove, repeat_, repeat_idx_, repeat_el_
 
     Array:from(el.attributes):forEach(function (_, attr)
       if attr.name == "tk-repeat" then
         el:removeAttribute(attr.name)
         repeat_ = attr
         repeat_idx_ = el:getAttribute("tk-repeat-idx")
+        repeat_el_ = el:getAttribute("tk-repeat-el")
         if repeat_idx_ then
           repeat_idx_ = repeat_idx_ == "" and "idx" or repeat_idx_
           el:removeAttribute("tk-repeat-idx")
+        end
+        if repeat_el_ then
+          repeat_el_ = repeat_el_ == "" and "el" or repeat_el_
+          el:removeAttribute("tk-repeat-el")
         end
         return
       end
@@ -585,9 +590,11 @@ M.populate = function (el, data, root, els)
           if repeat_idx_ then
             item[repeat_idx_] = i
           end
+          if repeat_el_ then
+            item[repeat_el_] = r0
+          end
           M.populate(r0, item, root, els)
           el.parentNode:insertBefore(r0, el_before)
-          el_before = r0
         end
       end
 
