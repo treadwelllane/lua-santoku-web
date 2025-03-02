@@ -428,7 +428,7 @@ M.clone_all = function (opts)
   end, events
 end
 
-local function parse_attr_value (data, attr, attrs)
+local function parse_attr_value (data, attr, attrs, root)
 
   if not data then
     return ""
@@ -441,7 +441,13 @@ local function parse_attr_value (data, attr, attrs)
   if attr.value and data[attr.value] and data[attr.value] ~= "" then
     return data[attr.value]
   elseif data and type(attr.value) == "string" then
-    local v = tbl.get(data, arr.spread(it.collect(str.gmatch(attr.value, "[^.]+"))))
+    local key = it.collect(str.gmatch(attr.value, "[^.]+"))
+    local v
+    if key[1] == "$" then
+      v = tbl.get(root, varg.sel(2, arr.spread(key)))
+    else
+      v = tbl.get(data, arr.spread(key))
+    end
     if v then
       return v or ""
     end
@@ -594,27 +600,28 @@ M.populate = function (el, data, root, els)
           tbl.set(els, arr.spread(ik))
         elseif str.match(attr.name, "^tk%-on%:") then
           local ev = str.sub(attr.name, 7, #attr.name)
-          local fn = tbl.get(data, arr.spread(it.collect(str.gmatch(attr.value, "[^.]+"))))
-          -- TODO: allow passing true/false/etc to addEventListener
+          local fn = parse_attr_value(data, attr, el.attributes, root)
+          -- TODO: allow passing true/false/etc to addEventListener and
+          -- arbitrary arguments to the handler (maybe)
           if fn then
             el:addEventListener(ev, function (_, ev)
               return fn(ev, el)
             end)
           end
         elseif attr.name == "tk-text" then
-          target:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes)))
+          target:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes, root)))
           el:removeAttribute(attr.name)
         elseif attr.name == "tk-html" then
-          target.innerHTML = parse_attr_value(data, attr, el.attributes)
+          target.innerHTML = parse_attr_value(data, attr, el.attributes, root)
           el:removeAttribute(attr.name)
         elseif attr.name == "tk-href" then
-          el.href = parse_attr_value(data, attr, el.attributes)
+          el.href = parse_attr_value(data, attr, el.attributes, root)
           el:removeAttribute(attr.name)
         elseif attr.name == "tk-value" then
-          el.value = parse_attr_value(data, attr, el.attributes)
+          el.value = parse_attr_value(data, attr, el.attributes, root)
           el:removeAttribute(attr.name)
         elseif attr.name == "tk-src" then
-          el.src = parse_attr_value(data, attr, el.attributes)
+          el.src = parse_attr_value(data, attr, el.attributes, root)
           el:removeAttribute(attr.name)
         elseif attr.name == "tk-checked" then
           el.checked = data[attr.value] or false
@@ -640,7 +647,7 @@ M.populate = function (el, data, root, els)
 
   end
 
-  return el, els
+  return el, els, data
 
 end
 
