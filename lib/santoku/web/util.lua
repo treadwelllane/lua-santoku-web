@@ -515,21 +515,21 @@ M.populate = function (el, data, root, els)
   if el.hasAttributes and el:hasAttributes() then
 
     local add_attrs = {}
-    local shadow, remove, repeat_, repeat_idx_, repeat_el_
+    local shadow, remove, repeat_, repeat_map_, repeat_done_
 
     Array:from(el.attributes):forEach(function (_, attr)
       if attr.name == "tk-repeat" then
         el:removeAttribute(attr.name)
         repeat_ = attr
-        repeat_idx_ = el:getAttribute("tk-repeat-idx")
-        repeat_el_ = el:getAttribute("tk-repeat-el")
-        if repeat_idx_ then
-          repeat_idx_ = repeat_idx_ == "" and "idx" or repeat_idx_
-          el:removeAttribute("tk-repeat-idx")
+        repeat_map_ = el:getAttributeNode("tk-repeat-map")
+        repeat_done_ = el:getAttributeNode("tk-repeat-done")
+        if repeat_map_ then
+          repeat_map_ = parse_attr_value(data, repeat_map_, el.attributes, root)
+          el:removeAttribute("tk-repeat-map")
         end
-        if repeat_el_ then
-          repeat_el_ = repeat_el_ == "" and "el" or repeat_el_
-          el:removeAttribute("tk-repeat-el")
+        if repeat_done_ then
+          repeat_done_ = parse_attr_value(data, repeat_done_, el.attributes, root)
+          el:removeAttribute("tk-repeat-done")
         end
         return
       end
@@ -587,15 +587,19 @@ M.populate = function (el, data, root, els)
         for i = 1, #items do
           local r0 = el:cloneNode(true)
           local item = items[i]
-          if repeat_idx_ then
-            item[repeat_idx_] = i
-          end
-          if repeat_el_ then
-            item[repeat_el_] = r0
+          if repeat_map_ then
+            local r1 = repeat_map_(r0, item, i)
+            if r1 ~= nil then
+              r0 = r1
+            end
           end
           M.populate(r0, item, root, els)
           el.parentNode:insertBefore(r0, el_before)
         end
+      end
+
+      if repeat_done_ then
+        repeat_done_(items)
       end
 
       el:remove()
