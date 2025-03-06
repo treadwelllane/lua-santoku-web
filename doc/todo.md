@@ -1,5 +1,9 @@
 # Now
 
+- same automatic styling of header/main within modals and panes
+- no background scrolling with modals/overlays (did this break?)
+- deprecate use of santoku.iter in favor of faster alternativs
+
 - re-introduce fabs
 - fancy snack overflow: max total snack height as config option, hide snacks
   that pass this threshold with a button that opens a modal-like interface where

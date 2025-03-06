@@ -2039,6 +2039,12 @@ return function (opts)
       end
     }, http)
 
+    if view.parent and view.parent.events then
+      view.events.on(nil, function (...)
+        view.parent.events.emit(...)
+      end)
+    end
+
     return view
 
   end
