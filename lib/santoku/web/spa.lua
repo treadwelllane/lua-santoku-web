@@ -2284,7 +2284,7 @@ return function (opts)
 
       if not root.main or page ~= root.main.page then
         local last_view = root.main
-        root.main = M.init_view(state.path[1], page)
+        root.main = M.init_view(state.path[1], page, root)
         M.enter(root.main, dir, last_view, init, explicit)
         if last_view then
           M.exit(last_view, dir, root.main)
