@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+  <meta charset="{{charset}}">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}}</title>
+  {{#description}}<meta name="description" content="{{description}}">{{/description}}
+  <link rel="manifest" href="{{manifest}}">
+  <meta name="theme-color" content="{{theme_color}}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  {{#icon}}<link rel="apple-touch-icon" href="{{icon}}">{{/icon}}
+  {{#favicon}}<link rel="icon" href="{{favicon}}">{{/favicon}}
+  {{{head}}}
+</head>
+<body{{{body_attrs}}}>
+{{{body}}}
+{{#scripts}}
+<script src="{{.}}"></script>
+{{/scripts}}
+</body>
+</html>
