@@ -12,10 +12,13 @@
   {{#favicon}}<link rel="icon" href="{{favicon}}">{{/favicon}}
   {{{head}}}
 </head>
+{{#body_tag}}{{{body_tag}}}{{/body_tag}}
+{{^body_tag}}
 <body{{{body_attrs}}}>
 {{{body}}}
 {{#scripts}}
 <script src="{{.}}"></script>
 {{/scripts}}
 </body>
+{{/body_tag}}
 </html>
