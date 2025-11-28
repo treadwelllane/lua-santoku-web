@@ -1,8 +1,17 @@
 {
   "name": "{{name}}",
   "short_name": "{{short_name}}",
+  {{#description}}"description": "{{description}}",{{/description}}
+  {{#id}}"id": "{{id}}",{{/id}}
   "start_url": "{{start_url}}",
+  {{#scope}}"scope": "{{scope}}",{{/scope}}
   "display": "{{display}}",
   "theme_color": "{{theme_color}}",
-  "background_color": "{{background_color}}"{{{icons_json}}}
+  "background_color": "{{background_color}}",
+  {{#orientation}}"orientation": "{{orientation}}",{{/orientation}}
+  {{#categories}}"categories": {{{categories_json}}},{{/categories}}
+  {{#handle_links}}"handle_links": "{{handle_links}}",{{/handle_links}}
+  {{#launch_handler}}"launch_handler": {{{launch_handler_json}}},{{/launch_handler}}
+  {{#screenshots}}"screenshots": {{{screenshots_json}}},{{/screenshots}}
+  "icons": {{{icons_json}}}
 }
