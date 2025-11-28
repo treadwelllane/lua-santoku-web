@@ -2,14 +2,50 @@
 <html lang="{{lang}}">
 <head>
   <meta charset="{{charset}}">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{#base_href}}<base href="{{base_href}}">{{/base_href}}
+
   <title>{{title}}</title>
+  {{#title}}<meta name="apple-mobile-web-app-title" content="{{title}}">{{/title}}
+  {{#title}}<meta name="application-name" content="{{title}}">{{/title}}
+
   {{#description}}<meta name="description" content="{{description}}">{{/description}}
-  <link rel="manifest" href="{{manifest}}">
-  <meta name="theme-color" content="{{theme_color}}">
+  {{#description}}<meta name="msapplication-tooltip" content="{{description}}">{{/description}}
+
+  {{#keywords}}<meta name="keywords" content="{{keywords}}">{{/keywords}}
+
+  {{#manifest}}<link rel="manifest" href="{{manifest}}">{{/manifest}}
+
+  {{#theme_color}}<meta name="theme-color" content="{{theme_color}}">{{/theme_color}}
+  {{#theme_color}}<meta name="msapplication-navbutton-color" content="{{theme_color}}">{{/theme_color}}
+  {{#theme_color}}<meta name="msapplication-TileColor" content="{{theme_color}}">{{/theme_color}}
+
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  {{#ios_icon}}<link rel="apple-touch-icon" href="{{ios_icon}}">{{/ios_icon}}
+  {{^ios_icon}}{{#icon}}<link rel="apple-touch-icon" href="{{icon}}">{{/icon}}{{/ios_icon}}
+
+  {{#ms_icon}}<meta name="msapplication-TileImage" content="{{ms_icon}}">{{/ms_icon}}
+
+  {{#favicon_ico}}<link rel="icon" href="{{favicon_ico}}" sizes="any">{{/favicon_ico}}
+  {{^favicon_ico}}{{#favicon}}<link rel="icon" href="{{favicon}}" sizes="any">{{/favicon}}{{/favicon_ico}}
+  {{#favicon_svg}}<link rel="icon" href="{{favicon_svg}}" type="image/svg+xml">{{/favicon_svg}}
+
+  {{#splash_screens}}
+  <link rel="apple-touch-startup-image" media="(device-width: {{width}}px) and (device-height: {{height}}px) and (-webkit-device-pixel-ratio: {{dpr}})" href="{{src}}">
+  {{/splash_screens}}
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  {{#icon}}<link rel="apple-touch-icon" href="{{icon}}">{{/icon}}
-  {{#favicon}}<link rel="icon" href="{{favicon}}">{{/favicon}}
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="msapplication-starturl" content="">
+  <meta name="msapplication-tap-highlight" content="no">
+  <meta name="full-screen" content="yes">
+  <meta name="browsermode" content="application">
+  <meta name="nightmode" content="enable">
+  <meta name="layoutmode" content="fitscreen">
+  <meta name="imagemode" content="force">
+
   {{{head}}}
 </head>
 {{#body_tag}}{{{body_tag}}}{{/body_tag}}
