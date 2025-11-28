@@ -1,7 +1,7 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.280-1",
+  version = "0.0.281-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,
@@ -9,7 +9,7 @@ local env = {
   dependencies = {
     "lua >= 5.1",
     "santoku >= 0.0.297-1",
-    "santoku-mustache >= 0.0.3-1",
+    "santoku-mustache >= 0.0.4-1",
     "santoku-sqlite >= 0.0.17-1", -- only for sqlite wrapper, move to separate lib
     "lua-cjson == 2.1.0.10-1"
   },
