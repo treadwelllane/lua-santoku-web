@@ -10,6 +10,8 @@ local Module = global.Module
 local caches = js.caches
 local clients = js.clients
 local Promise = js.Promise
+local URL = js.URL
+local Response = js.Response
 
 local defaults = {
   cache_fetch_retry_backoff_ms = 1000,
@@ -122,7 +124,70 @@ return function (opts)
     end)
   end
 
+  -- Route matching helper
+  local function match_route (pathname)
+    if not opts.routes then
+      return nil
+    end
+    -- Exact match first
+    if opts.routes[pathname] then
+      return opts.routes[pathname], {}
+    end
+    -- Pattern match (e.g., "/items/:id")
+    for pattern, handler in pairs(opts.routes) do
+      local params = {}
+      local regex = "^" .. pattern:gsub(":([^/]+)", function (name)
+        params[#params + 1] = name
+        return "([^/]+)"
+      end) .. "$"
+      local captures = { pathname:match(regex) }
+      if #captures > 0 then
+        local result = {}
+        for i, name in ipairs(params) do
+          result[name] = captures[i]
+        end
+        return handler, result
+      end
+    end
+    return nil
+  end
+
+  -- Create response from route handler result
+  local function create_response (body, content_type)
+    content_type = content_type or "text/html"
+    return Response:new(body, {
+      headers = { ["Content-Type"] = content_type }
+    })
+  end
+
+  -- Create error response
+  local function create_error_response (message, status)
+    status = status or 500
+    return Response:new("Error: " .. tostring(message), {
+      status = status,
+      headers = { ["Content-Type"] = "text/plain" }
+    })
+  end
+
   Module.on_fetch = function (_, request, client_id)
+    local url = URL:new(request.url)
+    local pathname = url.pathname
+
+    -- Check for route match
+    local handler, params = match_route(pathname)
+    if handler then
+      return util.promise(function (complete)
+        handler(request, params, function (ok, result, content_type)
+          if ok then
+            complete(true, create_response(result, content_type))
+          else
+            complete(true, create_error_response(result))
+          end
+        end)
+      end)
+    end
+
+    -- Fall through to custom on_fetch or default handler
     if opts.on_fetch then
       return opts.on_fetch(request, client_id, default_fetch_handler)
     end
