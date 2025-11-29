@@ -129,6 +129,12 @@ return function (opts)
     return default_fetch_handler(request)
   end
 
+  if opts.on_message then
+    Module.on_message = function (_, ev)
+      opts.on_message(ev)
+    end
+  end
+
   Module:start()
 
 end
