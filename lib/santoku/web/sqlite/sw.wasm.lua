@@ -3,7 +3,8 @@
 --
 -- Usage in SW:
 --   local db = require("santoku.web.sqlite.sw").connect("myapp")
---   db.call("get_items", {}, function (ok, items) ... end)
+--   db.get_items(function (ok, items) ... end)
+--   db.add_item(arg1, arg2, function (ok, result) ... end)
 
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
@@ -164,10 +165,23 @@ M.connect = function (name)
     end
   end
 
-  return {
+  -- Return a proxy that allows db.method_name(..., callback) syntax
+  return setmetatable({
     call = call_provider,
     on_message = on_message,
-  }
+  }, {
+    __index = function (_, method)
+      return function (...)
+        local n = select("#", ...)
+        local callback = select(n, ...)
+        local args = {}
+        for i = 1, n - 1 do
+          args[i] = select(i, ...)
+        end
+        call_provider(method, args, callback)
+      end
+    end
+  })
 end
 
 return M
