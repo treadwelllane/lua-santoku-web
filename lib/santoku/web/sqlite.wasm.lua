@@ -124,6 +124,10 @@ M.open_opfs = function (dbfile, callback)
                 return stmt.columnCount
               end,
 
+              get_value = function (_, n)
+                return stmt:get(n)
+              end,
+
             }, {
               __index = stmt
             })
