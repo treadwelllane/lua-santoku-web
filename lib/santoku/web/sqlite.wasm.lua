@@ -5,6 +5,7 @@
 -- must be hosted next to the compiled script.
 
 local js = require("santoku.web.js")
+local val = require("santoku.web.val")
 local sqlite = require("santoku.sqlite")
 local err = require("santoku.error")
 local Object = js.Object
@@ -108,8 +109,8 @@ M.open_opfs = function (dbfile, callback)
               get_named_values = function ()
                 local ret = {}
                 for i = 0, stmt.columnCount - 1 do
-                  local k = stmt:getColumnName(i)
-                  local v = stmt:get(i)
+                  local k = val.lua(stmt:getColumnName(i))
+                  local v = val.lua(stmt:get(i))
                   ret[k] = v
                 end
                 return ret
@@ -125,7 +126,7 @@ M.open_opfs = function (dbfile, callback)
               end,
 
               get_value = function (_, n)
-                return stmt:get(n)
+                return val.lua(stmt:get(n))
               end,
 
             }, {
