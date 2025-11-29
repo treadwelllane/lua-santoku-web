@@ -120,6 +120,10 @@ M.open_opfs = function (dbfile, callback)
                 return OK
               end,
 
+              columns = function ()
+                return stmt.columnCount
+              end,
+
             }, {
               __index = stmt
             })
