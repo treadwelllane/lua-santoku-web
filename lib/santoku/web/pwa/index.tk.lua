@@ -17,6 +17,7 @@ local init_script_template = [=[
   var swPath = '{{sw}}';
   var bundlePath = {{bundle}};
   var bundleLoaded = false;
+  var swReadyFired = false;
 
   function loadBundle() {
     if (bundleLoaded || !bundlePath) return;
@@ -27,13 +28,21 @@ local init_script_template = [=[
   }
 
   function swReady() {
-    document.body.classList.add('sw-ready');
-    document.body.dispatchEvent(new CustomEvent('sw-ready'));
+    if (swReadyFired) return;
+    swReadyFired = true;
+    if (document.body) {
+      document.body.classList.add('sw-ready');
+      document.body.dispatchEvent(new CustomEvent('sw-ready'));
+    }
   }
 
   function onReady() {
     loadBundle();
-    swReady();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', swReady);
+    } else {
+      swReady();
+    }
   }
 
   if (!('serviceWorker' in navigator)) {
@@ -53,7 +62,7 @@ local init_script_template = [=[
       reg.addEventListener('updatefound', function() {
         var newWorker = reg.installing;
         newWorker.addEventListener('statechange', function() {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
             document.body.classList.add('sw-update-available');
           }
         });
