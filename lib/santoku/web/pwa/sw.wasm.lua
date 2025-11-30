@@ -373,7 +373,7 @@ return function (opts)
         end
         resolve()
       end)
-    end)
+    end):catch(function () end)
   end
 
   local function promote_provider (client_id, port)

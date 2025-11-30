@@ -75,7 +75,7 @@ return function (bundle_path, callback)
     local lock_name = "db_provider_" .. client_id
     navigator.locks:request(lock_name, function ()
       return js.Promise:new(function () end)
-    end)
+    end):catch(function () end)
   end
   navigator.serviceWorker.ready:await(function (_, ok)
     if not ok then
