@@ -1060,7 +1060,9 @@ static inline int mto_index (lua_State *L) { // lo lk
   val n = val::take_ownership((EM_VAL) EM_ASM_PTR(({
     var v = Emval.toValue($0);
     var k = Emval.toValue($1);
-    if (v instanceof Array && typeof k == "number")
+    // Handle array-like objects (Arrays, FrozenArrays, TypedArrays, NodeLists, etc.)
+    // Convert Lua 1-based indexing to JS 0-based for any object with numeric length
+    if (typeof k == "number" && v != null && typeof v === "object" && typeof v.length == "number")
       k = k - 1;
     return Emval.toHandle(v[k]);
   }), v.as_handle(), k.as_handle()));
@@ -1205,7 +1207,8 @@ static inline int mto_len (lua_State *L) {
   val v = peek_val(L, 1);
   lua_pushinteger(L, EM_ASM_INT(({
     var v = Emval.toValue($0);
-    return v instanceof Array
+    // Handle array-like objects (Arrays, FrozenArrays, TypedArrays, NodeLists, etc.)
+    return (v != null && typeof v === "object" && typeof v.length == "number")
       ? v.length
       : 0;
   }), v.as_handle()));

@@ -20,7 +20,6 @@ local defaults = {
   cache_fetch_retry_backoff_ms = 1000,
   cache_fetch_retry_backoff_multiply = 2,
   cache_fetch_retry_times = 3,
-  db_call_timeout_ms = 100,
 }
 
 local function random_string ()
@@ -60,9 +59,7 @@ return function (opts)
 
   local function db_call (method, args, callback)
     if not db_sw_port then
-      if not next(db_registered_clients) then
-        return callback(false, "No database clients available")
-      end
+      -- Queue request until provider is ready
       db_pending_queue[#db_pending_queue + 1] = {
         method = method,
         args = args,
@@ -72,11 +69,8 @@ return function (opts)
     end
 
     local nonce = random_string()
-    local completed = false
 
     db_sw_callbacks[nonce] = function (ok, result)
-      if completed then return end
-      completed = true
       return callback(ok, result)
     end
 
@@ -85,36 +79,6 @@ return function (opts)
       method = method,
       args = args
     }, true))
-
-    global:setTimeout(function ()
-      if completed then return end
-
-      clients:get(db_provider_client_id):await(function (_, ok, client)
-        if completed then return end
-
-        if not ok or not client then
-          db_sw_callbacks[nonce] = nil
-          completed = true
-
-          if db_sw_port then
-            local new_nonce = random_string()
-            db_sw_callbacks[new_nonce] = callback
-            db_sw_port:postMessage(val({
-              nonce = new_nonce,
-              method = method,
-              args = args
-            }, true))
-          else
-            db_pending_queue[#db_pending_queue + 1] = {
-              method = method,
-              args = args,
-              callback = callback
-            }
-            trigger_failover()
-          end
-        end
-      end)
-    end, opts.db_call_timeout_ms)
   end
 
   local db = nil
@@ -273,6 +237,9 @@ return function (opts)
 
   local function create_error_response (message, status)
     status = status or 500
+    if opts.verbose then
+      print("SW error response:", status, tostring(message))
+    end
     return Response:new("Error: " .. tostring(message), {
       status = status,
       headers = { ["Content-Type"] = "text/plain" }
@@ -308,8 +275,9 @@ return function (opts)
     end
     local original_handler = db_provider_port.onmessage
     db_provider_port.onmessage = function (_, ev)
-      if ev.ports and ev.ports[0] then
-        db_sw_port = ev.ports[0]
+      local sw_port = ev.ports[1]
+      if sw_port then
+        db_sw_port = sw_port
         db_sw_port.onmessage = function (_, msg_ev)
           local data = msg_ev.data
           if data and data.nonce and db_sw_callbacks[data.nonce] then
@@ -336,8 +304,8 @@ return function (opts)
     end
     local original_handler = db_provider_port.onmessage
     db_provider_port.onmessage = function (_, ev)
-      if ev.ports and ev.ports[0] then
-        local client_port = ev.ports[0]
+      local client_port = ev.ports[1]
+      if client_port then
         clients:get(client_id):await(function (_, ok, client)
           if ok and client then
             client:postMessage(val({ type = "db_consumer" }, true), { client_port })
@@ -369,6 +337,11 @@ return function (opts)
     }, function ()
       return Promise:new(function (resolve)
         if db_provider_client_id == client_id then
+          -- Clear the dead ports so trigger_failover will proceed
+          db_sw_port = nil
+          db_provider_port = nil
+          db_provider_client_id = nil
+          db_registered_clients[client_id] = nil
           trigger_failover()
         end
         resolve()
@@ -381,7 +354,7 @@ return function (opts)
     db_provider_port = port
     db_provider_port:start()
     setup_sw_port_to_provider()
-    monitor_provider_lock(client_id)
+    -- Lock monitoring will start when client sends lock_acquired message
     for cid, _ in pairs(db_registered_clients) do
       if cid ~= client_id then
         connect_client_to_provider(cid)
@@ -425,8 +398,8 @@ return function (opts)
         return
       end
 
-      if data.type == "db_register" and ev.ports and ev.ports[0] then
-        local port = ev.ports[0]
+      local port = ev.ports[1]
+      if data.type == "db_register" and port then
         db_registered_clients[client_id] = port
         if not db_provider_client_id then
           promote_provider(client_id, port)
@@ -442,6 +415,11 @@ return function (opts)
         db_registered_clients[client_id] = nil
         if client_id == db_provider_client_id then
           trigger_failover()
+        end
+      elseif data.type == "lock_acquired" then
+        -- Client has acquired the provider lock, now safe to monitor it
+        if client_id == db_provider_client_id then
+          monitor_provider_lock(client_id)
         end
       end
 
