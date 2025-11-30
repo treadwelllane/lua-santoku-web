@@ -64,12 +64,26 @@ end
 return function (bundle_path, callback)
   local db = wrpc.init(bundle_path)
   local provider_port = create_provider_port(db, true)
+  local provider_lock_held = false
+  local function acquire_provider_lock (client_id)
+    if provider_lock_held then return end
+    if not client_id then return end
+    provider_lock_held = true
+    if not navigator or not navigator.locks then
+      return
+    end
+    local lock_name = "db_provider_" .. client_id
+    navigator.locks:request(lock_name, function ()
+      return js.Promise:new(function () end)
+    end)
+  end
   navigator.serviceWorker.ready:await(function (_, ok)
     if not ok then
       return
     end
     navigator.serviceWorker:addEventListener("message", function (_, ev)
       if ev.data and ev.data.type == "db_provider" then
+        acquire_provider_lock(ev.data.client_id)
         if callback then
           return callback()
         end
