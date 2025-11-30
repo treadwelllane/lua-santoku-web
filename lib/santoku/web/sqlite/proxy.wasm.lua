@@ -70,13 +70,11 @@ return function (bundle_path, callback)
     if not client_id then return end
     provider_lock_held = true
     if not navigator or not navigator.locks then
-      -- No Web Locks API - notify SW immediately
       navigator.serviceWorker.controller:postMessage(val({ type = "lock_acquired" }, true))
       return
     end
     local lock_name = "db_provider_" .. client_id
     navigator.locks:request(lock_name, function ()
-      -- Lock acquired - notify SW so it can start monitoring
       navigator.serviceWorker.controller:postMessage(val({ type = "lock_acquired" }, true))
       return js.Promise:new(function () end)
     end):catch(function () end)
@@ -102,7 +100,6 @@ return function (bundle_path, callback)
         end
       end
     end)
-    -- On first install, controller may be null until page refresh or controllerchange
     if navigator.serviceWorker.controller then
       register_with_sw()
     else
