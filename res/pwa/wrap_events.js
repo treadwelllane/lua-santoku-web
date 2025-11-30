@@ -44,8 +44,8 @@ Module.start = function () {
   }
 
   if (Module.on_message) {
-    buffers.message.forEach(ev => {
-      Module.on_message(ev)
+    buffers.message.forEach(([ ev, clientId ]) => {
+      Module.on_message(ev, clientId)
     })
     buffers.message.length = 0
   }
@@ -110,10 +110,11 @@ self.addEventListener("activate", ev => {
 })
 
 self.addEventListener("message", ev => {
+  var clientId = ev.source && ev.source.id ? ev.source.id : null
   if (Module.on_message) {
-    Module.on_message(ev)
+    Module.on_message(ev, clientId)
   } else {
-    push_buffer("message", ev)
+    push_buffer("message", [ ev, clientId ])
   }
 })
 
