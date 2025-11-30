@@ -1,9 +1,3 @@
--- In order for this to work, you must build sqlite for wasm and provide emcc
--- this flag: --pre-js /path/to/sqlite/ext/wasm/jswasm/sqlite3.js
---
--- Additionally, neighboring files sqlite3.wasm and sqlite3-opfs-async-proxy.js
--- must be hosted next to the compiled script.
-
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local sqlite = require("santoku.sqlite")
@@ -61,17 +55,12 @@ M.open_opfs = function (dbfile, callback)
                 local ok, e = err.pcall(function ()
                   Object:keys(t):forEach(function (_, k)
                     local v = t[k]
-                    -- TODO: sqlite supports both ":" and "$", but we're
-                    -- hardcoding the former. This can be solved by querying the
-                    -- prepared statement for variables and then extracting
-                    -- those from the table, instead of the other way around.
                     stmt:bind(":" .. k, cast_param(v))
                   end)
                 end)
                 if ok then
                   return OK
                 else
-                  -- TODO: not getting caught
                   err.error(e)
                   return ERROR
                 end
@@ -86,7 +75,6 @@ M.open_opfs = function (dbfile, callback)
                 if ok then
                   return OK
                 else
-                  -- TODO: not getting caught
                   err.error(e)
                   return ERROR
                 end
