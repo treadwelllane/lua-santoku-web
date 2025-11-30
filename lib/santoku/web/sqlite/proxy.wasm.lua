@@ -77,6 +77,10 @@ return function (bundle_path, callback)
       return js.Promise:new(function () end)
     end):catch(function () end)
   end
+  local function register_with_sw ()
+    navigator.serviceWorker.controller:postMessage(val({ type = "db_register" }, true), { provider_port })
+  end
+
   navigator.serviceWorker.ready:await(function (_, ok)
     if not ok then
       return
@@ -93,6 +97,13 @@ return function (bundle_path, callback)
         end
       end
     end)
-    navigator.serviceWorker.controller:postMessage(val({ type = "db_register" }, true), { provider_port })
+    -- On first install, controller may be null until page refresh or controllerchange
+    if navigator.serviceWorker.controller then
+      register_with_sw()
+    else
+      navigator.serviceWorker:addEventListener("controllerchange", function ()
+        register_with_sw()
+      end, { once = true })
+    end
   end)
 end
