@@ -14,6 +14,7 @@ local Promise = js.Promise
 local URL = js.URL
 local Response = js.Response
 local Math = js.Math
+local navigator = global.navigator
 
 local defaults = {
   cache_fetch_retry_backoff_ms = 1000,
@@ -37,7 +38,6 @@ return function (opts)
   local db_sw_callbacks = {}
   local db_pending_queue = {}
 
-  -- Forward declarations
   local trigger_failover
 
   local function flush_queue ()
@@ -59,8 +59,10 @@ return function (opts)
   end
 
   local function db_call (method, args, callback)
-    -- No provider yet, queue immediately
     if not db_sw_port then
+      if not next(db_registered_clients) then
+        return callback(false, "No database clients available")
+      end
       db_pending_queue[#db_pending_queue + 1] = {
         method = method,
         args = args,
@@ -78,14 +80,12 @@ return function (opts)
       return callback(ok, result)
     end
 
-    -- Send optimistically
     db_sw_port:postMessage(val({
       nonce = nonce,
       method = method,
       args = args
     }, true))
 
-    -- After timeout, check if provider still alive
     global:setTimeout(function ()
       if completed then return end
 
@@ -93,13 +93,10 @@ return function (opts)
         if completed then return end
 
         if not ok or not client then
-          -- Provider confirmed dead, abort this call
           db_sw_callbacks[nonce] = nil
           completed = true
 
-          -- Check if a new provider is already available
           if db_sw_port then
-            -- New provider ready, retry directly
             local new_nonce = random_string()
             db_sw_callbacks[new_nonce] = callback
             db_sw_port:postMessage(val({
@@ -108,17 +105,14 @@ return function (opts)
               args = args
             }, true))
           else
-            -- Queue for retry with new provider
             db_pending_queue[#db_pending_queue + 1] = {
               method = method,
               args = args,
               callback = callback
             }
-            -- Trigger failover
             trigger_failover()
           end
         end
-        -- Provider alive but slow - just keep waiting
       end)
     end, opts.db_call_timeout_ms)
   end
@@ -329,7 +323,6 @@ return function (opts)
           end
         end
         db_sw_port:start()
-        -- Flush any queued requests now that we have a provider
         flush_queue()
       end
       db_provider_port.onmessage = original_handler
@@ -356,11 +349,39 @@ return function (opts)
     db_provider_port:postMessage(client_id)
   end
 
+  local failover_in_progress = false
+  local provider_lock_controller = nil
+
+  local function monitor_provider_lock (client_id)
+    if provider_lock_controller then
+      provider_lock_controller:abort()
+      provider_lock_controller = nil
+    end
+    if not navigator or not navigator.locks then
+      return
+    end
+    provider_lock_controller = js.AbortController:new()
+    local lock_name = "db_provider_" .. client_id
+    navigator.locks:request(lock_name, {
+      mode = "exclusive",
+      ifAvailable = false,
+      signal = provider_lock_controller.signal
+    }, function ()
+      return Promise:new(function (resolve)
+        if db_provider_client_id == client_id then
+          trigger_failover()
+        end
+        resolve()
+      end)
+    end)
+  end
+
   local function promote_provider (client_id, port)
     db_provider_client_id = client_id
     db_provider_port = port
     db_provider_port:start()
     setup_sw_port_to_provider()
+    monitor_provider_lock(client_id)
     for cid, _ in pairs(db_registered_clients) do
       if cid ~= client_id then
         connect_client_to_provider(cid)
@@ -368,39 +389,29 @@ return function (opts)
     end
   end
 
-  local failover_in_progress = false
-
   trigger_failover = function ()
-    -- Prevent concurrent failovers
     if failover_in_progress then return end
-    -- Already have a provider (another failover completed)
     if db_sw_port then return end
 
     failover_in_progress = true
 
-    -- Clear current provider state
     db_provider_client_id = nil
     db_provider_port = nil
     db_sw_port = nil
 
-    -- Get any one registered client to try as provider
     local cid, port = next(db_registered_clients)
     if not cid then
-      -- No clients available
       failover_in_progress = false
       return
     end
 
-    -- Verify this client is still alive before promoting
     clients:get(cid):await(function (_, ok, client)
       failover_in_progress = false
-      -- Check if a provider was established during our async wait
       if db_sw_port then return end
       if ok and client then
         promote_provider(cid, port)
-        client:postMessage(val({ type = "db_provider" }, true))
+        client:postMessage(val({ type = "db_provider", client_id = cid }, true))
       else
-        -- This client is also dead, remove it and try next
         db_registered_clients[cid] = nil
         trigger_failover()
       end
@@ -421,7 +432,7 @@ return function (opts)
           promote_provider(client_id, port)
           clients:get(client_id):await(function (_, ok, client)
             if ok and client then
-              client:postMessage(val({ type = "db_provider" }, true))
+              client:postMessage(val({ type = "db_provider", client_id = client_id }, true))
             end
           end)
         else
