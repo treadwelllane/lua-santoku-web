@@ -35,8 +35,8 @@ local function create_provider_port (target, async)
       end
       if async then
         local call_args = {}
-        for i = 0, (args.length or 0) - 1 do
-          call_args[i + 1] = args[i]
+        for i = 1, #args do
+          call_args[i] = args[i]
         end
         call_args[#call_args + 1] = function (ok, result)
           return send_response(ok, result)
@@ -70,10 +70,14 @@ return function (bundle_path, callback)
     if not client_id then return end
     provider_lock_held = true
     if not navigator or not navigator.locks then
+      -- No Web Locks API - notify SW immediately
+      navigator.serviceWorker.controller:postMessage(val({ type = "lock_acquired" }, true))
       return
     end
     local lock_name = "db_provider_" .. client_id
     navigator.locks:request(lock_name, function ()
+      -- Lock acquired - notify SW so it can start monitoring
+      navigator.serviceWorker.controller:postMessage(val({ type = "lock_acquired" }, true))
       return js.Promise:new(function () end)
     end):catch(function () end)
   end
@@ -91,8 +95,9 @@ return function (bundle_path, callback)
         if callback then
           return callback()
         end
-      elseif ev.data and ev.data.type == "db_consumer" and ev.ports and ev.ports[0] then
-        if callback then
+      elseif ev.data and ev.data.type == "db_consumer" then
+        local consumer_port = ev.ports and ev.ports[1]
+        if consumer_port and callback then
           return callback()
         end
       end
