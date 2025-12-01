@@ -293,11 +293,13 @@ return function (opts)
     return nil
   end
 
+  local Headers = js.Headers
+
   local function create_response (body, content_type)
     content_type = content_type or "text/html"
-    return Response:new(body, {
-      headers = { ["Content-Type"] = content_type }
-    })
+    local headers = Headers:new()
+    headers:set("Content-Type", content_type)
+    return Response:new(body, { headers = headers })
   end
 
   local function create_error_response (message, status)
@@ -305,9 +307,11 @@ return function (opts)
     if opts.verbose then
       print("SW error response:", status, tostring(message))
     end
+    local headers = Headers:new()
+    headers:set("Content-Type", "text/plain")
     return Response:new("Error: " .. tostring(message), {
       status = status,
-      headers = { ["Content-Type"] = "text/plain" }
+      headers = headers
     })
   end
 
@@ -318,7 +322,11 @@ return function (opts)
     -- Serve embedded index.html directly for root route
     if opts.index_html and (pathname == "/" or pathname == "/index.html") then
       return util.promise(function (complete)
-        complete(true, create_response(opts.index_html, "text/html"))
+        local headers = Headers:new()
+        headers:set("Content-Type", "text/html")
+        headers:set("Cross-Origin-Opener-Policy", "same-origin")
+        headers:set("Cross-Origin-Embedder-Policy", "require-corp")
+        complete(true, Response:new(opts.index_html, { headers = headers }))
       end)
     end
 
