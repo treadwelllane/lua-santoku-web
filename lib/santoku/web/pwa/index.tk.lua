@@ -116,5 +116,5 @@ return function(opts)
     local script = init_script_template:gsub("{{sw}}", opts.sw):gsub("{{bundle}}", bundle)
     opts.sw_script = "<script defer>" .. script .. "</script>"
   end
-  return mustache(template, opts)
+  return mustache(template)(opts)
 end
