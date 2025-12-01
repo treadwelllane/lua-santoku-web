@@ -230,9 +230,12 @@ return function (opts)
 
   local function default_fetch_handler(request)
     return util.promise(function (complete)
+      local cache_ref = nil
+      local was_miss = false
       return async.pipe(function (done)
         return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
       end, function (done, cache)
+        cache_ref = cache
         return cache:match(request, {
           ignoreSearch = true,
           ignoreVary = true,
@@ -240,6 +243,7 @@ return function (opts)
         }):await(fun.sel(done, 2))
       end, function (done, resp)
         if not resp then
+          was_miss = true
           if opts.verbose then
             print("Cache miss", request.url)
           end
@@ -250,6 +254,15 @@ return function (opts)
           })
         else
           return done(true, resp:clone())
+        end
+      end, function (done, resp)
+        -- Cache the response on miss for offline support
+        if was_miss and cache_ref and resp and resp.ok then
+          cache_ref:put(request, resp:clone()):await(function ()
+            return done(true, resp)
+          end)
+        else
+          return done(true, resp)
         end
       end, complete)
     end)
