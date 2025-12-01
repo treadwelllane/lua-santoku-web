@@ -44,6 +44,7 @@ local function fetch_request (req)
     body = body,
     params = params,
     signal = signal,
+    cache = req.cache,
   }, req)
 end
 
@@ -63,6 +64,7 @@ M.request = function (url, opts, done, retry, raw)
     req.done = done or url.done
     req.retry = retry or url.retry
     req.raw = raw or url.raw
+    req.cache = url.cache
   elseif opts then
     req.url = url
     req.body = opts.body
@@ -71,6 +73,7 @@ M.request = function (url, opts, done, retry, raw)
     req.done = done or url.done
     req.retry = retry or opts.retry
     req.raw = raw or opts.raw
+    req.cache = opts.cache
   end
   req.qstr = req.params and str.to_query(req.params) or ""
   req.done = req.done or done or fun.noop

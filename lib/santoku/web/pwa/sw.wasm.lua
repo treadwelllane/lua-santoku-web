@@ -20,6 +20,7 @@ local defaults = {
   cache_fetch_retry_backoff_ms = 1000,
   cache_fetch_retry_backoff_multiply = 2,
   cache_fetch_retry_times = 3,
+  page_ready_timeout_ms = 10000,
 }
 
 local function random_string ()
@@ -38,6 +39,47 @@ return function (opts)
   local db_pending_queue = {}
 
   local trigger_failover
+
+  -- Page ready signaling for coordinated pre-caching
+  local page_ready = false
+  local page_ready_callbacks = {}
+
+  local function on_page_resources_loaded ()
+    if page_ready then return end
+    page_ready = true
+    if opts.verbose then
+      print("Page resources loaded, proceeding with pre-cache")
+    end
+    for i = 1, #page_ready_callbacks do
+      page_ready_callbacks[i]()
+    end
+    page_ready_callbacks = {}
+  end
+
+  local function wait_for_page_ready (callback)
+    if page_ready then
+      return callback()
+    end
+
+    local called = false
+    local function call_once ()
+      if called then return end
+      called = true
+      callback()
+    end
+
+    page_ready_callbacks[#page_ready_callbacks + 1] = call_once
+
+    -- Timeout fallback in case page never signals
+    if opts.page_ready_timeout_ms then
+      global:setTimeout(function ()
+        if opts.verbose and not page_ready then
+          print("Page ready timeout, proceeding with pre-cache")
+        end
+        call_once()
+      end, opts.page_ready_timeout_ms)
+    end
+  end
 
   local function flush_queue ()
     if not db_sw_port then
@@ -112,6 +154,12 @@ return function (opts)
     end
     return util.promise(function (complete)
       return async.pipe(function (done)
+        -- Wait for page to signal that its resources are loaded
+        -- This allows us to pull from HTTP cache instead of network
+        return wait_for_page_ready(function ()
+          return done(true)
+        end)
+      end, function (done)
         return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
       end, function (done, cache)
         return async.each(it.ivals(opts.cached_files), function (each_done, file)
@@ -120,6 +168,7 @@ return function (opts)
               url = file,
               raw = true,
               done = done,
+              cache = "force-cache",
               retries = opts.cache_fetch_retry_times,
               backoffs = opts.cache_fetch_retry_backoff_ms
                 and (opts.cache_fetch_retry_backoff_ms * 1000)
@@ -137,7 +186,11 @@ return function (opts)
           end)
         end, done)
       end, function (done)
-        return global:skipWaiting():await(fun.sel(done, 2))
+        if not global.registration.active then
+          return global:skipWaiting():await(fun.sel(done, 2))
+        else
+          return done(true)
+        end
       end, function (ok, ...)
         if ok and opts.verbose then
           print("Installed service worker")
@@ -388,13 +441,18 @@ return function (opts)
     end)
   end
 
-  if opts.sqlite then
-    Module.on_message = function (_, ev, client_id)
-      local data = ev.data
-      if not data then
-        return
-      end
+  Module.on_message = function (_, ev, client_id)
+    local data = ev.data
+    if not data then
+      return
+    end
 
+    -- Handle page resources loaded signal for coordinated pre-caching
+    if data.type == "page_resources_loaded" then
+      return on_page_resources_loaded()
+    end
+
+    if opts.sqlite then
       local port = ev.ports[1]
       if data.type == "db_register" and port then
         db_registered_clients[client_id] = port
@@ -418,13 +476,9 @@ return function (opts)
           monitor_provider_lock(client_id)
         end
       end
-
-      if opts.on_message then
-        return opts.on_message(ev)
-      end
     end
-  elseif opts.on_message then
-    Module.on_message = function (_, ev)
+
+    if opts.on_message then
       return opts.on_message(ev)
     end
   end
