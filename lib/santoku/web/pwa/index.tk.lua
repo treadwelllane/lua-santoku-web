@@ -45,6 +45,19 @@ local init_script_template = [=[
     }
   }
 
+  // Signal the SW that page resources are loaded so it can pre-cache from HTTP cache
+  function signalPageReady(worker) {
+    if (!worker) return;
+    function doSignal() {
+      worker.postMessage({ type: 'page_resources_loaded' });
+    }
+    if (document.readyState === 'complete') {
+      doSignal();
+    } else {
+      window.addEventListener('load', doSignal, { once: true });
+    }
+  }
+
   if (!('serviceWorker' in navigator)) {
     loadBundle();
     return;
@@ -58,6 +71,9 @@ local init_script_template = [=[
   navigator.serviceWorker.register(swPath)
     .then(function(reg) {
       window.swRegistration = reg;
+
+      // Signal the installing worker when page resources are ready
+      signalPageReady(reg.installing || reg.waiting);
 
       reg.addEventListener('updatefound', function() {
         var newWorker = reg.installing;
