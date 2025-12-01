@@ -39,5 +39,5 @@ return function(opts)
   if opts.screenshots and #opts.screenshots > 0 then
     opts.screenshots_json = json.encode(opts.screenshots)
   end
-  return mustache(template, opts)
+  return mustache(template)(opts)
 end
