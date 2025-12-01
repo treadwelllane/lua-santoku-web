@@ -315,6 +315,13 @@ return function (opts)
     local url = URL:new(request.url)
     local pathname = url.pathname
 
+    -- Serve embedded index.html directly for root route
+    if opts.index_html and (pathname == "/" or pathname == "/index.html") then
+      return util.promise(function (complete)
+        complete(true, create_response(opts.index_html, "text/html"))
+      end)
+    end
+
     local handler, params = match_route(pathname)
     if handler then
       return util.promise(function (complete)
