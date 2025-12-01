@@ -111,7 +111,7 @@ local defaults = {
 
 return function(opts)
   opts = tbl.merge({}, defaults, opts or {})
-  if opts.sw then
+  if opts.sw and not opts.sw_inline then
     local bundle = opts.sw_post and ("'" .. opts.sw_post .. "'") or "null"
     local script = init_script_template:gsub("{{sw}}", opts.sw):gsub("{{bundle}}", bundle)
     opts.sw_script = "<script defer>" .. script .. "</script>"
