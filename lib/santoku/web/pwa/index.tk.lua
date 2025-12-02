@@ -102,6 +102,45 @@ local init_script_template = [=[
 })();
 ]=]
 
+-- Script for sw_inline mode (HTML served by SW, no registration needed)
+local inline_script_template = [=[
+(function() {
+  var bundlePath = '{{bundle}}';
+
+  // Load the bundle
+  var s = document.createElement('script');
+  s.src = bundlePath;
+  document.head.appendChild(s);
+
+  // Dispatch sw-ready event
+  function swReady() {
+    if (document.body) {
+      document.body.classList.add('sw-ready');
+      document.body.dispatchEvent(new CustomEvent('sw-ready'));
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', swReady);
+  } else {
+    swReady();
+  }
+
+  // Signal page resources loaded to SW for pre-cache coordination
+  function signalPageReady() {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'page_resources_loaded' });
+    }
+  }
+
+  if (document.readyState === 'complete') {
+    signalPageReady();
+  } else {
+    window.addEventListener('load', signalPageReady, { once: true });
+  }
+})();
+]=]
+
 local defaults = {
   charset = "utf-8",
   lang = "en",
@@ -111,9 +150,14 @@ local defaults = {
 
 return function(opts)
   opts = tbl.merge({}, defaults, opts or {})
-  if opts.sw and not opts.sw_inline then
-    local bundle = opts.sw_post and ("'" .. opts.sw_post .. "'") or "null"
+  if opts.sw then
+    -- Traditional mode: register SW, load bundle after ready
+    local bundle = opts.bundle and ("'" .. opts.bundle .. "'") or "null"
     local script = init_script_template:gsub("{{sw}}", opts.sw):gsub("{{bundle}}", bundle)
+    opts.sw_script = "<script defer>" .. script .. "</script>"
+  elseif opts.sw_inline and opts.bundle then
+    -- Inline mode: HTML served by SW, just load bundle
+    local script = inline_script_template:gsub("{{bundle}}", opts.bundle)
     opts.sw_script = "<script defer>" .. script .. "</script>"
   end
   return mustache(template)(opts)
