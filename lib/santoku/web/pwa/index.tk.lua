@@ -75,6 +75,9 @@ local init_script_template = [=[
       // Signal the installing worker when page resources are ready
       signalPageReady(reg.installing || reg.waiting);
 
+      // Check for updates
+      reg.update();
+
       reg.addEventListener('updatefound', function() {
         var newWorker = reg.installing;
         newWorker.addEventListener('statechange', function() {
@@ -86,6 +89,10 @@ local init_script_template = [=[
 
       if (navigator.serviceWorker.controller) {
         onReady();
+        // Also listen for updates replacing current controller
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          window.location.reload();
+        });
         return;
       }
 
@@ -143,6 +150,10 @@ local inline_script_template = [=[
   if (navigator.serviceWorker) {
     navigator.serviceWorker.ready.then(function(reg) {
       window.swRegistration = reg;
+
+      // Check for updates immediately
+      reg.update();
+
       reg.addEventListener('updatefound', function() {
         var newWorker = reg.installing;
         newWorker.addEventListener('statechange', function() {
@@ -150,6 +161,11 @@ local inline_script_template = [=[
             document.body.classList.add('sw-update-available');
           }
         });
+      });
+
+      // Listen for controller change (when new SW activates)
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        window.location.reload();
       });
     });
   }

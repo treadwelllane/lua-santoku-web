@@ -168,7 +168,7 @@ return function (opts)
               url = file,
               raw = true,
               done = done,
-              cache = "force-cache",
+              cache = "reload",
               retries = opts.cache_fetch_retry_times,
               backoffs = opts.cache_fetch_retry_backoff_ms
                 and (opts.cache_fetch_retry_backoff_ms * 1000)
@@ -473,6 +473,11 @@ return function (opts)
     local data = ev.data
     if not data then
       return
+    end
+
+    -- Handle skip waiting request from page
+    if data.type == "skip_waiting" then
+      return global:skipWaiting()
     end
 
     -- Handle page resources loaded signal for coordinated pre-caching
