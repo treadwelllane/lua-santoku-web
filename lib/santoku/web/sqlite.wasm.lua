@@ -135,23 +135,20 @@ end
 local function noop () end
 
 M.open = function (dbfile, opts, callback)
+  print("sqlite.open called:", dbfile)
   if type(opts) == "function" then
     callback = opts
     opts = {}
   end
   opts = opts or {}
-
-  -- Suppress OPFS VFS warnings (we only use SAHPOOL which doesn't need COOP/COEP)
   js:sqlite3InitModule({ print = noop, printErr = noop }):await(function (_, ok, wsqlite)
     if not ok then
       return callback(false, wsqlite)
     end
-
     wsqlite:installOpfsSAHPoolVfs(opts):await(function (_, ok2, pool_util)
       if not ok2 then
         return callback(false, pool_util)
       end
-
       callback(err.pcall(function ()
         local raw_db = pool_util.OpfsSAHPoolDb:new(dbfile)
         return create_db_wrapper(wsqlite, raw_db)
