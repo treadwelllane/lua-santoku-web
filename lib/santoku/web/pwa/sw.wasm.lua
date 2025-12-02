@@ -323,8 +323,6 @@ return function (opts)
       return util.promise(function (complete)
         local headers = Headers:new()
         headers:set("Content-Type", "text/html")
-        headers:set("Cross-Origin-Opener-Policy", "same-origin")
-        headers:set("Cross-Origin-Embedder-Policy", "require-corp")
         complete(true, Response:new(opts.index_html, { headers = headers }))
       end)
     end
