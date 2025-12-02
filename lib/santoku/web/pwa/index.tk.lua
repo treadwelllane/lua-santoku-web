@@ -65,6 +65,11 @@ local init_script_template = [=[
 
   if (navigator.serviceWorker.controller) {
     onReady();
+    // Check for updates on return visits
+    navigator.serviceWorker.ready.then(function(reg) {
+      window.swRegistration = reg;
+      reg.update();
+    });
     return;
   }
 
@@ -74,9 +79,6 @@ local init_script_template = [=[
 
       // Signal the installing worker when page resources are ready
       signalPageReady(reg.installing || reg.waiting);
-
-      // Check for updates
-      reg.update();
 
       reg.addEventListener('updatefound', function() {
         var newWorker = reg.installing;
