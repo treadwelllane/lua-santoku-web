@@ -138,6 +138,21 @@ local inline_script_template = [=[
   } else {
     window.addEventListener('load', signalPageReady, { once: true });
   }
+
+  // Listen for SW updates
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.ready.then(function(reg) {
+      window.swRegistration = reg;
+      reg.addEventListener('updatefound', function() {
+        var newWorker = reg.installing;
+        newWorker.addEventListener('statechange', function() {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
+            document.body.classList.add('sw-update-available');
+          }
+        });
+      });
+    });
+  }
 })();
 ]=]
 
