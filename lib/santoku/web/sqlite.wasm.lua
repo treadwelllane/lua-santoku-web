@@ -132,6 +132,8 @@ local function create_db_wrapper (wsqlite, raw_db)
   })
 end
 
+local function noop () end
+
 M.open = function (dbfile, opts, callback)
   if type(opts) == "function" then
     callback = opts
@@ -139,7 +141,8 @@ M.open = function (dbfile, opts, callback)
   end
   opts = opts or {}
 
-  js:sqlite3InitModule():await(function (_, ok, wsqlite)
+  -- Suppress OPFS VFS warnings (we only use SAHPOOL which doesn't need COOP/COEP)
+  js:sqlite3InitModule({ print = noop, printErr = noop }):await(function (_, ok, wsqlite)
     if not ok then
       return callback(false, wsqlite)
     end
