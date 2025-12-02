@@ -168,7 +168,6 @@ return function (opts)
               url = file,
               raw = true,
               done = done,
-              cache = "reload",
               retries = opts.cache_fetch_retry_times,
               backoffs = opts.cache_fetch_retry_backoff_ms
                 and (opts.cache_fetch_retry_backoff_ms * 1000)
