@@ -113,13 +113,16 @@ local init_script_template = [=[
 local inline_script_template = [=[
 (function() {
   var bundlePath = '{{bundle}}';
+  var bundleLoaded = false;
 
-  // Load the bundle
-  var s = document.createElement('script');
-  s.src = bundlePath;
-  document.head.appendChild(s);
+  function loadBundle() {
+    if (bundleLoaded) return;
+    bundleLoaded = true;
+    var s = document.createElement('script');
+    s.src = bundlePath;
+    document.head.appendChild(s);
+  }
 
-  // Dispatch sw-ready event
   function swReady() {
     if (document.body) {
       document.body.classList.add('sw-ready');
@@ -127,23 +130,46 @@ local inline_script_template = [=[
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', swReady);
-  } else {
-    swReady();
-  }
-
-  // Signal page resources loaded to SW for pre-cache coordination
-  function signalPageReady() {
-    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'page_resources_loaded' });
+  function swError() {
+    if (document.body) {
+      document.body.classList.add('sw-error');
+      document.body.dispatchEvent(new CustomEvent('sw-error'));
     }
   }
 
-  if (document.readyState === 'complete') {
-    signalPageReady();
+  function onReady() {
+    loadBundle();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', swReady);
+    } else {
+      swReady();
+    }
+  }
+
+  // If SW is already controlling, load bundle immediately
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    onReady();
+  } else if (navigator.serviceWorker) {
+    // First visit: wait for SW to install, precache, and take control
+    var timeout = setTimeout(function() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', swError);
+      } else {
+        swError();
+      }
+    }, 10000);
+
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      clearTimeout(timeout);
+      onReady();
+    }, { once: true });
   } else {
-    window.addEventListener('load', signalPageReady, { once: true });
+    // No SW support - show error
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', swError);
+    } else {
+      swError();
+    }
   }
 
   // Listen for SW updates
