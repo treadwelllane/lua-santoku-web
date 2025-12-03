@@ -280,20 +280,14 @@ return function (opts)
       return nil
     end
 
-    -- Parse URL to get pathname and query params (reuses tmp_parsed)
-    util.parse_path(url, tmp_parsed.path, tmp_parsed.params)
-    local pathname = "/" .. table.concat(tmp_parsed.path, "/")
+    util.parse_url(url, tmp_parsed)
+    local pathname = tmp_parsed.pathname or "/"
 
-    -- Copy path and params for this request
     local path = tbl.merge({}, tmp_parsed.path)
     local params = tbl.merge({}, tmp_parsed.params)
-
-    -- Try exact match first
     if opts.routes[pathname] then
       return opts.routes[pathname], path, params
     end
-
-    -- Try pattern matching with path params
     for pattern, handler in pairs(opts.routes) do
       local param_names = {}
       local regex = "^" .. pattern:gsub(":([^/]+)", function (name)
@@ -302,14 +296,12 @@ return function (opts)
       end) .. "$"
       local captures = { pathname:match(regex) }
       if #captures > 0 then
-        -- Merge path params with query params (path params take precedence)
         for i, name in ipairs(param_names) do
           params[name] = captures[i]
         end
         return handler, path, params
       end
     end
-
     return nil
   end
 
