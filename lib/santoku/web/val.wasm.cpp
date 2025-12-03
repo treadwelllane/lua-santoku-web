@@ -71,7 +71,7 @@ static inline bool mtx_to_mtv (lua_State *, int);
 static inline int lua_to_val (lua_State *, int, bool);
 static inline void val_to_lua (lua_State *, int, bool, bool);
 static inline int val_ref (lua_State *, int);
-static inline bool val_unref (lua_State *, int);
+static inline bool val_get_ref (lua_State *, int);
 
 static inline int mtv_call (lua_State *);
 static inline int mtv_instanceof (lua_State *);
@@ -211,75 +211,89 @@ static inline int mtv_le (lua_State *L) {
 static inline int mtv_add (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
+  val r = val::take_ownership((EM_VAL) EM_ASM_PTR({
     var v0 = Emval.toValue($0);
     var v1 = Emval.toValue($1);
-    return v0 + v1;
+    return Emval.toHandle(v0 + v1);
   }, v0.as_handle(), v1.as_handle()));
+  push_val(L, r, INT_MIN);
+  val_to_lua(L, -1, false);
   return 1;
 }
 
 static inline int mtv_sub (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
+  val r = val::take_ownership((EM_VAL) EM_ASM_PTR({
     var v0 = Emval.toValue($0);
     var v1 = Emval.toValue($1);
-    return v0 - v1;
+    return Emval.toHandle(v0 - v1);
   }, v0.as_handle(), v1.as_handle()));
+  push_val(L, r, INT_MIN);
+  val_to_lua(L, -1, false);
   return 1;
 }
 
 static inline int mtv_mul (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
+  val r = val::take_ownership((EM_VAL) EM_ASM_PTR({
     var v0 = Emval.toValue($0);
     var v1 = Emval.toValue($1);
-    return v0 * v1;
+    return Emval.toHandle(v0 * v1);
   }, v0.as_handle(), v1.as_handle()));
+  push_val(L, r, INT_MIN);
+  val_to_lua(L, -1, false);
   return 1;
 }
 
 static inline int mtv_div (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
+  val r = val::take_ownership((EM_VAL) EM_ASM_PTR({
     var v0 = Emval.toValue($0);
     var v1 = Emval.toValue($1);
-    return v0 / v1;
+    return Emval.toHandle(v0 / v1);
   }, v0.as_handle(), v1.as_handle()));
+  push_val(L, r, INT_MIN);
+  val_to_lua(L, -1, false);
   return 1;
 }
 
 static inline int mtv_mod (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
+  val r = val::take_ownership((EM_VAL) EM_ASM_PTR({
     var v0 = Emval.toValue($0);
     var v1 = Emval.toValue($1);
-    return v0 % v1;
+    return Emval.toHandle(v0 % v1);
   }, v0.as_handle(), v1.as_handle()));
+  push_val(L, r, INT_MIN);
+  val_to_lua(L, -1, false);
   return 1;
 }
 
 static inline int mtv_pow (lua_State *L) {
   val v0 = peek_val(L, -1);
   val v1 = peek_val(L, -2);
-  lua_pushboolean(L, EM_ASM_INT({
+  val r = val::take_ownership((EM_VAL) EM_ASM_PTR({
     var v0 = Emval.toValue($0);
     var v1 = Emval.toValue($1);
-    return v0 ^ v1;
+    return Emval.toHandle(v0 ** v1);  // ** is power, ^ is XOR in JS
   }, v0.as_handle(), v1.as_handle()));
+  push_val(L, r, INT_MIN);
+  val_to_lua(L, -1, false);
   return 1;
 }
 
 static inline int mtv_unm (lua_State *L) {
   val v0 = peek_val(L, -1);
-  lua_pushboolean(L, EM_ASM_INT({
+  val r = val::take_ownership((EM_VAL) EM_ASM_PTR({
     var v0 = Emval.toValue($0);
-    return - v0;
+    return Emval.toHandle(- v0);
   }, v0.as_handle()));
+  push_val(L, r, INT_MIN);
+  val_to_lua(L, -1, false);
   return 1;
 }
 
@@ -394,7 +408,7 @@ static inline int val_ref (lua_State *L, int it) {
   return ref;
 }
 
-static inline bool val_unref (lua_State *L, int ref) {
+static inline bool val_get_ref (lua_State *L, int ref) {
   lua_rawgeti(L, LUA_REGISTRYINDEX, IDX_REF_TBL); // idx
   lua_pushinteger(L, ref); // idx ref
   lua_gettable(L, -2); // idx val
@@ -816,10 +830,11 @@ static inline int j_args (int Lp, int arg0, int argc) {
 static inline void j_own_keys (int Lp, int it, int keysp) {
 
   lua_State *L = (lua_State *) Lp;
+  int top = lua_gettop(L);
 
-  assert(val_unref(L, it)); // tbl
-  bool isarray = tk_web_isarray(L, -1); // tbl
-  lua_pop(L, 1); // tbl
+  assert(val_get_ref(L, it)); // tbl
+  bool isarray = tk_web_isarray(L, -1);
+  lua_pop(L, 1); //
 
   if (isarray)
     EM_ASM(({
@@ -827,10 +842,10 @@ static inline void j_own_keys (int Lp, int it, int keysp) {
       keys.push("length");
     }), keysp);
 
-  assert(val_unref(L, it)); // tbl
+  assert(val_get_ref(L, it)); // tbl
   lua_pushnil(L); // tbl nil
   while (lua_next(L, -2) != 0) { // tbl k v
-    lua_to_val(L, -2, false); // tbl k v k
+    lua_to_val(L, -2, false); // tbl k v kval
     val k = peek_val(L, -1);
     EM_ASM(({
       var keys = Emval.toValue($0);
@@ -843,13 +858,15 @@ static inline void j_own_keys (int Lp, int it, int keysp) {
     lua_pop(L, 2); // tbl k
   }
 
+  lua_settop(L, top);
 }
 
 static inline int j_get (int Lp, int i, int k, int is_str) {
 
   lua_State *L = (lua_State *) Lp;
+  int top = lua_gettop(L);
 
-  assert(val_unref(L, i));
+  assert(val_get_ref(L, i));
 
   if (is_str) {
     char *kk = (char *) k;
@@ -864,9 +881,10 @@ static inline int j_get (int Lp, int i, int k, int is_str) {
 
   lua_gettable(L, -2);
   lua_to_val(L, -1, false);
-  val vv = peek_val(L, -1);
+  EM_VAL handle = peek_val(L, -1).as_handle();
 
-  return (int) vv.as_handle();
+  lua_settop(L, top);
+  return (int) handle;
 }
 
 static inline void j_set (int Lp, int i, int k, int v) {
@@ -877,7 +895,7 @@ static inline void j_set (int Lp, int i, int k, int v) {
   push_val(L, vv, INT_MIN); // kv vv
   val_to_lua(L, -2, false); // kv vv kl
   val_to_lua(L, -2, false); // kv vv kl vl
-  assert(val_unref(L, i)); // kv vv kl vl t
+  assert(val_get_ref(L, i)); // kv vv kl vl t
   lua_insert(L, -3); // kv vv t kl vl
   lua_settable(L, -3); // kv vv t
   lua_pop(L, 3); //
@@ -886,14 +904,15 @@ static inline void j_set (int Lp, int i, int k, int v) {
 static inline int j_call (int Lp, int i, int argsp) {
 
   lua_State *L = (lua_State *) Lp;
+  int top = lua_gettop(L);
 
-  assert(val_unref(L, i));
+  assert(val_get_ref(L, i));
 
   val args = val::take_ownership((EM_VAL) argsp);
   int argc = args["length"].as<int>();
 
-  for (int i = 0; i < argc; i ++) {
-    push_val(L, args[val(i)], INT_MIN);
+  for (int j = 0; j < argc; j ++) {
+    push_val(L, args[val(j)], INT_MIN);
     val_to_lua(L, -1, false);
     lua_remove(L, -2);
   }
@@ -904,23 +923,26 @@ static inline int j_call (int Lp, int i, int argsp) {
   if (rc != 0) {
 
     lua_to_val(L, -1, false);
-    val v = peek_val(L, -1);
+    EM_VAL handle = peek_val(L, -1).as_handle();
     EM_ASM_PTR(({
       var v = Emval.toValue($0);
       throw v;
-    }), v.as_handle());
+    }), handle);
 
+    lua_settop(L, top);
     return 0;
 
   } else if (lua_gettop(L) > t) {
 
     args_to_vals(L, lua_gettop(L) - t);
-    val v = peek_val(L, -1);
+    EM_VAL handle = peek_val(L, -1).as_handle();
 
-    return (int) v.as_handle();
+    lua_settop(L, top);
+    return (int) handle;
 
   } else {
 
+    lua_settop(L, top);
     return (int) val::undefined().as_handle();
 
   }
@@ -937,7 +959,7 @@ static inline void j_error (int Lp, int ep) {
 
 static inline int j_len (int Lp, int i) {
   lua_State *L = (lua_State *) Lp;
-  assert(val_unref(L, i)); // val
+  assert(val_get_ref(L, i)); // val
   lua_Integer len = lua_objlen(L, -1);
   lua_pop(L, 1); //
   return len;
@@ -945,20 +967,26 @@ static inline int j_len (int Lp, int i) {
 
 static inline int j_tostring (int Lp, int i) {
   lua_State *L = (lua_State *) Lp;
+  int top = lua_gettop(L);
   lua_getglobal(L, "tostring"); // ts
-  assert(val_unref(L, i)); // ts val
+  assert(val_get_ref(L, i)); // ts val
   lua_call(L, 1, 1); // s
   const char *str = lua_tostring(L, -1); // s
   lua_pop(L, 1); //
   push_val(L, val(str), INT_MIN);
-  return (int) peek_val(L, -1).as_handle();
+  EM_VAL handle = peek_val(L, -1).as_handle();
+  lua_settop(L, top);
+  return (int) handle;
 }
 
 static inline int j_valueof (int Lp, int i) {
   lua_State *L = (lua_State *) Lp;
-  assert(val_unref(L, i)); // ts val
-  lua_to_val(L, -1, true); // ts val val
-  return (int) peek_val(L, -1).as_handle();
+  int top = lua_gettop(L);
+  assert(val_get_ref(L, i)); // val
+  lua_to_val(L, -1, true); // val val_copy
+  EM_VAL handle = peek_val(L, -1).as_handle();
+  lua_settop(L, top);
+  return (int) handle;
 }
 
 static inline void j_val_ref_delete (int Lp, int ref) {
@@ -1102,25 +1130,45 @@ static inline int mtp_await (lua_State *L) {
   args_to_vals(L, -1);
   val v = peek_val(L, -2);
   val f = peek_val(L, -1);
+
+  // Protect callback val from GC until promise resolves
+  // by creating a strong reference in the Lua registry
+  int fref = val_ref(L, -1);
+
   EM_ASM(({
-    var v = Emval.toValue($1);
-    var f = Emval.toValue($2);
-    v.then((...args) => {
-      args.unshift(true);
-      var r = f(...args);
-      return r;
-    }).catch((...args) => {
-      try {
-        args.unshift(false);
-        var r = f(...args);
-        return r;
-      } catch (e) {
-        return setTimeout(() => {
+    var L = $0;
+    var fref = $1;
+    var v = Emval.toValue($2);
+    var f = Emval.toValue($3);
+    var cleanup = function() { Module["val_ref_delete"](L, fref); };
+    // Use two-argument then(onFulfilled, onRejected) to prevent double-cleanup
+    // if the success handler throws (with .then().catch(), catch runs on both
+    // promise rejection AND success handler exceptions)
+    v.then(
+      (...args) => {
+        args.unshift(true);
+        try {
+          var r = f(...args);
+          cleanup();
+          return r;
+        } catch (e) {
+          cleanup();
           throw e;
-        });
+        }
+      },
+      (...args) => {
+        args.unshift(false);
+        try {
+          var r = f(...args);
+          cleanup();
+          return r;
+        } catch (e) {
+          cleanup();
+          setTimeout(() => { throw e; });
+        }
       }
-    });
-  }), L, v.as_handle(), f.as_handle());
+    );
+  }), L, fref, v.as_handle(), f.as_handle());
   return 0;
 }
 
