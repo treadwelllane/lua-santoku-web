@@ -273,28 +273,43 @@ return function (opts)
     end)
   end
 
-  local function match_route (pathname)
+  local tmp_parsed = { path = {}, params = {} }
+
+  local function match_route (url)
     if not opts.routes then
       return nil
     end
+
+    -- Parse URL to get pathname and query params (reuses tmp_parsed)
+    util.parse_path(url, tmp_parsed.path, tmp_parsed.params)
+    local pathname = "/" .. table.concat(tmp_parsed.path, "/")
+
+    -- Copy path and params for this request
+    local path = tbl.merge({}, tmp_parsed.path)
+    local params = tbl.merge({}, tmp_parsed.params)
+
+    -- Try exact match first
     if opts.routes[pathname] then
-      return opts.routes[pathname], {}
+      return opts.routes[pathname], path, params
     end
+
+    -- Try pattern matching with path params
     for pattern, handler in pairs(opts.routes) do
-      local params = {}
+      local param_names = {}
       local regex = "^" .. pattern:gsub(":([^/]+)", function (name)
-        params[#params + 1] = name
+        param_names[#param_names + 1] = name
         return "([^/]+)"
       end) .. "$"
       local captures = { pathname:match(regex) }
       if #captures > 0 then
-        local result = {}
-        for i, name in ipairs(params) do
-          result[name] = captures[i]
+        -- Merge path params with query params (path params take precedence)
+        for i, name in ipairs(param_names) do
+          params[name] = captures[i]
         end
-        return handler, result
+        return handler, path, params
       end
     end
+
     return nil
   end
 
@@ -333,10 +348,11 @@ return function (opts)
       end)
     end
 
-    local handler, params = match_route(pathname)
+    local handler, path, params = match_route(request.url)
     if handler then
+      local req = { path = path, params = params, raw = request }
       return util.promise(function (complete)
-        handler(request, params, function (ok, result, content_type)
+        handler(req, path, params, function (ok, result, content_type)
           if ok then
             complete(true, create_response(result, content_type))
           else
