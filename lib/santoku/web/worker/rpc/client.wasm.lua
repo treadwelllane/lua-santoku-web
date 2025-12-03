@@ -24,7 +24,6 @@ local transferables = {
 }
 
 M.init = function (fp)
-  print("wrpc.init spawning worker:", fp)
   local worker = Worker:new(fp)
   local port = M.create_port(worker)
   return M.init_port(port), worker
