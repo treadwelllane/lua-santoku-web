@@ -170,18 +170,23 @@ return function (opts)
       end, function (done, cache)
         return async.each(it.ivals(opts.cached_files), function (each_done, file)
           return async.pipe(function (done)
+            -- Add cache-busting query param on updates to force fresh fetch
+            local fetch_url = file
+            if is_update then
+              local sep = file:find("?") and "&" or "?"
+              fetch_url = file .. sep .. "_v=" .. opts.service_worker_version
+            end
             return util.get({
-              url = file,
+              url = fetch_url,
               raw = true,
               done = done,
-              -- Bypass HTTP cache on updates to get fresh files
-              cache = is_update and "reload" or nil,
               retries = opts.cache_fetch_retry_times,
               backoffs = opts.cache_fetch_retry_backoff_ms
                 and (opts.cache_fetch_retry_backoff_ms * 1000)
                 or nil,
             })
           end, function (done, res)
+            -- Always store with original URL (without cache buster)
             return cache:put(file, res):await(fun.sel(done, 2))
           end, function (ok, err, ...)
             if not ok and opts.verbose then
