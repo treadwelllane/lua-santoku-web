@@ -273,36 +273,16 @@ return function (opts)
     end)
   end
 
-  local tmp_parsed = { path = {}, params = {} }
-
-  local function match_route (url)
+  local function match_route (pathname, url)
     if not opts.routes then
       return nil
     end
-
-    util.parse_url(url, tmp_parsed)
-    local pathname = tmp_parsed.pathname or "/"
-
-    local path = tbl.merge({}, tmp_parsed.path)
-    local params = tbl.merge({}, tmp_parsed.params)
-    if opts.routes[pathname] then
-      return opts.routes[pathname], path, params
-    end
     for pattern, handler in pairs(opts.routes) do
-      local param_names = {}
-      local regex = "^" .. pattern:gsub(":([^/]+)", function (name)
-        param_names[#param_names + 1] = name
-        return "([^/]+)"
-      end) .. "$"
-      local captures = { pathname:match(regex) }
-      if #captures > 0 then
-        for i, name in ipairs(param_names) do
-          params[name] = captures[i]
-        end
-        return handler, path, params
+      if pathname:match(pattern) then
+        local parsed = util.parse_url(url)
+        return handler, parsed.path, parsed.params
       end
     end
-    return nil
   end
 
   local Headers = js.Headers
@@ -340,7 +320,7 @@ return function (opts)
       end)
     end
 
-    local handler, path, params = match_route(request.url)
+    local handler, path, params = match_route(pathname, request.url)
     if handler then
       local req = { path = path, params = params, raw = request }
       return util.promise(function (complete)
