@@ -1,4 +1,5 @@
 local js = require("santoku.web.js")
+local val = require("santoku.web.val")
 local sqlite = require("santoku.web.sqlite")
 local wrpc = require("santoku.web.worker.rpc.server")
 
@@ -12,6 +13,10 @@ return function (db_path, opts, handler)
   end
 
   return sqlite.open(db_path, opts, function (ok, db)
+    if not ok then
+      global:postMessage(val({ type = "db_error", error = tostring(db) }, true))
+      return
+    end
     return handler(ok, db, function (ok2, handlers)
       if not ok2 then
         return

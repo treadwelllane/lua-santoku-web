@@ -36,6 +36,13 @@ local init_script_template = [=[
     }
   }
 
+  function swError() {
+    if (document.body) {
+      document.body.classList.add('sw-error');
+      document.body.dispatchEvent(new CustomEvent('sw-error'));
+    }
+  }
+
   function onReady() {
     loadBundle();
     if (document.readyState === 'loading') {
@@ -59,7 +66,11 @@ local init_script_template = [=[
   }
 
   if (!('serviceWorker' in navigator)) {
-    loadBundle();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', swError);
+    } else {
+      swError();
+    }
     return;
   }
 
@@ -104,9 +115,12 @@ local init_script_template = [=[
 
       setTimeout(loadBundle, 5000);
     })
-    .catch(function(err) {
-      console.warn('SW registration failed:', err);
-      loadBundle();
+    .catch(function() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', swError);
+      } else {
+        swError();
+      }
     });
 })();
 ]=]
