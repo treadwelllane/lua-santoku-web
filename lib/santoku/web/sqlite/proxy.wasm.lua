@@ -5,6 +5,7 @@ local err = require("santoku.error")
 local wrpc = require("santoku.web.worker.rpc.client")
 
 local navigator = js.navigator
+local document = js.document
 local MessageChannel = js.MessageChannel
 
 local function create_provider_port (target, async)
@@ -62,7 +63,19 @@ local function create_provider_port (target, async)
 end
 
 return function (bundle_path, callback)
-  local db = wrpc.init(bundle_path)
+  local db, worker = wrpc.init(bundle_path)
+
+  worker.onmessage = function (_, ev)
+    if ev.data and ev.data.type == "db_error" then
+      if document and document.body then
+        document.body.classList:add("db-error")
+        document.body:dispatchEvent(js.CustomEvent:new("db-error", {
+          detail = { error = ev.data.error }
+        }))
+      end
+    end
+  end
+
   local provider_port = create_provider_port(db, true)
   local provider_lock_held = false
   local function acquire_provider_lock (client_id)
