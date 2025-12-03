@@ -152,8 +152,14 @@ return function (opts)
     if opts.verbose then
       print("Installing service worker")
     end
+    -- Check if this is an update (existing active SW) or first install
+    local is_update = global.registration.active ~= nil
     return util.promise(function (complete)
       return async.pipe(function (done)
+        if is_update then
+          -- Skip waiting for page ready on updates - we need fresh files
+          return done(true)
+        end
         -- Wait for page to signal that its resources are loaded
         -- This allows us to pull from HTTP cache instead of network
         return wait_for_page_ready(function ()
@@ -168,6 +174,8 @@ return function (opts)
               url = file,
               raw = true,
               done = done,
+              -- Bypass HTTP cache on updates to get fresh files
+              cache = is_update and "reload" or nil,
               retries = opts.cache_fetch_retry_times,
               backoffs = opts.cache_fetch_retry_backoff_ms
                 and (opts.cache_fetch_retry_backoff_ms * 1000)
