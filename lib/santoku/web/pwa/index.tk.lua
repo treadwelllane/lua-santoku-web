@@ -81,6 +81,10 @@ local init_script_template = [=[
       window.swRegistration = reg;
       reg.update();
     });
+    // Reload when new SW takes control
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      window.location.reload();
+    });
     return;
   }
 
