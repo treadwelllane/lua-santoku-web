@@ -318,8 +318,6 @@ return function (opts)
     local url = URL:new(request.url)
     local pathname = url.pathname
 
-    print("SW on_fetch:", pathname, "client_id:", client_id or "nil")
-
     -- Serve embedded index.html directly for root route
     if opts.index_html and (pathname == "/" or pathname == "/index.html") then
       return util.promise(function (complete)

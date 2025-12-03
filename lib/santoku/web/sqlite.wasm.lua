@@ -132,25 +132,28 @@ local function create_db_wrapper (wsqlite, raw_db)
   })
 end
 
-local function noop () end
-
 M.open = function (dbfile, opts, callback)
-  print("sqlite.open called:", dbfile)
   if type(opts) == "function" then
     callback = opts
     opts = {}
   end
   opts = opts or {}
-  js:sqlite3InitModule({ print = noop, printErr = noop }):await(function (_, ok, wsqlite)
+  print("sqlite.open: initializing module")
+  js:sqlite3InitModule():await(function (_, ok, wsqlite)
+    print("sqlite.open: module init", ok)
     if not ok then
       return callback(false, wsqlite)
     end
+    print("sqlite.open: installing SAHPOOL VFS")
     wsqlite:installOpfsSAHPoolVfs(opts):await(function (_, ok2, pool_util)
+      print("sqlite.open: SAHPOOL VFS result", ok2, pool_util)
       if not ok2 then
         return callback(false, pool_util)
       end
+      print("sqlite.open: creating db")
       callback(err.pcall(function ()
         local raw_db = pool_util.OpfsSAHPoolDb:new(dbfile)
+        print("sqlite.open: db created")
         return create_db_wrapper(wsqlite, raw_db)
       end))
     end)
