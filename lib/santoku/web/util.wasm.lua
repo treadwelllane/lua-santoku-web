@@ -765,6 +765,93 @@ M.parse_path = function (url, path, params, modal)
   return result
 end
 
+M.parse_url = function (url, result)
+  result = result or {}
+  result.scheme, result.userinfo, result.host, result.port, result.fragment = nil, nil, nil, nil, nil
+  result.path = result.path or {}
+  result.params = result.params or {}
+  tbl.clear(result.path)
+  tbl.clear(result.params)
+  if not url then return result end
+  local rest = url
+  local hash_pos = str.find(rest, "#", 1, true)
+  if hash_pos then
+    result.fragment = str.sub(rest, hash_pos + 1)
+    rest = str.sub(rest, 1, hash_pos - 1)
+  end
+  local query_pos = str.find(rest, "?", 1, true)
+  local query
+  if query_pos then
+    query = str.sub(rest, query_pos + 1)
+    rest = str.sub(rest, 1, query_pos - 1)
+  end
+  local scheme, after_scheme = str.match(rest, "^([a-zA-Z][a-zA-Z0-9+.-]*):(.*)")
+  if scheme then
+    result.scheme = str.lower(scheme)
+    rest = after_scheme
+  end
+  local authority, path_part = str.match(rest, "^//([^/]*)(.*)")
+  if authority then
+    rest = path_part or ""
+    local userinfo, host_port = str.match(authority, "^([^@]*)@(.*)")
+    if userinfo then
+      result.userinfo = userinfo
+      authority = host_port
+    end
+    local bracket_host, bracket_port = str.match(authority, "^%[([^%]]+)%]:?(%d*)")
+    if bracket_host then
+      result.host = bracket_host
+      if bracket_port and bracket_port ~= "" then result.port = tonumber(bracket_port) end
+    else
+      local host, port = str.match(authority, "^([^:]*):?(%d*)")
+      result.host = host
+      if port and port ~= "" then result.port = tonumber(port) end
+    end
+  end
+  result.pathname = rest
+  for segment in str.gmatch(rest, "[^/]+") do
+    arr.push(result.path, segment)
+  end
+  if query then
+    result.search = "?" .. query
+    str.from_query(query, result.params)
+  else
+    result.search = ""
+  end
+  return result
+end
+
+M.encode_url = function (t)
+  local out = {}
+  if t.scheme then
+    arr.push(out, t.scheme, ":")
+  end
+  if t.host then
+    arr.push(out, "//")
+    if t.userinfo then arr.push(out, t.userinfo, "@") end
+    if str.find(t.host, ":", 1, true) then
+      arr.push(out, "[", t.host, "]")
+    else
+      arr.push(out, t.host)
+    end
+    if t.port then arr.push(out, ":", tostring(t.port)) end
+  end
+  if t.pathname then
+    arr.push(out, t.pathname)
+  elseif t.path and #t.path > 0 then
+    for i = 1, #t.path do
+      arr.push(out, "/", t.path[i])
+    end
+  end
+  if t.search and t.search ~= "" then
+    arr.push(out, t.search)
+  elseif t.params and next(t.params) then
+    str.to_query(t.params, out)
+  end
+  if t.fragment then arr.push(out, "#", t.fragment) end
+  return arr.concat(out)
+end
+
 M.encode_path = function (t, params, modal)
   local out = {}
   for i = 1, #t.path do
