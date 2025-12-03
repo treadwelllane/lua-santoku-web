@@ -70,6 +70,8 @@ static inline int tk_web_get_ephemeron (lua_State *, int, int);
 static inline bool mtx_to_mtv (lua_State *, int);
 static inline int lua_to_val (lua_State *, int, bool);
 static inline void val_to_lua (lua_State *, int, bool, bool);
+static inline void val_to_lua (lua_State *, int, bool);
+static inline void push_val (lua_State *, val, int);
 static inline int val_ref (lua_State *, int);
 static inline bool val_get_ref (lua_State *, int);
 
