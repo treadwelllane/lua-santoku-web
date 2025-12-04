@@ -366,7 +366,9 @@ return function (opts)
         db_sw_port:start()
         flush_queue()
       end
-      db_provider_port.onmessage = original_handler
+      if db_provider_port then
+        db_provider_port.onmessage = original_handler
+      end
     end
     db_provider_port:postMessage("sw")
   end
@@ -385,7 +387,9 @@ return function (opts)
           end
         end)
       end
-      db_provider_port.onmessage = original_handler
+      if db_provider_port then
+        db_provider_port.onmessage = original_handler
+      end
     end
     db_provider_port:postMessage(client_id)
   end
