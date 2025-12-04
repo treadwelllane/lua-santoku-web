@@ -101,6 +101,23 @@ return function (opts)
     end
   end
 
+  -- Fail all pending callbacks when provider dies
+  local function fail_pending_requests (error_msg)
+    error_msg = error_msg or "Database provider disconnected"
+    -- Fail in-flight callbacks
+    local callbacks = db_sw_callbacks
+    db_sw_callbacks = {}
+    for _, callback in pairs(callbacks) do
+      callback(false, error_msg)
+    end
+    -- Fail queued requests
+    local queue = db_pending_queue
+    db_pending_queue = {}
+    for i = 1, #queue do
+      queue[i].callback(false, error_msg)
+    end
+  end
+
   local function db_call (method, args, callback)
     if not db_sw_port then
       db_pending_queue[#db_pending_queue + 1] = {
@@ -449,6 +466,8 @@ return function (opts)
     local cid = next(db_registered_clients)
     if not cid then
       failover_in_progress = false
+      -- No clients available, fail all pending requests
+      fail_pending_requests("No database provider available")
       return
     end
 
