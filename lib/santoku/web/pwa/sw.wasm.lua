@@ -154,19 +154,41 @@ return function (opts)
         print("[SW] Requesting port from provider with nonce:", nonce)
       end
 
-      -- Request a port from the provider
-      clients:get(db_provider_client_id):await(function (_, ok, client)
+      -- Debug: list all visible clients
+      clients:matchAll(val({ includeUncontrolled = true, type = "all" }, true)):await(function (_, ok, all_clients)
         if opts.verbose then
-          print("[SW] clients:get result - ok:", ok, "client:", client)
-        end
-        if ok and client then
-          if opts.verbose then
-            print("[SW] Sending sw_port_request to provider")
+          print("[SW] matchAll result - ok:", ok, "clients:", all_clients)
+          if ok and all_clients then
+            print("[SW] All visible clients count:", all_clients.length)
+            for i = 1, all_clients.length do
+              local c = all_clients[i]
+              print("[SW]   Client", i, "id:", c and c.id, "type:", c and c.type, "url:", c and c.url)
+            end
           end
-          client:postMessage(val({
+        end
+
+        -- Try to find the provider client in the list
+        local provider_client = nil
+        if ok and all_clients then
+          for i = 1, all_clients.length do
+            local c = all_clients[i]
+            if c and c.id == db_provider_client_id then
+              provider_client = c
+              break
+            end
+          end
+        end
+
+        if provider_client then
+          if opts.verbose then
+            print("[SW] Found provider client via matchAll, sending sw_port_request")
+          end
+          provider_client:postMessage(val({
             type = "sw_port_request",
             nonce = nonce
           }, true))
+        elseif opts.verbose then
+          print("[SW] Provider client not found in matchAll results")
         end
       end)
     end
