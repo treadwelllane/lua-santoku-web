@@ -65,9 +65,10 @@ return function (bundle_path, callback)
       navigator.locks:query():await(function (_, ok, state)
         if ok and state and state.held then
           local held = state.held
-          for i = 0, held.length - 1 do
+          -- Use 1-based indexing (santoku JS interop convention)
+          for i = 1, held.length do
             local lock = held[i]
-            if lock.name == nonce then
+            if lock and lock.name == nonce then
               done(lock.clientId)
               return
             end
