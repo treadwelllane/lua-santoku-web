@@ -800,9 +800,8 @@ static inline int lua_to_val (lua_State *L, int i, bool recurse) {
 
 static inline int j_arg (int Lp, int i) {
   lua_State *L = (lua_State *) Lp;
-  lua_to_val(L, i, false);
-  // Don't pop - keep val userdata on stack to prevent GC during JS use
-  return (int) peek_val(L, -1).as_handle();
+  // Values should already be MTVs from args_to_vals, just get handle
+  return (int) peek_val(L, i).as_handle();
 }
 
 static inline int j_args (int Lp, int arg0, int argc) {
