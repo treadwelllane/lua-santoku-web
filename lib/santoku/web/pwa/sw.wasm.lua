@@ -466,8 +466,7 @@ return function (opts)
     local cid = next(db_registered_clients)
     if not cid then
       failover_in_progress = false
-      -- No clients available, fail all pending requests
-      fail_pending_requests("No database provider available")
+      -- No clients yet, requests stay queued until a client registers
       return
     end
 
