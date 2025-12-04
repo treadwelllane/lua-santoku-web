@@ -79,6 +79,7 @@ return function (opts)
   local db_sw_callbacks = {}
   local db_pending_queue = {}
   local db_provider_client_id = nil
+  local db_port_request_pending = false
 
   local function flush_queue ()
     if not db_sw_port then
@@ -145,11 +146,13 @@ return function (opts)
 
     local function request_sw_port ()
       if opts.verbose then
-        print("[SW] request_sw_port called, has provider:", db_provider_client_id ~= nil)
+        print("[SW] request_sw_port called, has provider:", db_provider_client_id ~= nil, "pending:", db_port_request_pending)
       end
       if not db_provider_client_id then return end
       if db_sw_port then return end -- Already have a port
+      if db_port_request_pending then return end -- Request already in flight
 
+      db_port_request_pending = true
       if opts.verbose then
         print("[SW] Broadcasting sw_port_request on BroadcastChannel")
       end
@@ -166,17 +169,34 @@ return function (opts)
         print("[SW] Received broadcast:", data and data.type, "clientId:", data and data.clientId)
       end
       if data and data.type == "provider" and data.clientId then
-        -- New provider announced
+        -- New provider announced - ignore if same provider and we have a port
+        if data.clientId == db_provider_client_id and db_sw_port then
+          if opts.verbose then
+            print("[SW] Ignoring duplicate provider announcement")
+          end
+          return
+        end
         if opts.verbose then
           print("[SW] New provider announced:", data.clientId)
         end
         if db_sw_port then
           if opts.verbose then
-            print("[SW] Closing old db_sw_port")
+            local count = 0
+            for _ in pairs(db_sw_callbacks) do count = count + 1 end
+            print("[SW] Closing old db_sw_port, pending callbacks:", count)
           end
+          -- Fail all pending callbacks - they were sent to old provider
+          for nonce, callback in pairs(db_sw_callbacks) do
+            if opts.verbose then
+              print("[SW] Failing pending callback:", nonce)
+            end
+            callback(false, "Provider changed")
+          end
+          db_sw_callbacks = {}
           db_sw_port:close()
           db_sw_port = nil
         end
+        db_port_request_pending = false
         db_provider_client_id = data.clientId
         request_sw_port()
       end
@@ -444,6 +464,7 @@ return function (opts)
         if opts.verbose then
           print("[SW] Setting up db_sw_port")
         end
+        db_port_request_pending = false
         db_sw_port = port
         db_sw_port.onmessage = function (_, msg_ev)
           local msg_data = msg_ev.data
