@@ -261,6 +261,27 @@ return function (bundle_path, callback, opts)
         val({ type = "db_port", targetClientId = data.clientId, nonce = data.nonce }, true),
         { port }
       )
+
+    elseif data.type == "sw_port_request" and is_provider then
+      -- SW requesting port via BroadcastChannel
+      if verbose then
+        print("[proxy] SW requesting port via broadcast")
+      end
+      local controller = navigator.serviceWorker.controller
+      if not controller then
+        if verbose then
+          print("[proxy] No SW controller for sw_port response")
+        end
+        return
+      end
+      local port = create_rpc_port()
+      if verbose then
+        print("[proxy] Sending sw_port to SW")
+      end
+      controller:postMessage(
+        val({ type = "sw_port" }, true),
+        { port }
+      )
     end
   end
 
@@ -329,33 +350,6 @@ return function (bundle_path, callback, opts)
             end
           end
         end
-
-        -- Listen for SW port requests (SW needs db access for route handlers)
-        navigator.serviceWorker:addEventListener("message", function (_, ev)
-          if verbose then
-            print("[proxy] Provider received SW message:", ev.data and ev.data.type)
-          end
-          if ev.data and ev.data.type == "sw_port_request" and is_provider then
-            if verbose then
-              print("[proxy] SW requesting port")
-            end
-            local controller = navigator.serviceWorker.controller
-            if not controller then
-              if verbose then
-                print("[proxy] No SW controller for sw_port response")
-              end
-              return
-            end
-            local port = create_rpc_port()
-            if verbose then
-              print("[proxy] Sending sw_port to SW")
-            end
-            controller:postMessage(
-              val({ type = "sw_port" }, true),
-              { port }
-            )
-          end
-        end)
 
         -- Announce we're the provider
         if verbose then
