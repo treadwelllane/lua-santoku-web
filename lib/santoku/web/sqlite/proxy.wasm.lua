@@ -102,7 +102,7 @@ end
 
 return function (bundle_path, callback)
   local db = nil
-  local worker = nil
+  local worker
   local is_provider = false
 
   local provider_lock_held = false
