@@ -157,10 +157,10 @@ static inline void args_to_vals (lua_State *L, int n) {
 static inline val *peek_valp (lua_State *L, int i) {
   if (!mtx_to_mtv(L, i))
     return NULL;
-  assert(tk_web_get_ephemeron(L, -1, 1) == LUA_TLIGHTUSERDATA);
-  val *vp = (val *) lua_touserdata(L, -1);
-  lua_pop(L, 2);
-  return vp;
+  // val* is stored directly in the userdata body
+  val **vpp = (val **) lua_touserdata(L, -1);
+  lua_pop(L, 1);
+  return vpp ? *vpp : NULL;
 }
 
 static inline val peek_val (lua_State *L, int i) {
@@ -319,12 +319,12 @@ static inline void push_val (lua_State *L, val v, int uv) {
   else
     lua_pushvalue(L, uv); // uv
 
-  lua_newuserdata(L, 0); // uv udv
-  lua_insert(L, -2); // udv uv
-  tk_web_set_ephemeron(L, -2, 2); // udv
+  // Store val* directly in userdata body (not ephemeron) so mtv_gc can access it
+  val **vpp = (val **) lua_newuserdata(L, sizeof(val*)); // uv udv
+  *vpp = new val(v);
 
-  lua_pushlightuserdata(L, new val(v)); // udv v
-  tk_web_set_ephemeron(L, -2, 1); // udv
+  lua_insert(L, -2); // udv uv
+  tk_web_set_ephemeron(L, -2, 2); // udv (user value still in ephemeron)
 
   luaL_getmetatable(L, MTV); // udv mt
   lua_setmetatable(L, -2); // udv
