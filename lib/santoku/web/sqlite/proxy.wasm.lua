@@ -119,19 +119,28 @@ return function (bundle_path, callback, opts)
   -- Request a port from the current provider
   local function request_provider_port (counter)
     if verbose then
-      print("[proxy] request_provider_port called, counter:", counter, "provider_counter:", provider_counter, "is_provider:", is_provider, "db:", db, "client_id:", client_id)
+      print("[proxy] request_provider_port called, counter:", counter, "provider_counter:", provider_counter, "is_provider:", is_provider, "db:", db)
     end
     if counter ~= provider_counter then return end
     if is_provider then return end
     if db then return end
-    if not client_id then return end
+    -- Need SW controller to fetch port
+    if not navigator.serviceWorker.controller then
+      if verbose then
+        print("[proxy] No SW controller yet, will retry")
+      end
+      util.set_timeout(function ()
+        request_provider_port(counter)
+      end, 500)
+      return
+    end
 
     local nonce = "req_" .. tostring(math.random()):sub(3)
     if verbose then
       print("[proxy] Requesting provider port with nonce:", nonce)
     end
 
-    -- Listen for response from SW (provider sends port via SW)
+    -- Listen for response from SW
     local function on_sw_message (_, ev)
       if verbose then
         print("[proxy] Received SW message:", ev.data and ev.data.type, "nonce:", ev.data and ev.data.nonce, "expected nonce:", nonce)
@@ -159,15 +168,31 @@ return function (bundle_path, callback, opts)
     end
     navigator.serviceWorker:addEventListener("message", on_sw_message)
 
-    -- Broadcast request to provider
+    -- Broadcast request to provider (no clientId needed)
     if verbose then
       print("[proxy] Broadcasting request to provider")
     end
     broadcast_channel:postMessage(val({
       type = "request",
-      nonce = nonce,
-      clientId = client_id
+      nonce = nonce
     }, true))
+
+    -- After short delay, fetch the port from SW
+    -- (gives provider time to store the port)
+    util.set_timeout(function ()
+      if counter == provider_counter and not db and not is_provider then
+        local controller = navigator.serviceWorker.controller
+        if controller then
+          if verbose then
+            print("[proxy] Fetching port from SW with nonce:", nonce)
+          end
+          controller:postMessage(val({
+            type = "get_port",
+            nonce = nonce
+          }, true))
+        end
+      end
+    end, 100)
 
     -- Timeout and retry if no response
     util.set_timeout(function ()
@@ -178,7 +203,7 @@ return function (bundle_path, callback, opts)
         navigator.serviceWorker:removeEventListener("message", on_sw_message)
         request_provider_port(counter)
       end
-    end, 1000)
+    end, 2000)
   end
 
   -- Helper to create a port for RPC (used for both consumers and SW)
@@ -245,10 +270,10 @@ return function (bundle_path, callback, opts)
         request_provider_port(provider_counter)
       end
 
-    elseif data.type == "request" and is_provider and data.clientId then
+    elseif data.type == "request" and is_provider and data.nonce then
       -- Consumer requesting port (we're provider)
       if verbose then
-        print("[proxy] Consumer requesting port, clientId:", data.clientId, "nonce:", data.nonce)
+        print("[proxy] Consumer requesting port, nonce:", data.nonce)
       end
       local controller = navigator.serviceWorker.controller
       if not controller then
@@ -260,12 +285,12 @@ return function (bundle_path, callback, opts)
 
       local port = create_rpc_port()
       if verbose then
-        print("[proxy] Sending port to consumer via SW")
+        print("[proxy] Storing port in SW for consumer to fetch, nonce:", data.nonce)
       end
 
-      -- Send port to consumer via SW
+      -- Store port in SW for consumer to fetch
       controller:postMessage(
-        val({ type = "db_port", targetClientId = data.clientId, nonce = data.nonce }, true),
+        val({ type = "store_port", nonce = data.nonce }, true),
         { port }
       )
 

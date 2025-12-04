@@ -80,6 +80,7 @@ return function (opts)
   local db_pending_queue = {}
   local db_provider_client_id = nil
   local db_port_request_pending = false
+  local pending_consumer_ports = {} -- Ports waiting for consumers to fetch
 
   local function flush_queue ()
     if not db_sw_port then
@@ -420,35 +421,46 @@ return function (opts)
       return on_page_resources_loaded()
     end
 
-    -- Stateless port relay: forward db_port messages to target client
-    if data.type == "db_port" and data.targetClientId then
+    -- Store port from provider for consumer to fetch
+    if data.type == "store_port" and data.nonce then
       if opts.verbose then
-        print("[SW] Relaying db_port to client:", data.targetClientId, "nonce:", data.nonce)
+        print("[SW] Storing port for nonce:", data.nonce)
       end
       local port = ev.ports and ev.ports[1]
       if port then
-        clients:get(data.targetClientId):await(function (_, ok, client)
-          if opts.verbose then
-            print("[SW] clients:get for relay - ok:", ok, "client:", client)
-          end
-          if ok and client then
+        pending_consumer_ports[data.nonce] = port
+        -- Clean up after timeout (30 seconds)
+        util.set_timeout(function ()
+          if pending_consumer_ports[data.nonce] then
             if opts.verbose then
-              print("[SW] Forwarding port to client")
+              print("[SW] Cleaning up unclaimed port for nonce:", data.nonce)
             end
-            client:postMessage(val({
-              type = "db_port",
-              nonce = data.nonce
-            }, true), { port })
-          else
-            if opts.verbose then
-              print("[SW] Client not found, closing port")
-            end
-            port:close()
+            pending_consumer_ports[data.nonce]:close()
+            pending_consumer_ports[data.nonce] = nil
           end
-        end)
+        end, 30000)
+      end
+      return
+    end
+
+    -- Consumer fetching their port (uses event.source, no ID lookup needed)
+    if data.type == "get_port" and data.nonce then
+      if opts.verbose then
+        print("[SW] Consumer fetching port for nonce:", data.nonce)
+      end
+      local port = pending_consumer_ports[data.nonce]
+      if port then
+        pending_consumer_ports[data.nonce] = nil
+        if opts.verbose then
+          print("[SW] Sending port to consumer via event.source")
+        end
+        ev.source:postMessage(val({
+          type = "db_port",
+          nonce = data.nonce
+        }, true), { port })
       else
         if opts.verbose then
-          print("[SW] No port in db_port message")
+          print("[SW] No pending port for nonce:", data.nonce)
         end
       end
       return
