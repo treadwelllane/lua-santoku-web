@@ -499,7 +499,9 @@ return function (opts)
         end
       elseif data.type == "db_provider_ready" then
         local port = ev.ports[1]
-        if port and client_id == db_provider_client_id then
+        -- Accept if it's the expected provider OR if we have no provider yet
+        if port and (client_id == db_provider_client_id or not db_sw_port) then
+          db_provider_client_id = client_id
           setup_provider_port(client_id, port)
         end
       elseif data.type == "db_unregister" then
