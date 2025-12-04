@@ -15,7 +15,7 @@ local clients = js.clients
 local Promise = js.Promise
 local URL = js.URL
 local Response = js.Response
-local navigator = global.navigator
+local BroadcastChannel = js.BroadcastChannel
 
 local defaults = {
   cache_fetch_retry_backoff_ms = 1000,
@@ -31,16 +31,6 @@ end
 return function (opts)
 
   opts = tbl.merge({}, defaults, opts or {})
-
-  local db_provider_client_id = nil
-  local db_provider_port = nil
-  local db_registered_clients = {}
-  local db_pending_consumers = {}
-  local db_sw_port = nil
-  local db_sw_callbacks = {}
-  local db_pending_queue = {}
-
-  local trigger_failover
 
   -- Page ready signaling for coordinated pre-caching
   local page_ready = false
@@ -82,6 +72,13 @@ return function (opts)
       end, opts.page_ready_timeout_ms)
     end
   end
+
+  -- SW database access via SharedService pattern
+  -- SW connects to provider as a consumer via BroadcastChannel
+  local db_sw_port = nil
+  local db_sw_callbacks = {}
+  local db_pending_queue = {}
+  local db_provider_client_id = nil
 
   local function flush_queue ()
     if not db_sw_port then
@@ -139,6 +136,38 @@ return function (opts)
         end
       end
     })
+
+    -- Listen for provider announcements via BroadcastChannel
+    local broadcast_channel = BroadcastChannel:new("sqlite_shared_service")
+
+    local function request_sw_port ()
+      if not db_provider_client_id then return end
+
+      local nonce = "sw_" .. random_string()
+
+      -- Request a port from the provider
+      clients:get(db_provider_client_id):await(function (_, ok, client)
+        if ok and client then
+          client:postMessage(val({
+            type = "sw_port_request",
+            nonce = nonce
+          }, true))
+        end
+      end)
+    end
+
+    broadcast_channel.onmessage = function (_, ev)
+      local data = ev.data
+      if data and data.type == "provider" and data.clientId then
+        -- New provider announced
+        if db_sw_port then
+          db_sw_port:close()
+          db_sw_port = nil
+        end
+        db_provider_client_id = data.clientId
+        request_sw_port()
+      end
+    end
   end
 
   if type(opts.routes) == "function" then
@@ -342,130 +371,6 @@ return function (opts)
     return default_fetch_handler(request)
   end
 
-  local function setup_sw_port_to_provider ()
-    if not db_provider_port then
-      return
-    end
-    local original_handler = db_provider_port.onmessage
-    db_provider_port.onmessage = function (_, ev)
-      local sw_port = ev.ports[1]
-      if sw_port then
-        db_sw_port = sw_port
-        db_sw_port.onmessage = function (_, msg_ev)
-          local data = msg_ev.data
-          if data and data.nonce and db_sw_callbacks[data.nonce] then
-            local callback = db_sw_callbacks[data.nonce]
-            db_sw_callbacks[data.nonce] = nil
-            if data.error then
-              return callback(false, data.error.message or tostring(data.error))
-            else
-              return callback(true, data.result)
-            end
-          end
-        end
-        db_sw_port:start()
-        flush_queue()
-      end
-      if db_provider_port then
-        db_provider_port.onmessage = original_handler
-      end
-    end
-    db_provider_port:postMessage("sw")
-  end
-
-  local function connect_client_to_provider (client_id)
-    if not db_provider_port then
-      return
-    end
-    local original_handler = db_provider_port.onmessage
-    db_provider_port.onmessage = function (_, ev)
-      local client_port = ev.ports[1]
-      if client_port then
-        clients:get(client_id):await(function (_, ok, client)
-          if ok and client then
-            client:postMessage(val({ type = "db_consumer" }, true), { client_port })
-          end
-        end)
-      end
-      if db_provider_port then
-        db_provider_port.onmessage = original_handler
-      end
-    end
-    db_provider_port:postMessage(client_id)
-  end
-
-  local failover_in_progress = false
-  local provider_lock_controller = nil
-
-  local function monitor_provider_lock (client_id)
-    if provider_lock_controller then
-      provider_lock_controller:abort()
-      provider_lock_controller = nil
-    end
-    if not navigator or not navigator.locks then
-      return
-    end
-    provider_lock_controller = js.AbortController:new()
-    local lock_name = "db_provider_" .. client_id
-    navigator.locks:request(lock_name, {
-      mode = "exclusive",
-      ifAvailable = false,
-      signal = provider_lock_controller.signal
-    }, function ()
-      return Promise:new(function (resolve)
-        if db_provider_client_id == client_id then
-          db_sw_port = nil
-          db_provider_port = nil
-          db_provider_client_id = nil
-          db_registered_clients[client_id] = nil
-          trigger_failover()
-        end
-        resolve()
-      end)
-    end):catch(function () end)
-  end
-
-  local function setup_provider_port (client_id, port)
-    db_provider_port = port
-    db_provider_port:start()
-    setup_sw_port_to_provider()
-    for i = 1, #db_pending_consumers do
-      connect_client_to_provider(db_pending_consumers[i])
-    end
-    db_pending_consumers = {}
-    monitor_provider_lock(client_id)
-  end
-
-  trigger_failover = function ()
-    if failover_in_progress then return end
-    if db_sw_port then return end
-
-    failover_in_progress = true
-
-    db_provider_client_id = nil
-    db_provider_port = nil
-    db_sw_port = nil
-
-    local cid = next(db_registered_clients)
-    if not cid then
-      failover_in_progress = false
-      -- No clients yet, requests stay queued until a client registers
-      return
-    end
-
-    clients:get(cid):await(function (_, ok, client)
-      failover_in_progress = false
-      if db_sw_port then return end
-      if ok and client then
-        db_provider_client_id = cid
-        client:postMessage(val({ type = "db_provider", client_id = cid }, true))
-      else
-        db_registered_clients[cid] = nil
-        trigger_failover()
-      end
-    end)
-  end
-
   Module.on_message = function (_, ev, client_id)
     local data = ev.data
     if not data then
@@ -482,38 +387,45 @@ return function (opts)
       return on_page_resources_loaded()
     end
 
-    if opts.sqlite then
-      if data.type == "db_register" then
-        db_registered_clients[client_id] = true
-        if not db_provider_client_id then
-          db_provider_client_id = client_id
-          clients:get(client_id):await(function (_, ok, client)
-            if ok and client then
-              client:postMessage(val({ type = "db_provider", client_id = client_id }, true))
-            end
-          end)
-        elseif db_provider_port then
-          connect_client_to_provider(client_id)
-        else
-          db_pending_consumers[#db_pending_consumers + 1] = client_id
-        end
-      elseif data.type == "db_provider_ready" then
-        local port = ev.ports[1]
-        -- Accept if it's the expected provider OR if we have no provider yet
-        if port and (client_id == db_provider_client_id or not db_sw_port) then
-          db_provider_client_id = client_id
-          setup_provider_port(client_id, port)
-        end
-      elseif data.type == "db_unregister" then
-        db_registered_clients[client_id] = nil
-        if client_id == db_provider_client_id then
-          trigger_failover()
-        end
-      elseif data.type == "lock_acquired" then
-        if client_id == db_provider_client_id then
-          monitor_provider_lock(client_id)
-        end
+    -- Stateless port relay: forward db_port messages to target client
+    if data.type == "db_port" and data.targetClientId then
+      local port = ev.ports and ev.ports[1]
+      if port then
+        clients:get(data.targetClientId):await(function (_, ok, client)
+          if ok and client then
+            client:postMessage(val({
+              type = "db_port",
+              nonce = data.nonce
+            }, true), { port })
+          else
+            port:close()
+          end
+        end)
       end
+      return
+    end
+
+    -- Handle SW port from provider (response to sw_port_request)
+    if opts.sqlite and data.type == "sw_port" then
+      local port = ev.ports and ev.ports[1]
+      if port then
+        db_sw_port = port
+        db_sw_port.onmessage = function (_, msg_ev)
+          local msg_data = msg_ev.data
+          if msg_data and msg_data.nonce and db_sw_callbacks[msg_data.nonce] then
+            local callback = db_sw_callbacks[msg_data.nonce]
+            db_sw_callbacks[msg_data.nonce] = nil
+            if msg_data.error then
+              return callback(false, msg_data.error.message or tostring(msg_data.error))
+            else
+              return callback(true, msg_data.result)
+            end
+          end
+        end
+        db_sw_port:start()
+        flush_queue()
+      end
+      return
     end
 
     if opts.on_message then
