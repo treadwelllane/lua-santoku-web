@@ -96,6 +96,7 @@ return function (bundle_path, callback)
     if counter ~= provider_counter then return end
     if is_provider then return end
     if db then return end
+    if not client_id then return end
 
     local nonce = "req_" .. tostring(math.random()):sub(3)
 
@@ -172,7 +173,8 @@ return function (bundle_path, callback)
 
     if data.type == "provider" then
       -- New provider announced - reconnect if we're a consumer
-      if not is_provider then
+      -- Only process if we're initialized (have client_id)
+      if not is_provider and client_id then
         close_provider_connection()
         provider_counter = provider_counter + 1
         request_provider_port(provider_counter)
@@ -180,10 +182,13 @@ return function (bundle_path, callback)
 
     elseif data.type == "request" and is_provider and data.clientId then
       -- Consumer requesting port (we're provider)
+      local controller = navigator.serviceWorker.controller
+      if not controller then return end
+
       local port = create_rpc_port()
 
       -- Send port to consumer via SW
-      navigator.serviceWorker.controller:postMessage(
+      controller:postMessage(
         val({ type = "db_port", targetClientId = data.clientId, nonce = data.nonce }, true),
         { port }
       )
@@ -196,6 +201,10 @@ return function (bundle_path, callback)
 
     -- Get our client ID first
     get_client_id(function (cid)
+      if not cid then
+        -- Failed to get client ID, can't proceed
+        return
+      end
       client_id = cid
 
       -- Acquire context lock (for lifetime tracking, held forever)
@@ -225,8 +234,10 @@ return function (bundle_path, callback)
         -- Listen for SW port requests (SW needs db access for route handlers)
         navigator.serviceWorker:addEventListener("message", function (_, ev)
           if ev.data and ev.data.type == "sw_port_request" and is_provider then
+            local controller = navigator.serviceWorker.controller
+            if not controller then return end
             local port = create_rpc_port()
-            navigator.serviceWorker.controller:postMessage(
+            controller:postMessage(
               val({ type = "sw_port" }, true),
               { port }
             )
