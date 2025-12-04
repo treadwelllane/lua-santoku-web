@@ -157,7 +157,6 @@ static inline void args_to_vals (lua_State *L, int n) {
 static inline val *peek_valp (lua_State *L, int i) {
   if (!mtx_to_mtv(L, i))
     return NULL;
-  // val* is stored directly in the userdata body
   val **vpp = (val **) lua_touserdata(L, -1);
   lua_pop(L, 1);
   return vpp ? *vpp : NULL;
@@ -319,7 +318,6 @@ static inline void push_val (lua_State *L, val v, int uv) {
   else
     lua_pushvalue(L, uv); // uv
 
-  // Store val* directly in userdata body (not ephemeron) so mtv_gc can access it
   val **vpp = (val **) lua_newuserdata(L, sizeof(val*)); // uv udv
   *vpp = new val(v);
 
@@ -800,7 +798,6 @@ static inline int lua_to_val (lua_State *L, int i, bool recurse) {
 
 static inline int j_arg (int Lp, int i) {
   lua_State *L = (lua_State *) Lp;
-  // Values should already be MTVs from args_to_vals, just get handle
   return (int) peek_val(L, i).as_handle();
 }
 
