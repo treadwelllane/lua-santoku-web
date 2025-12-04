@@ -189,7 +189,14 @@ return function (bundle_path, callback, opts)
     port1.onmessage = function (_, msg_ev)
       local msg_data = msg_ev.data
       if msg_data and msg_data.method and msg_data.nonce then
-        local args = msg_data.args or {}
+        -- Convert JS array to Lua table
+        local args = {}
+        local js_args = msg_data.args
+        if js_args and js_args.length then
+          for i = 1, js_args.length do
+            args[i] = js_args[i]
+          end
+        end
         args[#args + 1] = function (ok, result)
           local response = { nonce = msg_data.nonce }
           if ok then
