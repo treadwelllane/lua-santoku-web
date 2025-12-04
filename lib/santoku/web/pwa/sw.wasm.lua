@@ -145,52 +145,19 @@ return function (opts)
 
     local function request_sw_port ()
       if opts.verbose then
-        print("[SW] request_sw_port called, db_provider_client_id:", db_provider_client_id)
+        print("[SW] request_sw_port called, has provider:", db_provider_client_id ~= nil)
       end
       if not db_provider_client_id then return end
+      if db_sw_port then return end -- Already have a port
 
-      local nonce = "sw_" .. random_string()
       if opts.verbose then
-        print("[SW] Requesting port from provider with nonce:", nonce)
+        print("[SW] Broadcasting sw_port_request on BroadcastChannel")
       end
 
-      -- Debug: list all visible clients
-      clients:matchAll(val({ includeUncontrolled = true, type = "all" }, true)):await(function (_, ok, all_clients)
-        if opts.verbose then
-          print("[SW] matchAll result - ok:", ok, "clients:", all_clients)
-          if ok and all_clients then
-            print("[SW] All visible clients count:", all_clients.length)
-            for i = 1, all_clients.length do
-              local c = all_clients[i]
-              print("[SW]   Client", i, "id:", c and c.id, "type:", c and c.type, "url:", c and c.url)
-            end
-          end
-        end
-
-        -- Try to find the provider client in the list
-        local provider_client = nil
-        if ok and all_clients then
-          for i = 1, all_clients.length do
-            local c = all_clients[i]
-            if c and c.id == db_provider_client_id then
-              provider_client = c
-              break
-            end
-          end
-        end
-
-        if provider_client then
-          if opts.verbose then
-            print("[SW] Found provider client via matchAll, sending sw_port_request")
-          end
-          provider_client:postMessage(val({
-            type = "sw_port_request",
-            nonce = nonce
-          }, true))
-        elseif opts.verbose then
-          print("[SW] Provider client not found in matchAll results")
-        end
-      end)
+      -- Broadcast request for port - provider will respond via controller.postMessage
+      broadcast_channel:postMessage(val({
+        type = "sw_port_request"
+      }, true))
     end
 
     broadcast_channel.onmessage = function (_, ev)
