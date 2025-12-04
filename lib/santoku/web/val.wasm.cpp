@@ -1288,6 +1288,7 @@ static inline int mtv_instanceof (lua_State *L) {
 static inline int mtv_call (lua_State *L) {
   args_to_vals(L, -1);
   int n = lua_gettop(L);
+  int top = n;  // Save stack top before JS call
   val v = peek_val(L, -n);
   val t = lua_type(L, -n + 1) == LUA_TNIL
     ? val::undefined()
@@ -1306,6 +1307,7 @@ static inline int mtv_call (lua_State *L) {
       return Module["error"]($0, Emval.toHandle(e));
     }
   }), L, v.as_handle(), t.as_handle(), -n + 2, n - 2));
+  lua_settop(L, top);  // Restore stack, removing j_arg temporaries
   push_val(L, r, INT_MIN);
   return 1;
 }
@@ -1313,12 +1315,14 @@ static inline int mtv_call (lua_State *L) {
 static inline int mtv_new (lua_State *L) {
   args_to_vals(L, -1);
   int n = lua_gettop(L);
+  int top = n;  // Save stack top before JS call
   val v = peek_val(L, -n);
   val r = val::take_ownership((EM_VAL) EM_ASM_PTR(({
     var obj = Emval.toValue($1);
     var args = Emval.toValue(Module["args"]($0, $2, $3));
     return Emval.toHandle(new obj(...args));
   }), L, v.as_handle(), -n + 1, n - 1));
+  lua_settop(L, top);  // Restore stack, removing j_arg temporaries
   push_val(L, r, INT_MIN);
   return 1;
 }
