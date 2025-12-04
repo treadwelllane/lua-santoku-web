@@ -5,6 +5,8 @@ local async = require("santoku.async")
 local it = require("santoku.iter")
 local fun = require("santoku.functional")
 local tbl = require("santoku.table")
+local str = require("santoku.string")
+local rand = require("santoku.random")
 
 local global = js.self
 local Module = global.Module
@@ -13,7 +15,6 @@ local clients = js.clients
 local Promise = js.Promise
 local URL = js.URL
 local Response = js.Response
-local Math = js.Math
 local navigator = global.navigator
 
 local defaults = {
@@ -24,7 +25,7 @@ local defaults = {
 }
 
 local function random_string ()
-  return tostring(Math:random()):gsub("0%%.", "")
+  return rand.alnum(16)
 end
 
 return function (opts)
@@ -34,6 +35,7 @@ return function (opts)
   local db_provider_client_id = nil
   local db_provider_port = nil
   local db_registered_clients = {}
+  local db_pending_consumers = {}
   local db_sw_port = nil
   local db_sw_callbacks = {}
   local db_pending_queue = {}
@@ -72,7 +74,7 @@ return function (opts)
 
     -- Timeout fallback in case page never signals
     if opts.page_ready_timeout_ms then
-      global:setTimeout(function ()
+      util.set_timeout(function ()
         if opts.verbose and not page_ready then
           print("Page ready timeout, proceeding with pre-cache")
         end
@@ -279,7 +281,7 @@ return function (opts)
     end
     for pattern, handler in pairs(opts.routes) do
       if pathname:match(pattern) then
-        local parsed = util.parse_url(url)
+        local parsed = str.parse_url(url)
         return handler, parsed.path, parsed.params
       end
     end
@@ -419,16 +421,15 @@ return function (opts)
     end):catch(function () end)
   end
 
-  local function promote_provider (client_id, port)
-    db_provider_client_id = client_id
+  local function setup_provider_port (client_id, port)
     db_provider_port = port
     db_provider_port:start()
     setup_sw_port_to_provider()
-    for cid, _ in pairs(db_registered_clients) do
-      if cid ~= client_id then
-        connect_client_to_provider(cid)
-      end
+    for i = 1, #db_pending_consumers do
+      connect_client_to_provider(db_pending_consumers[i])
     end
+    db_pending_consumers = {}
+    monitor_provider_lock(client_id)
   end
 
   trigger_failover = function ()
@@ -441,7 +442,7 @@ return function (opts)
     db_provider_port = nil
     db_sw_port = nil
 
-    local cid, port = next(db_registered_clients)
+    local cid = next(db_registered_clients)
     if not cid then
       failover_in_progress = false
       return
@@ -451,7 +452,7 @@ return function (opts)
       failover_in_progress = false
       if db_sw_port then return end
       if ok and client then
-        promote_provider(cid, port)
+        db_provider_client_id = cid
         client:postMessage(val({ type = "db_provider", client_id = cid }, true))
       else
         db_registered_clients[cid] = nil
@@ -477,18 +478,24 @@ return function (opts)
     end
 
     if opts.sqlite then
-      local port = ev.ports[1]
-      if data.type == "db_register" and port then
-        db_registered_clients[client_id] = port
+      if data.type == "db_register" then
+        db_registered_clients[client_id] = true
         if not db_provider_client_id then
-          promote_provider(client_id, port)
+          db_provider_client_id = client_id
           clients:get(client_id):await(function (_, ok, client)
             if ok and client then
               client:postMessage(val({ type = "db_provider", client_id = client_id }, true))
             end
           end)
-        else
+        elseif db_provider_port then
           connect_client_to_provider(client_id)
+        else
+          db_pending_consumers[#db_pending_consumers + 1] = client_id
+        end
+      elseif data.type == "db_provider_ready" then
+        local port = ev.ports[1]
+        if port and client_id == db_provider_client_id then
+          setup_provider_port(client_id, port)
         end
       elseif data.type == "db_unregister" then
         db_registered_clients[client_id] = nil

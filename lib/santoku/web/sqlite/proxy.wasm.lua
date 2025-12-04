@@ -62,21 +62,49 @@ local function create_provider_port (target, async)
   return port2
 end
 
-return function (bundle_path, callback)
-  local db, worker = wrpc.init(bundle_path)
-
-  worker.onmessage = function (_, ev)
-    if ev.data and ev.data.type == "db_error" then
-      if document and document.body then
-        document.body.classList:add("db-error")
-        document.body:dispatchEvent(js.CustomEvent:new("db-error", {
-          detail = { error = ev.data.error }
-        }))
+local function create_consumer_client (port)
+  local callbacks = {}
+  local nonce_counter = 0
+  port.onmessage = function (_, ev)
+    local data = ev.data
+    if data and data.nonce and callbacks[data.nonce] then
+      local cb = callbacks[data.nonce]
+      callbacks[data.nonce] = nil
+      if data.error then
+        return cb(false, data.error.message or tostring(data.error))
+      else
+        return cb(true, data.result)
       end
     end
   end
+  port:start()
+  return setmetatable({}, {
+    __index = function (_, method)
+      return function (...)
+        local n = select("#", ...)
+        local callback = select(n, ...)
+        local args = {}
+        for i = 1, n - 1 do
+          args[i] = select(i, ...)
+        end
+        nonce_counter = nonce_counter + 1
+        local nonce = tostring(nonce_counter)
+        callbacks[nonce] = callback
+        port:postMessage(val({
+          nonce = nonce,
+          method = method,
+          args = args
+        }, true))
+      end
+    end
+  })
+end
 
-  local provider_port = create_provider_port(db, true)
+return function (bundle_path, callback)
+  local db = nil
+  local worker = nil
+  local is_provider = false
+
   local provider_lock_held = false
   local function acquire_provider_lock (client_id)
     if provider_lock_held then return end
@@ -92,8 +120,38 @@ return function (bundle_path, callback)
       return js.Promise:new(function () end)
     end):catch(function () end)
   end
+
+  local function become_provider (client_id)
+    is_provider = true
+    db, worker = wrpc.init(bundle_path)
+    worker.onmessage = function (_, ev)
+      if ev.data and ev.data.type == "db_error" then
+        if document and document.body then
+          document.body.classList:add("db-error")
+          document.body:dispatchEvent(js.CustomEvent:new("db-error", {
+            detail = { error = ev.data.error }
+          }))
+        end
+      end
+    end
+    local provider_port = create_provider_port(db, true)
+    navigator.serviceWorker.controller:postMessage(val({ type = "db_provider_ready" }, true), { provider_port })
+    acquire_provider_lock(client_id)
+    if callback then
+      return callback()
+    end
+  end
+
+  local function become_consumer (consumer_port)
+    is_provider = false
+    db = create_consumer_client(consumer_port)
+    if callback then
+      return callback()
+    end
+  end
+
   local function register_with_sw ()
-    navigator.serviceWorker.controller:postMessage(val({ type = "db_register" }, true), { provider_port })
+    navigator.serviceWorker.controller:postMessage(val({ type = "db_register" }, true))
   end
 
   navigator.serviceWorker.ready:await(function (_, ok)
@@ -102,14 +160,13 @@ return function (bundle_path, callback)
     end
     navigator.serviceWorker:addEventListener("message", function (_, ev)
       if ev.data and ev.data.type == "db_provider" then
-        acquire_provider_lock(ev.data.client_id)
-        if callback then
-          return callback()
+        if not is_provider and not db then
+          become_provider(ev.data.client_id)
         end
       elseif ev.data and ev.data.type == "db_consumer" then
         local consumer_port = ev.ports and ev.ports[1]
-        if consumer_port and callback then
-          return callback()
+        if consumer_port and not db then
+          become_consumer(consumer_port)
         end
       end
     end)
