@@ -139,15 +139,30 @@ return function (opts)
 
     -- Listen for provider announcements via BroadcastChannel
     local broadcast_channel = BroadcastChannel:new("sqlite_shared_service")
+    if opts.verbose then
+      print("[SW] Created BroadcastChannel for sqlite_shared_service")
+    end
 
     local function request_sw_port ()
+      if opts.verbose then
+        print("[SW] request_sw_port called, db_provider_client_id:", db_provider_client_id)
+      end
       if not db_provider_client_id then return end
 
       local nonce = "sw_" .. random_string()
+      if opts.verbose then
+        print("[SW] Requesting port from provider with nonce:", nonce)
+      end
 
       -- Request a port from the provider
       clients:get(db_provider_client_id):await(function (_, ok, client)
+        if opts.verbose then
+          print("[SW] clients:get result - ok:", ok, "client:", client)
+        end
         if ok and client then
+          if opts.verbose then
+            print("[SW] Sending sw_port_request to provider")
+          end
           client:postMessage(val({
             type = "sw_port_request",
             nonce = nonce
@@ -158,9 +173,18 @@ return function (opts)
 
     broadcast_channel.onmessage = function (_, ev)
       local data = ev.data
+      if opts.verbose then
+        print("[SW] Received broadcast:", data and data.type, "clientId:", data and data.clientId)
+      end
       if data and data.type == "provider" and data.clientId then
         -- New provider announced
+        if opts.verbose then
+          print("[SW] New provider announced:", data.clientId)
+        end
         if db_sw_port then
+          if opts.verbose then
+            print("[SW] Closing old db_sw_port")
+          end
           db_sw_port:close()
           db_sw_port = nil
         end
@@ -389,29 +413,54 @@ return function (opts)
 
     -- Stateless port relay: forward db_port messages to target client
     if data.type == "db_port" and data.targetClientId then
+      if opts.verbose then
+        print("[SW] Relaying db_port to client:", data.targetClientId, "nonce:", data.nonce)
+      end
       local port = ev.ports and ev.ports[1]
       if port then
         clients:get(data.targetClientId):await(function (_, ok, client)
+          if opts.verbose then
+            print("[SW] clients:get for relay - ok:", ok, "client:", client)
+          end
           if ok and client then
+            if opts.verbose then
+              print("[SW] Forwarding port to client")
+            end
             client:postMessage(val({
               type = "db_port",
               nonce = data.nonce
             }, true), { port })
           else
+            if opts.verbose then
+              print("[SW] Client not found, closing port")
+            end
             port:close()
           end
         end)
+      else
+        if opts.verbose then
+          print("[SW] No port in db_port message")
+        end
       end
       return
     end
 
     -- Handle SW port from provider (response to sw_port_request)
     if opts.sqlite and data.type == "sw_port" then
+      if opts.verbose then
+        print("[SW] Received sw_port from provider")
+      end
       local port = ev.ports and ev.ports[1]
       if port then
+        if opts.verbose then
+          print("[SW] Setting up db_sw_port")
+        end
         db_sw_port = port
         db_sw_port.onmessage = function (_, msg_ev)
           local msg_data = msg_ev.data
+          if opts.verbose then
+            print("[SW] Received response on db_sw_port, nonce:", msg_data and msg_data.nonce)
+          end
           if msg_data and msg_data.nonce and db_sw_callbacks[msg_data.nonce] then
             local callback = db_sw_callbacks[msg_data.nonce]
             db_sw_callbacks[msg_data.nonce] = nil
@@ -423,7 +472,14 @@ return function (opts)
           end
         end
         db_sw_port:start()
+        if opts.verbose then
+          print("[SW] Flushing pending queue, size:", #db_pending_queue)
+        end
         flush_queue()
+      else
+        if opts.verbose then
+          print("[SW] No port in sw_port message")
+        end
       end
       return
     end
