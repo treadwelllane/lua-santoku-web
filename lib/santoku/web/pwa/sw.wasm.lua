@@ -112,9 +112,12 @@ return function (opts)
 
     local nonce = random_string()
 
-    db_sw_callbacks[nonce] = function (ok, result)
-      return callback(ok, result)
-    end
+    -- Store full request so we can re-queue if provider changes
+    db_sw_callbacks[nonce] = {
+      method = method,
+      args = args,
+      callback = callback
+    }
 
     db_sw_port:postMessage(val({
       nonce = nonce,
@@ -184,14 +187,14 @@ return function (opts)
           if opts.verbose then
             local count = 0
             for _ in pairs(db_sw_callbacks) do count = count + 1 end
-            print("[SW] Closing old db_sw_port, pending callbacks:", count)
+            print("[SW] Closing old db_sw_port, re-queuing callbacks:", count)
           end
-          -- Fail all pending callbacks - they were sent to old provider
-          for nonce, callback in pairs(db_sw_callbacks) do
+          -- Re-queue pending requests to be sent to new provider
+          for nonce, req in pairs(db_sw_callbacks) do
             if opts.verbose then
-              print("[SW] Failing pending callback:", nonce)
+              print("[SW] Re-queuing callback:", nonce)
             end
-            callback(false, "Provider changed")
+            db_pending_queue[#db_pending_queue + 1] = req
           end
           db_sw_callbacks = {}
           db_sw_port:close()
@@ -484,12 +487,12 @@ return function (opts)
             print("[SW] Received response on db_sw_port, nonce:", msg_data and msg_data.nonce)
           end
           if msg_data and msg_data.nonce and db_sw_callbacks[msg_data.nonce] then
-            local callback = db_sw_callbacks[msg_data.nonce]
+            local req = db_sw_callbacks[msg_data.nonce]
             db_sw_callbacks[msg_data.nonce] = nil
             if msg_data.error then
-              return callback(false, msg_data.error.message or tostring(msg_data.error))
+              return req.callback(false, msg_data.error.message or tostring(msg_data.error))
             else
-              return callback(true, msg_data.result)
+              return req.callback(true, msg_data.result)
             end
           end
         end
