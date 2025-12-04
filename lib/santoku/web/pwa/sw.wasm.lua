@@ -371,7 +371,7 @@ return function (opts)
     return default_fetch_handler(request)
   end
 
-  Module.on_message = function (_, ev, client_id)
+  Module.on_message = function (_, ev)
     local data = ev.data
     if not data then
       return
