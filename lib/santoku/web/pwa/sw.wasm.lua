@@ -91,7 +91,8 @@ return function (opts)
     for i = 1, #queue do
       local req = queue[i]
       local nonce = random_string()
-      db_sw_callbacks[nonce] = req.callback
+      -- Store full request for potential re-queue on provider change
+      db_sw_callbacks[nonce] = req
       db_sw_port:postMessage(val({
         nonce = nonce,
         method = req.method,
