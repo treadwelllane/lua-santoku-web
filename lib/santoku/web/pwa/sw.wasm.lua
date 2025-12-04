@@ -80,6 +80,7 @@ return function (opts)
   local db_pending_queue = {}
   local db_provider_client_id = nil
   local db_port_request_pending = false
+  local db_provider_debounce_timer = nil
   local pending_consumer_ports = {} -- Ports waiting for consumers to fetch
 
   local function flush_queue ()
@@ -182,28 +183,38 @@ return function (opts)
           return
         end
         if opts.verbose then
-          print("[SW] New provider announced:", data.clientId)
+          print("[SW] New provider announced:", data.clientId, "- debouncing")
         end
-        if db_sw_port then
-          if opts.verbose then
-            local count = 0
-            for _ in pairs(db_sw_callbacks) do count = count + 1 end
-            print("[SW] Closing old db_sw_port, re-queuing callbacks:", count)
-          end
-          -- Re-queue pending requests to be sent to new provider
-          for nonce, req in pairs(db_sw_callbacks) do
-            if opts.verbose then
-              print("[SW] Re-queuing callback:", nonce)
-            end
-            db_pending_queue[#db_pending_queue + 1] = req
-          end
-          db_sw_callbacks = {}
-          db_sw_port:close()
-          db_sw_port = nil
-        end
-        db_port_request_pending = false
+        -- Debounce provider changes to let things settle during page load
         db_provider_client_id = data.clientId
-        request_sw_port()
+        if db_provider_debounce_timer then
+          util.clear_timeout(db_provider_debounce_timer)
+        end
+        db_provider_debounce_timer = util.set_timeout(function ()
+          db_provider_debounce_timer = nil
+          if opts.verbose then
+            print("[SW] Processing provider change after debounce:", db_provider_client_id)
+          end
+          if db_sw_port then
+            if opts.verbose then
+              local count = 0
+              for _ in pairs(db_sw_callbacks) do count = count + 1 end
+              print("[SW] Closing old db_sw_port, re-queuing callbacks:", count)
+            end
+            -- Re-queue pending requests to be sent to new provider
+            for nonce, req in pairs(db_sw_callbacks) do
+              if opts.verbose then
+                print("[SW] Re-queuing callback:", nonce)
+              end
+              db_pending_queue[#db_pending_queue + 1] = req
+            end
+            db_sw_callbacks = {}
+            db_sw_port:close()
+            db_sw_port = nil
+          end
+          db_port_request_pending = false
+          request_sw_port()
+        end, 200)
       end
     end
   end
