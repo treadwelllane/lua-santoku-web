@@ -1,19 +1,15 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local rand = require("santoku.random")
-local num = require("santoku.num")
 local err = require("santoku.error")
 local async = require("santoku.async")
 local str = require("santoku.string")
-local varg = require("santoku.varg")
 local arr = require("santoku.array")
-local tbl = require("santoku.table")
-local it = require("santoku.iter")
 local fun = require("santoku.functional")
+local utc = require("santoku.utc")
+local num = require("santoku.num")
 local json = require("cjson")
 
-local document = js.document
-local Array = js.Array
 local Promise = js.Promise
 local global = js.self or js.global or js.window
 local localStorage = global.localStorage
@@ -22,6 +18,14 @@ local WebSocket = js.WebSocket
 local AbortController = js.AbortController
 
 local M = {}
+
+M.set_timeout = function (fn, ms, ...)
+  return global:setTimeout(fn, ms, ...)
+end
+
+M.clear_timeout = function (id)
+  return global:clearTimeout(id)
+end
 
 local reqs = setmetatable({}, { __mode = "k" })
 
@@ -48,8 +52,6 @@ local function fetch_request (req)
   }, req)
 end
 
--- TODO: consider retry-after header
--- TODO: lowercase headers?
 M.request = function (url, opts, done, retry, raw)
   if url and reqs[url] then
     return url
@@ -87,12 +89,11 @@ M.request = function (url, opts, done, retry, raw)
     local multiplier = retry.multiplier or 3
     local filter = retry.filter or function (ok, resp)
       local s = resp and resp.status
-      -- Should 408 (request timeout) be included?
       return not ok and (s == 502 or s == 503 or s == 504 or s == 429)
     end
     req.events.on("response", function (k, ...)
       if times > 0 and filter(...) then
-        return global:setTimeout(function ()
+        return M.set_timeout(function ()
           times = times - 1
           backoff = backoff * multiplier
           return fetch_request(req)
@@ -214,7 +215,7 @@ M.ws = function (url, opts, each, retries, backoffs)
         buffer = nil
       else
         each("reconnect", ev.code, ev.reason, ev)
-        global:setTimeout(function ()
+        M.set_timeout(function ()
           return reconnect(url)
         end, backoffs * 1000)
       end
@@ -223,7 +224,6 @@ M.ws = function (url, opts, each, retries, backoffs)
       if finalized then
         return
       end
-      -- Does it make sense to hide these errors?
       if ev.code or ev.reason then
         each("error", ev.code, ev.reason, ev)
       end
@@ -239,7 +239,6 @@ M.ws = function (url, opts, each, retries, backoffs)
       ws:send(val.bytes(data))
     end
   end, function ()
-    -- TODO: Does this prevent final close events from triggering? Should it?
     finalized = true
     if ws then
       ws:close()
@@ -290,8 +289,6 @@ local intercept = function (fn, events)
   end
 end
 
--- TODO: extend to support ws
--- TODO: allow match/on_request for intercepting pre-request
 M.http_client = function ()
   local events = async.events()
   return {
@@ -314,385 +311,16 @@ M.promise = function (fn)
   end)
 end
 
-M.clone = function (template, data, parent, before, pre_append)
-  local clone = template.content:cloneNode(true)
-  local el, els
-  if data == nil then
-    el = clone.firstElementChild
-  else
-    el, els = M.populate(clone.firstElementChild, data)
-  end
-  if pre_append then
-    pre_append(el)
-  end
-  if parent then
-    if before then
-      parent:insertBefore(el, before)
-    else
-      parent:append(el)
-    end
-  end
-  return el, els
-end
-
 M.after_frame = function (fn)
   return global:requestAnimationFrame(function ()
     return global:requestAnimationFrame(fn)
   end)
 end
 
-local function clone_all (items, wait, done, set_timeout, events)
-  if not items then
-    set_timeout()
-    events.emit("done")
-    done()
-    return
-  end
-  local parent, before, template, data, map_data, map_el = items()
-  if not parent then
-    set_timeout()
-    events.emit("done")
-    done()
-    return
-  end
-  if map_data then
-    local data0 = map_data(data)
-    if data0 == false then
-      set_timeout()
-      events.emit("done")
-      done()
-      return
-    elseif data0 ~= nil then
-      data = data0
-    end
-  end
-  local el, els = M.clone(template, data)
-  return events.process("cloned-element", nil, function (el)
-    if map_el then
-      local el0 = map_el(el, data, function (opts)
-        items = it.chain(opts.items or it.map(function (data)
-          return
-            opts.parent,
-            opts.before,
-            opts.template,
-            data,
-            opts.map_data,
-            opts.map_el
-        end, it.ivals(opts.data)), items)
-      end, els)
-      if el0 == false then
-        set_timeout()
-        events.emit("done")
-        done()
-        return
-      elseif el0 ~= nil then
-        el = el0
-      end
-    end
-    if before then
-      parent:insertBefore(el, before)
-    else
-      parent:append(el)
-    end
-    return set_timeout(global:setTimeout(function ()
-      clone_all(items, wait, done, set_timeout, events)
-    end, wait))
-  end, el)
-end
-
-M.clone_all = function (opts)
-  local events = async.events()
-  opts = opts or {}
-  local timeout
-  local function set_timeout (t)
-    timeout = t
-  end
-  set_timeout(global:setTimeout(function ()
-    clone_all(
-      opts.items or it.map(function (data)
-        return
-          opts.parent,
-          opts.before,
-          opts.template,
-          data,
-          opts.map_data,
-          opts.map_el
-      end, it.ivals(opts.data)),
-      opts.wait or 0,
-      opts.done or function () end,
-      set_timeout,
-      events)
-  end, 0))
-  return function ()
-    if timeout then
-      global:clearTimeout(timeout)
-      timeout = nil
-    end
-  end, events
-end
-
-local function parse_attr_value (data, attr, attrs, root)
-
-  if not data then
-    return ""
-  end
-
-  if attr.value == "" then
-    return data or ""
-  end
-
-  if attr.value and data[attr.value] and data[attr.value] ~= "" then
-    return data[attr.value]
-  elseif data and type(attr.value) == "string" then
-    local key = it.collect(str.gmatch(attr.value, "[^.]+"))
-    local v
-    if key[1] == "$" then
-      v = tbl.get(root, varg.sel(2, arr.spread(key)))
-    else
-      v = tbl.get(data, arr.spread(key))
-    end
-    if v then
-      return v or ""
-    end
-  end
-
-  local def = attrs and attrs:getNamedItem(attr.name .. "-default")
-
-  if def and def.value then
-    return def.value
-  else
-    return ""
-  end
-
-end
-
-local function check_attr_match (data, root, key, val)
-  if key == nil then
-    return
-  end
-  if type(val) == "table" then
-    return arr.find(val, function (val)
-      return check_attr_match(data, root, key, val)
-    end) ~= nil
-  end
-  if key[1] == "$" then
-    data = tbl.get(root, varg.sel(2, arr.spread(key)))
-  else
-    data = tbl.get(data, arr.spread(key))
-  end
-  return
-    (val == "true" and data == true) or
-    (val == "false" and data == false) or
-    (val == "nil" and data == nil) or
-    (val == nil and (data and data ~= "")) or
-    (val ~= nil and val == data)
-end
-
-local function parse_attr_show_hide (attr)
-  local show_hide, show_spec = str.match(attr.name, "^tk%-([^:]+)(.*)$")
-  if show_hide ~= "show" and show_hide ~= "hide" then
-    return
-  end
-  local show_key, show_val, show_attr = it.spread(str.gmatch(show_spec, ":([^:]+)"))
-  show_key = it.collect(str.gmatch(show_key, "[^%.]+"))
-  if show_val and str.match(show_val, "^%b[]$") then
-    show_val = it.collect(str.gmatch(str.sub(show_val, 2, #show_val - 1), "[^,]+"))
-  elseif show_val then
-    show_val = { show_val }
-  end
-  if attr.value and attr.value ~= "" then
-    return show_hide, show_key, show_val, show_attr, attr.value
-  else
-    return show_hide, show_key, show_val
-  end
-end
-
-M.populate = function (el, data, root, els)
-
-  els = els or {}
-  data = data or {}
-  root = root or data
-
-  local recurse = true
-
-  if el.hasAttributes and el:hasAttributes() then
-
-    local add_attrs = {}
-    local shadow, remove, repeat_, repeat_map_, repeat_done_
-
-    Array:from(el.attributes):forEach(function (_, attr)
-      if attr.name == "tk-repeat" then
-        el:removeAttribute(attr.name)
-        repeat_ = attr
-        repeat_map_ = el:getAttributeNode("tk-repeat-map")
-        repeat_done_ = el:getAttributeNode("tk-repeat-done")
-        if repeat_map_ then
-          repeat_map_ = parse_attr_value(data, repeat_map_, el.attributes, root)
-          el:removeAttribute("tk-repeat-map")
-        end
-        if repeat_done_ then
-          repeat_done_ = parse_attr_value(data, repeat_done_, el.attributes, root)
-          el:removeAttribute("tk-repeat-done")
-        end
-        return
-      end
-      if attr.name == "tk-shadow" then
-        el:removeAttribute(attr.name)
-        shadow = (attr.value and attr.value ~= "") and attr.value or "closed"
-        return
-      end
-      local show_hide, show_key, show_val, show_attr, show_exp =
-        parse_attr_show_hide(attr)
-      if show_hide == nil then
-        return
-      end
-      -- TODO: safe to remove this ahead of time?
-      el:removeAttribute(attr.name)
-      if show_attr == nil then
-        remove =
-          (show_hide == "show" and not check_attr_match(data, root, show_key, show_val)) or
-          (show_hide == "hide" and check_attr_match(data, root, show_key, show_val))
-        return
-      elseif
-        (show_hide == "show" and check_attr_match(data, root, show_key, show_val)) or
-        (show_hide == "hide" and not check_attr_match(data, root, show_key, show_val))
-      then
-        arr.push(add_attrs, { name = show_attr, value = show_exp })
-        return
-      end
-    end)
-
-    if remove then
-      el:remove()
-      return
-    end
-
-    for i = 1, #add_attrs do
-      local a = add_attrs[i]
-      local a0 = el:getAttribute(a.name)
-      if a0 then
-        el:setAttribute(a.name, arr.concat({ a0, a.value }, " "))
-      else
-        el:setAttribute(a.name, a.value)
-      end
-    end
-
-    if repeat_ then
-
-      recurse = false
-
-      local el_before = el.nextSibling
-
-      local ik = it.collect(str.gmatch(repeat_.value, "[^.]+"))
-      local items = tbl.get(data, arr.spread(ik))
-
-      if items then
-        for i = 1, #items do
-          local r0 = el:cloneNode(true)
-          local item = items[i]
-          if repeat_map_ then
-            local r1 = repeat_map_(r0, item, i)
-            if r1 ~= nil then
-              r0 = r1
-            end
-          end
-          M.populate(r0, item, root, els)
-          el.parentNode:insertBefore(r0, el_before)
-        end
-      end
-
-      if repeat_done_ then
-        repeat_done_(items)
-      end
-
-      el:remove()
-
-    else
-
-      Array:from(el.attributes):forEach(function (_, attr)
-        el:setAttribute(attr.name, str.interp(attr.value, data))
-      end)
-
-      local target = shadow and el:attachShadow({ mode = shadow }) or el
-
-      Array:from(el.attributes):forEach(function (_, attr)
-        if attr.name == "tk-id" then
-          local ik = it.collect(str.gmatch(attr.value, "[^.]+"))
-          arr.push(ik, el)
-          tbl.set(els, arr.spread(ik))
-          el:removeAttribute(attr.name)
-        elseif str.match(attr.name, "^tk%-on%:") then
-          local ev = str.sub(attr.name, 7, #attr.name)
-          local fn = parse_attr_value(data, attr, el.attributes, root)
-          -- TODO: allow passing true/false/etc to addEventListener and
-          -- arbitrary arguments to the handler (maybe)
-          if fn then
-            el:addEventListener(ev, function (_, ev)
-              return fn(ev, el)
-            end)
-          end
-          el:removeAttribute(attr.name)
-        elseif attr.name == "tk-text" then
-          target:replaceChildren(document:createTextNode(parse_attr_value(data, attr, el.attributes, root)))
-          el:removeAttribute(attr.name)
-        elseif attr.name == "tk-html" then
-          target.innerHTML = parse_attr_value(data, attr, el.attributes, root)
-          el:removeAttribute(attr.name)
-        elseif attr.name == "tk-href" then
-          el.href = parse_attr_value(data, attr, el.attributes, root)
-          el:removeAttribute(attr.name)
-        elseif attr.name == "tk-value" then
-          el.value = parse_attr_value(data, attr, el.attributes, root)
-          el:removeAttribute(attr.name)
-        elseif attr.name == "tk-src" then
-          el.src = parse_attr_value(data, attr, el.attributes, root)
-          el:removeAttribute(attr.name)
-        elseif attr.name == "tk-checked" then
-          el.checked = data[attr.value] or false
-          el:removeAttribute(attr.name)
-        end
-      end)
-
-    end
-
-  end
-
-  if recurse then
-
-    Array:from(el.childNodes):forEach(function (_, node)
-      if node.nodeType == 3 then -- text
-        node.nodeValue = str.interp(node.nodeValue, data)
-      end
-    end)
-
-    Array:from(el.children):forEach(function (_, child)
-      M.populate(child, data, root, els)
-    end)
-
-  end
-
-  return el, els, data
-
-end
-
-M.template = function (from)
-  local el = document:createElement("template")
-  if type(from) == "string" then
-    el.innerHTML = from
-  else
-    el:append(from)
-  end
-  return el
-end
-
-M.static = function (str)
-  return { template = M.template("<section><main>" .. str .. "</main></section>") }
-end
-
 M.throttle = function (fn, time)
   local last
   return function (...)
-    local now = Date:now()
+    local now = utc.time(true) * 1000
     if not last or (now - last) >= time then
       last = now
       return fn(...)
@@ -703,23 +331,8 @@ end
 M.debounce = function (fn, time)
   local timer
   return function (...)
-    global:clearTimeout(timer)
-    timer = global:setTimeout(fn, time, ...)
-  end
-end
-
-M.fit_image = function (e_img, e_main, image_ratio)
-  if not image_ratio then
-    image_ratio = e_img.width / e_img.height
-  end
-  local over_height = e_img.height - e_main.clientHeight
-  local over_width = e_img.width - e_main.clientWidth
-  if over_height > over_width then
-    e_img.height = e_main.clientHeight
-    e_img.width = e_img.height * image_ratio
-  else
-    e_img.width = e_main.clientWidth
-    e_img.height = e_img.width / image_ratio
+    M.clear_timeout(timer)
+    timer = M.set_timeout(fn, time, ...)
   end
 end
 
@@ -737,138 +350,6 @@ M.component = function (tag, callback)
   return class
 end
 
-M.parse_path = function (url, path, params, modal)
-  local result = { path = path or {}, params = params or {} }
-  tbl.clear(result.path)
-  tbl.clear(result.params)
-  local path, query
-  if url then
-    path, query = str.match(url, "([^?]*)%??(.*)")
-  end
-  if path then
-    for segment in str.gmatch(path, "[^/]+") do
-      arr.push(result.path, segment)
-    end
-  end
-  if modal and result.path[#result.path] then
-    modal = str.sub(modal, 1, 1)
-    local pat = "^([^%" .. modal .. "]*)%" .. modal .. "?(.*)$"
-    local s, m = str.match(result.path[#result.path], pat)
-    if s and m and m ~= "" then
-      result.path[#result.path] = s
-      result.modal = m
-    end
-  end
-  if query then
-    str.from_query(query, result.params)
-  end
-  return result
-end
-
-M.parse_url = function (url, result)
-  result = result or {}
-  result.scheme, result.userinfo, result.host, result.port, result.fragment = nil, nil, nil, nil, nil
-  result.path = result.path or {}
-  result.params = result.params or {}
-  tbl.clear(result.path)
-  tbl.clear(result.params)
-  if not url then return result end
-  local rest = url
-  local hash_pos = str.find(rest, "#", 1, true)
-  if hash_pos then
-    result.fragment = str.sub(rest, hash_pos + 1)
-    rest = str.sub(rest, 1, hash_pos - 1)
-  end
-  local query_pos = str.find(rest, "?", 1, true)
-  local query
-  if query_pos then
-    query = str.sub(rest, query_pos + 1)
-    rest = str.sub(rest, 1, query_pos - 1)
-  end
-  local scheme, after_scheme = str.match(rest, "^([a-zA-Z][a-zA-Z0-9+.-]*):(.*)")
-  if scheme then
-    result.scheme = str.lower(scheme)
-    rest = after_scheme
-  end
-  local authority, path_part = str.match(rest, "^//([^/]*)(.*)")
-  if authority then
-    rest = path_part or ""
-    local userinfo, host_port = str.match(authority, "^([^@]*)@(.*)")
-    if userinfo then
-      result.userinfo = userinfo
-      authority = host_port
-    end
-    local bracket_host, bracket_port = str.match(authority, "^%[([^%]]+)%]:?(%d*)")
-    if bracket_host then
-      result.host = bracket_host
-      if bracket_port and bracket_port ~= "" then result.port = tonumber(bracket_port) end
-    else
-      local host, port = str.match(authority, "^([^:]*):?(%d*)")
-      result.host = host
-      if port and port ~= "" then result.port = tonumber(port) end
-    end
-  end
-  result.pathname = rest
-  for segment in str.gmatch(rest, "[^/]+") do
-    arr.push(result.path, segment)
-  end
-  if query then
-    result.search = "?" .. query
-    str.from_query(query, result.params)
-  else
-    result.search = ""
-  end
-  return result
-end
-
-M.encode_url = function (t)
-  local out = {}
-  if t.scheme then
-    arr.push(out, t.scheme, ":")
-  end
-  if t.host then
-    arr.push(out, "//")
-    if t.userinfo then arr.push(out, t.userinfo, "@") end
-    if str.find(t.host, ":", 1, true) then
-      arr.push(out, "[", t.host, "]")
-    else
-      arr.push(out, t.host)
-    end
-    if t.port then arr.push(out, ":", tostring(t.port)) end
-  end
-  if t.pathname then
-    arr.push(out, t.pathname)
-  elseif t.path and #t.path > 0 then
-    for i = 1, #t.path do
-      arr.push(out, "/", t.path[i])
-    end
-  end
-  if t.search and t.search ~= "" then
-    arr.push(out, t.search)
-  elseif t.params and next(t.params) then
-    str.to_query(t.params, out)
-  end
-  if t.fragment then arr.push(out, "#", t.fragment) end
-  return arr.concat(out)
-end
-
-M.encode_path = function (t, params, modal)
-  local out = {}
-  for i = 1, #t.path do
-    if type(t.path[i]) == "table" then
-      break
-    end
-    arr.push(out, "/", str.from_url(t.path[i]))
-  end
-  if modal and t.modal then
-    arr.push(out, modal, t.modal)
-  end
-  if (params or params == nil) and t.params and next(t.params) then
-    str.to_query(t.params, out)
-  end
-  return arr.concat(out)
-end
-
 M.set_local = function (k, v)
   if localStorage then
     if v == nil then
@@ -884,7 +365,6 @@ M.get_local = function (k)
     return localStorage:getItem(tostring(k))
   end
 end
-
 
 M.utc_date = function (seconds)
   local date = Date:new(0)
