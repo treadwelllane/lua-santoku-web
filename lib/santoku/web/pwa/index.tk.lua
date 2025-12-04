@@ -81,11 +81,9 @@ local init_script_template = [=[
       window.swRegistration = reg;
       reg.update();
     });
-    // Reload when new SW takes control (unless user-triggered update)
+    // Reload when new SW takes control
     navigator.serviceWorker.addEventListener('controllerchange', function() {
-      if (!window.swSkipWaitingTriggered) {
-        window.location.reload();
-      }
+      window.location.reload();
     });
     return;
   }
@@ -110,9 +108,7 @@ local init_script_template = [=[
         onReady();
         // Also listen for updates replacing current controller
         navigator.serviceWorker.addEventListener('controllerchange', function() {
-          if (!window.swSkipWaitingTriggered) {
-            window.location.reload();
-          }
+          window.location.reload();
         });
         return;
       }
@@ -215,9 +211,7 @@ local inline_script_template = [=[
 
       // Listen for controller change (when new SW activates)
       navigator.serviceWorker.addEventListener('controllerchange', function() {
-        if (!window.swSkipWaitingTriggered) {
-          window.location.reload();
-        }
+        window.location.reload();
       });
     });
   }
