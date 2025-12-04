@@ -1,4 +1,5 @@
 local js = require("santoku.web.js")
+local util = require("santoku.web.util")
 local val = require("santoku.web.val")
 local arr = require("santoku.array")
 local err = require("santoku.error")
@@ -77,7 +78,7 @@ return function (bundle_path, callback)
         done(nil)
       end)
       -- Resolve immediately to release the temporary lock
-      return js.Promise:resolve()
+      return util.promise(function (complete) complete(true) end)
     end)
   end
 
@@ -122,7 +123,7 @@ return function (bundle_path, callback)
     }, true))
 
     -- Timeout and retry if no response
-    js.setTimeout(function ()
+    util.set_timeout(function ()
       if counter == provider_counter and not db and not is_provider then
         navigator.serviceWorker:removeEventListener("message", on_sw_message)
         request_provider_port(counter)
@@ -199,7 +200,7 @@ return function (bundle_path, callback)
 
       -- Acquire context lock (for lifetime tracking, held forever)
       navigator.locks:request(client_id, function ()
-        return js.Promise:new(function () end)
+        return util.promise(function () end)
       end):catch(function () end)
 
       -- Try to become provider via lock acquisition
@@ -241,7 +242,7 @@ return function (bundle_path, callback)
         if callback then callback() end
 
         -- Hold lock forever (until tab closes)
-        return js.Promise:new(function () end)
+        return util.promise(function () end)
       end)
 
       -- Also try to connect as consumer immediately
