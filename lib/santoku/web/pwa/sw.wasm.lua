@@ -70,19 +70,40 @@ return function (opts)
 
   local db_sw_port = nil
   local db_pending_queue = {}
+  local db_inflight_requests = {}
+  local db_request_id = 0
   local db_provider_client_id = nil
   local db_port_request_pending = false
   local db_provider_debounce_timer = nil
   local pending_consumer_ports = {}
 
   local function send_db_call (method, args, callback)
+    db_request_id = db_request_id + 1
+    local id = db_request_id
     local ch = MessageChannel:new()
+    db_inflight_requests[id] = { method = method, args = args, callback = callback, port = ch.port1 }
     db_sw_port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
     ch.port1.onmessage = function (_, ev)
+      db_inflight_requests[id] = nil
       local result = {}
       for i = 1, ev.data.length do result[i] = ev.data[i] end
       callback(arr.spread(result))
     end
+  end
+
+  local function requeue_inflight_requests ()
+    for id, req in pairs(db_inflight_requests) do
+      if opts.verbose then
+        print("[SW] Re-queueing in-flight request:", req.method)
+      end
+      req.port:close()
+      db_pending_queue[#db_pending_queue + 1] = {
+        method = req.method,
+        args = req.args,
+        callback = req.callback
+      }
+    end
+    db_inflight_requests = {}
   end
 
   local function flush_queue ()
@@ -164,15 +185,14 @@ return function (opts)
           print("[SW] New provider announced:", data.clientId)
         end
         db_provider_client_id = data.clientId
-        -- Immediately invalidate old port so requests get queued
         if db_sw_port then
           if opts.verbose then
             print("[SW] Closing old db_sw_port immediately")
           end
           db_sw_port:close()
           db_sw_port = nil
+          requeue_inflight_requests()
         end
-        -- Debounce the port request (in case of rapid announcements)
         if db_provider_debounce_timer then
           util.clear_timeout(db_provider_debounce_timer)
         end
