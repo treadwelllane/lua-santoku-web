@@ -92,7 +92,7 @@ return function (opts)
   end
 
   local function requeue_inflight_requests ()
-    for id, req in pairs(db_inflight_requests) do
+    for _, req in pairs(db_inflight_requests) do
       if opts.verbose then
         print("[SW] Re-queueing in-flight request:", req.method)
       end
