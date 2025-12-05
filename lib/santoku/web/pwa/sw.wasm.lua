@@ -32,7 +32,6 @@ return function (opts)
 
   opts = tbl.merge({}, defaults, opts or {})
 
-  -- Page ready signaling for coordinated pre-caching
   local page_ready = false
   local page_ready_callbacks = {}
 
@@ -62,7 +61,6 @@ return function (opts)
 
     page_ready_callbacks[#page_ready_callbacks + 1] = call_once
 
-    -- Timeout fallback in case page never signals
     if opts.page_ready_timeout_ms then
       util.set_timeout(function ()
         if opts.verbose and not page_ready then
@@ -73,14 +71,13 @@ return function (opts)
     end
   end
 
-  -- SW database access via SharedService pattern
-  -- SW connects to provider as a consumer via BroadcastChannel
   local db_sw_port = nil
   local db_sw_callbacks = {}
   local db_pending_queue = {}
   local db_provider_client_id = nil
   local db_port_request_pending = false
-  local pending_consumer_ports = {} -- Ports waiting for consumers to fetch
+  local db_provider_debounce_timer = nil
+  local pending_consumer_ports = {}
 
   local function flush_queue ()
     if not db_sw_port then
@@ -91,7 +88,6 @@ return function (opts)
     for i = 1, #queue do
       local req = queue[i]
       local nonce = random_string()
-      -- Store full request for potential re-queue on provider change
       db_sw_callbacks[nonce] = req
       db_sw_port:postMessage(val({
         nonce = nonce,
@@ -113,7 +109,6 @@ return function (opts)
 
     local nonce = random_string()
 
-    -- Store full request so we can re-queue if provider changes
     db_sw_callbacks[nonce] = {
       method = method,
       args = args,
@@ -143,7 +138,6 @@ return function (opts)
       end
     })
 
-    -- Listen for provider announcements via BroadcastChannel
     local broadcast_channel = BroadcastChannel:new("sqlite_shared_service")
     if opts.verbose then
       print("[SW] Created BroadcastChannel for sqlite_shared_service")
@@ -154,15 +148,14 @@ return function (opts)
         print("[SW] request_sw_port called, has provider:", db_provider_client_id ~= nil, "pending:", db_port_request_pending)
       end
       if not db_provider_client_id then return end
-      if db_sw_port then return end -- Already have a port
-      if db_port_request_pending then return end -- Request already in flight
+      if db_sw_port then return end
+      if db_port_request_pending then return end
 
       db_port_request_pending = true
       if opts.verbose then
         print("[SW] Broadcasting sw_port_request on BroadcastChannel")
       end
 
-      -- Broadcast request for port - provider will respond via controller.postMessage
       broadcast_channel:postMessage(val({
         type = "sw_port_request"
       }, true))
@@ -174,20 +167,43 @@ return function (opts)
         print("[SW] Received broadcast:", data and data.type, "clientId:", data and data.clientId)
       end
       if data and data.type == "provider" and data.clientId then
-        -- If we have a working port, ignore new provider announcements
-        -- Only switch if we don't have a port or current provider is unresponsive
-        if db_sw_port then
+        if data.clientId == db_provider_client_id and db_sw_port then
           if opts.verbose then
-            print("[SW] Ignoring provider announcement - already have working port")
+            print("[SW] Ignoring duplicate provider announcement")
           end
           return
         end
         if opts.verbose then
-          print("[SW] New provider announced:", data.clientId)
+          print("[SW] New provider announced:", data.clientId, "- debouncing")
         end
         db_provider_client_id = data.clientId
-        db_port_request_pending = false
-        request_sw_port()
+        if db_provider_debounce_timer then
+          util.clear_timeout(db_provider_debounce_timer)
+        end
+        db_provider_debounce_timer = util.set_timeout(function ()
+          db_provider_debounce_timer = nil
+          if opts.verbose then
+            print("[SW] Processing provider change after debounce:", db_provider_client_id)
+          end
+          if db_sw_port then
+            if opts.verbose then
+              local count = 0
+              for _ in pairs(db_sw_callbacks) do count = count + 1 end
+              print("[SW] Closing old db_sw_port, re-queuing callbacks:", count)
+            end
+            for nonce, req in pairs(db_sw_callbacks) do
+              if opts.verbose then
+                print("[SW] Re-queuing callback:", nonce)
+              end
+              db_pending_queue[#db_pending_queue + 1] = req
+            end
+            db_sw_callbacks = {}
+            db_sw_port:close()
+            db_sw_port = nil
+          end
+          db_port_request_pending = false
+          request_sw_port()
+        end, 200)
       end
     end
   end
@@ -205,16 +221,12 @@ return function (opts)
     if opts.verbose then
       print("Installing service worker")
     end
-    -- Check if this is an update (existing active SW) or first install
     local is_update = global.registration.active ~= nil
     return util.promise(function (complete)
       return async.pipe(function (done)
         if is_update then
-          -- Skip waiting for page ready on updates - we need fresh files
           return done(true)
         end
-        -- Wait for page to signal that its resources are loaded
-        -- This allows us to pull from HTTP cache instead of network
         return wait_for_page_ready(function ()
           return done(true)
         end)
@@ -314,7 +326,6 @@ return function (opts)
           return done(true, resp:clone())
         end
       end, function (done, resp)
-        -- Cache the response on miss for offline support
         if was_miss and cache_ref and resp and resp.ok then
           cache_ref:put(request, resp:clone()):await(function ()
             return done(true, resp)
@@ -364,7 +375,6 @@ return function (opts)
     local url = URL:new(request.url)
     local pathname = url.pathname
 
-    -- Serve embedded index.html directly for root route
     if opts.index_html and (pathname == "/" or pathname == "/index.html") then
       return util.promise(function (complete)
         local headers = Headers:new()
@@ -399,17 +409,14 @@ return function (opts)
       return
     end
 
-    -- Handle skip waiting request from page
     if data.type == "skip_waiting" then
       return global:skipWaiting()
     end
 
-    -- Handle page resources loaded signal for coordinated pre-caching
     if data.type == "page_resources_loaded" then
       return on_page_resources_loaded()
     end
 
-    -- Store port from provider for consumer to fetch
     if data.type == "store_port" and data.nonce then
       if opts.verbose then
         print("[SW] Storing port for nonce:", data.nonce)
@@ -417,8 +424,7 @@ return function (opts)
       local port = ev.ports and ev.ports[1]
       if port then
         pending_consumer_ports[data.nonce] = port
-        -- Clean up after timeout (30 seconds)
-        util.set_timeout(function ()
+          util.set_timeout(function ()
           if pending_consumer_ports[data.nonce] then
             if opts.verbose then
               print("[SW] Cleaning up unclaimed port for nonce:", data.nonce)
@@ -431,7 +437,6 @@ return function (opts)
       return
     end
 
-    -- Consumer fetching their port (uses event.source, no ID lookup needed)
     if data.type == "get_port" and data.nonce then
       if opts.verbose then
         print("[SW] Consumer fetching port for nonce:", data.nonce)
@@ -454,7 +459,6 @@ return function (opts)
       return
     end
 
-    -- Handle SW port from provider (response to sw_port_request)
     if opts.sqlite and data.type == "sw_port" then
       if opts.verbose then
         print("[SW] Received sw_port from provider")
