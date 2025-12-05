@@ -6,7 +6,7 @@ local it = require("santoku.iter")
 local fun = require("santoku.functional")
 local tbl = require("santoku.table")
 local str = require("santoku.string")
-local rand = require("santoku.random")
+local arr = require("santoku.array")
 
 local global = js.self
 local Module = global.Module
@@ -16,6 +16,7 @@ local Promise = js.Promise
 local URL = js.URL
 local Response = js.Response
 local BroadcastChannel = js.BroadcastChannel
+local MessageChannel = js.MessageChannel
 
 local defaults = {
   cache_fetch_retry_backoff_ms = 1000,
@@ -23,10 +24,6 @@ local defaults = {
   cache_fetch_retry_times = 3,
   page_ready_timeout_ms = 10000,
 }
-
-local function random_string ()
-  return rand.alnum(16)
-end
 
 return function (opts)
 
@@ -72,12 +69,21 @@ return function (opts)
   end
 
   local db_sw_port = nil
-  local db_sw_callbacks = {}
   local db_pending_queue = {}
   local db_provider_client_id = nil
   local db_port_request_pending = false
   local db_provider_debounce_timer = nil
   local pending_consumer_ports = {}
+
+  local function send_db_call (method, args, callback)
+    local ch = MessageChannel:new()
+    db_sw_port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
+    ch.port1.onmessage = function (_, ev)
+      local result = {}
+      for i = 1, ev.data.length do result[i] = ev.data[i] end
+      callback(arr.spread(result))
+    end
+  end
 
   local function flush_queue ()
     if not db_sw_port then
@@ -87,13 +93,7 @@ return function (opts)
     db_pending_queue = {}
     for i = 1, #queue do
       local req = queue[i]
-      local nonce = random_string()
-      db_sw_callbacks[nonce] = req
-      db_sw_port:postMessage(val({
-        nonce = nonce,
-        method = req.method,
-        args = req.args
-      }, true))
+      send_db_call(req.method, req.args, req.callback)
     end
   end
 
@@ -106,20 +106,7 @@ return function (opts)
       }
       return
     end
-
-    local nonce = random_string()
-
-    db_sw_callbacks[nonce] = {
-      method = method,
-      args = args,
-      callback = callback
-    }
-
-    db_sw_port:postMessage(val({
-      nonce = nonce,
-      method = method,
-      args = args
-    }, true))
+    send_db_call(method, args, callback)
   end
 
   local db = nil
@@ -187,17 +174,8 @@ return function (opts)
           end
           if db_sw_port then
             if opts.verbose then
-              local count = 0
-              for _ in pairs(db_sw_callbacks) do count = count + 1 end
-              print("[SW] Closing old db_sw_port, re-queuing callbacks:", count)
+              print("[SW] Closing old db_sw_port")
             end
-            for nonce, req in pairs(db_sw_callbacks) do
-              if opts.verbose then
-                print("[SW] Re-queuing callback:", nonce)
-              end
-              db_pending_queue[#db_pending_queue + 1] = req
-            end
-            db_sw_callbacks = {}
             db_sw_port:close()
             db_sw_port = nil
           end
@@ -470,21 +448,6 @@ return function (opts)
         end
         db_port_request_pending = false
         db_sw_port = port
-        db_sw_port.onmessage = function (_, msg_ev)
-          local msg_data = msg_ev.data
-          if opts.verbose then
-            print("[SW] Received response on db_sw_port, nonce:", msg_data and msg_data.nonce)
-          end
-          if msg_data and msg_data.nonce and db_sw_callbacks[msg_data.nonce] then
-            local req = db_sw_callbacks[msg_data.nonce]
-            db_sw_callbacks[msg_data.nonce] = nil
-            if msg_data.error then
-              return req.callback(false, msg_data.error.message or tostring(msg_data.error))
-            else
-              return req.callback(true, msg_data.result)
-            end
-          end
-        end
         db_sw_port:start()
         if opts.verbose then
           print("[SW] Flushing pending queue, size:", #db_pending_queue)

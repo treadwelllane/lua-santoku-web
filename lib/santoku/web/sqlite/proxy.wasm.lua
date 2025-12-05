@@ -9,39 +9,21 @@ local document = js.document
 local MessageChannel = js.MessageChannel
 local BroadcastChannel = js.BroadcastChannel
 
-local function create_consumer_client (port)
-  local callbacks = {}
-  local nonce_counter = 0
-  port.onmessage = function (_, ev)
-    local data = ev.data
-    if data and data.nonce and callbacks[data.nonce] then
-      local cb = callbacks[data.nonce]
-      callbacks[data.nonce] = nil
-      if data.error then
-        return cb(false, data.error.message or tostring(data.error))
-      else
-        return cb(true, data.result)
-      end
-    end
-  end
-  port:start()
+local function create_wrpc_proxy (port)
   return setmetatable({}, {
     __index = function (_, method)
       return function (...)
         local n = select("#", ...)
         local callback = select(n, ...)
         local args = {}
-        for i = 1, n - 1 do
-          args[i] = select(i, ...)
+        for i = 1, n - 1 do args[i] = select(i, ...) end
+        local ch = MessageChannel:new()
+        port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
+        ch.port1.onmessage = function (_, ev)
+          local result = {}
+          for i = 1, ev.data.length do result[i] = ev.data[i] end
+          callback(arr.spread(result))
         end
-        nonce_counter = nonce_counter + 1
-        local nonce = tostring(nonce_counter)
-        callbacks[nonce] = callback
-        port:postMessage(val({
-          nonce = nonce,
-          method = method,
-          args = args
-        }, true))
       end
     end
   })
@@ -147,7 +129,7 @@ return function (bundle_path, callback, opts)
             print("[proxy] Becoming consumer with port")
           end
           current_provider_port = port
-          db = create_consumer_client(port)
+          db = create_wrpc_proxy(port)
           if callback then callback() end
         elseif port then
           if verbose then
@@ -193,33 +175,10 @@ return function (bundle_path, callback, opts)
     end, 2000)
   end
 
-  local function create_rpc_port ()
+  local function create_worker_port ()
     local ch = MessageChannel:new()
-    local port1, port2 = ch.port1, ch.port2
-
-    port1.onmessage = function (_, msg_ev)
-      local msg_data = msg_ev.data
-      if msg_data and msg_data.method and msg_data.nonce then
-        local args = {}
-        local js_args = msg_data.args
-        if js_args and js_args.length then
-          for i = 1, js_args.length do args[i] = js_args[i] end
-        end
-        args[#args + 1] = function (ok, result)
-          local response = { nonce = msg_data.nonce }
-          if ok then
-            response.result = result
-          else
-            response.error = { message = tostring(result), name = "Error" }
-          end
-          port1:postMessage(val(response, true))
-        end
-        db[msg_data.method](arr.spread(args))
-      end
-    end
-    port1:start()
-
-    return port2
+    wrpc.register_port(worker, ch.port2)
+    return ch.port1
   end
 
   broadcast_channel.onmessage = function (_, ev)
@@ -254,7 +213,7 @@ return function (bundle_path, callback, opts)
         return
       end
 
-      local port = create_rpc_port()
+      local port = create_worker_port()
       if verbose then
         print("[proxy] Storing port in SW for consumer to fetch, nonce:", data.nonce)
       end
@@ -275,7 +234,7 @@ return function (bundle_path, callback, opts)
         end
         return
       end
-      local port = create_rpc_port()
+      local port = create_worker_port()
       if verbose then
         print("[proxy] Sending sw_port to SW")
       end
