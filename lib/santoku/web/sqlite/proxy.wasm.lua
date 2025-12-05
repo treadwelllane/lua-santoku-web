@@ -206,16 +206,16 @@ return function (bundle_path, callback, opts)
         if js_args and js_args.length then
           for i = 1, js_args.length do args[i] = js_args[i] end
         end
-        local method_ok, method_result = err.pcall(function ()
-          return db[msg_data.method](arr.spread(args))
-        end)
-        local response = { nonce = msg_data.nonce }
-        if method_ok then
-          response.result = method_result
-        else
-          response.error = { message = tostring(method_result), name = "Error" }
+        args[#args + 1] = function (ok, result)
+          local response = { nonce = msg_data.nonce }
+          if ok then
+            response.result = result
+          else
+            response.error = { message = tostring(result), name = "Error" }
+          end
+          port1:postMessage(val(response, true))
         end
-        port1:postMessage(val(response, true))
+        db[msg_data.method](arr.spread(args))
       end
     end
     port1:start()
