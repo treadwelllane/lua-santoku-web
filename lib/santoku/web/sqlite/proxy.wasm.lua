@@ -2,7 +2,6 @@ local js = require("santoku.web.js")
 local util = require("santoku.web.util")
 local val = require("santoku.web.val")
 local arr = require("santoku.array")
-local err = require("santoku.error")
 local wrpc = require("santoku.web.worker.rpc.client")
 
 local navigator = js.navigator
