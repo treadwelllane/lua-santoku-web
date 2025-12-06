@@ -240,7 +240,7 @@ return function (opts)
   Module.on_install = function ()
     local is_update = global.registration.active ~= nil
     if opts.verbose then
-      print("Installing service worker", "is_update:", is_update, "version:", opts.service_worker_version)
+      print("Installing service worker (is_update: " .. tostring(is_update) .. ", version: " .. opts.service_worker_version .. ")")
     end
     return util.promise(function (complete)
       return async.pipe(function (done)
