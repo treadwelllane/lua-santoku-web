@@ -70,7 +70,12 @@ local init_script_template = [=[
     onReady();
     navigator.serviceWorker.ready.then(function(reg) {
       window.swRegistration = reg;
-      reg.update();
+      navigator.serviceWorker.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'version_mismatch' && document.body) {
+          document.body.classList.add('sw-update');
+          document.body.classList.add('sw-blocking');
+        }
+      });
     });
     navigator.serviceWorker.addEventListener('controllerchange', function() {
       window.location.reload();
@@ -84,7 +89,7 @@ local init_script_template = [=[
       var newWorker = reg.installing;
       newWorker.addEventListener('statechange', function() {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
-          document.body.classList.add('sw-update-available');
+          document.body.classList.add('sw-update');
         }
       });
     });
@@ -164,12 +169,17 @@ local inline_script_template = [=[
   if (navigator.serviceWorker) {
     navigator.serviceWorker.ready.then(function(reg) {
       window.swRegistration = reg;
-      reg.update();
+      navigator.serviceWorker.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'version_mismatch' && document.body) {
+          document.body.classList.add('sw-update');
+          document.body.classList.add('sw-blocking');
+        }
+      });
       reg.addEventListener('updatefound', function() {
         var newWorker = reg.installing;
         newWorker.addEventListener('statechange', function() {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
-            document.body.classList.add('sw-update-available');
+            document.body.classList.add('sw-update');
           }
         });
       });

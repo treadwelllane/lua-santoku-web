@@ -76,6 +76,26 @@ return function (opts)
   local db_port_request_pending = false
   local db_provider_debounce_timer = nil
   local pending_consumer_ports = {}
+  local version_mismatch = false
+
+  local function broadcast_version_mismatch ()
+    clients:matchAll():await(function (_, all_clients)
+      for i = 0, all_clients.length - 1 do
+        all_clients[i]:postMessage(val({ type = "version_mismatch" }, true))
+      end
+    end)
+  end
+
+  local function check_version_header (response)
+    if opts.version_check == false then return end
+    if not response or not response.ok then return end
+    local server_version = response.headers:get("X-App-Version")
+    if not server_version then return end
+    if server_version ~= opts.service_worker_version then
+      version_mismatch = true
+      broadcast_version_mismatch()
+    end
+  end
 
   local function send_db_call (method, args, callback)
     db_request_id = db_request_id + 1
@@ -326,6 +346,9 @@ return function (opts)
           return done(true, resp:clone())
         end
       end, function (done, resp)
+        if was_miss and resp then
+          check_version_header(resp)
+        end
         if was_miss and cache_ref and resp and resp.ok then
           cache_ref:put(request, resp:clone()):await(function ()
             return done(true, resp)
@@ -385,6 +408,11 @@ return function (opts)
 
     local handler, path, params = match_route(pathname, request.url)
     if handler then
+      if version_mismatch then
+        return util.promise(function (complete)
+          complete(true, create_error_response("Version mismatch", 503))
+        end)
+      end
       local req = { path = path, params = params, raw = request }
       return util.promise(function (complete)
         handler(req, path, params, function (ok, result, content_type)
