@@ -19,6 +19,8 @@ local AbortController = js.AbortController
 
 local M = {}
 
+M.sw_response_hook = nil
+
 M.set_timeout = function (fn, ms, ...)
   return global:setTimeout(fn, ms, ...)
 end
@@ -145,6 +147,9 @@ M.fetch = function (url, opts, req)
   return global:fetch(url, val(opts, true)):await(function (_, ok, resp, ...)
     if not ok and resp and resp.name == "AbortError" then
       return
+    end
+    if M.sw_response_hook then
+      M.sw_response_hook(resp)
     end
     if req.raw then
       if req.events then

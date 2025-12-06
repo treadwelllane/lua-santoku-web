@@ -89,6 +89,8 @@ return function (opts)
   local function check_version_header (response)
     if opts.version_check == false then return end
     if not response or not response.ok then return end
+    local origin = global.location.origin
+    if not response.url or not str.hasprefix(response.url, origin) then return end
     local server_version = response.headers:get("X-App-Version")
     if not server_version then return end
     if server_version ~= opts.service_worker_version then
@@ -231,6 +233,8 @@ return function (opts)
   if type(opts.routes) == "function" then
     opts.routes = opts.routes(db)
   end
+
+  util.sw_response_hook = check_version_header
 
   opts.service_worker_version = opts.service_worker_version
     and tostring(opts.service_worker_version) or "0"
