@@ -265,7 +265,8 @@ return function (opts)
                 or nil,
             })
           end, function (done, res)
-            return cache:put(file, res):await(fun.sel(done, 2))
+            local Request = js.Request
+            return cache:put(Request:new(file), res):await(fun.sel(done, 2))
           end, function (ok, err, ...)
             if not ok and opts.verbose then
               print("Failed caching", file, err and err.message)
