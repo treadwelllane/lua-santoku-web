@@ -323,6 +323,9 @@ return function (opts)
     return util.promise(function (complete)
       local cache_ref = nil
       local was_miss = false
+      if opts.verbose then
+        print("Fetching:", request.url)
+      end
       return async.pipe(function (done)
         return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
       end, function (done, cache)
@@ -398,6 +401,10 @@ return function (opts)
   Module.on_fetch = function (_, request, client_id)
     local url = URL:new(request.url)
     local pathname = url.pathname
+
+    if opts.verbose then
+      print("on_fetch:", pathname)
+    end
 
     if opts.index_html and (pathname == "/" or pathname == "/index.html") then
       return util.promise(function (complete)
