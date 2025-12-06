@@ -327,11 +327,11 @@ return function (opts)
         return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
       end, function (done, cache)
         cache_ref = cache
-        return cache:match(request, {
+        return cache:match(request.url, val({
           ignoreSearch = true,
           ignoreVary = true,
           ignoreMethod = true
-        }):await(fun.sel(done, 2))
+        }, true)):await(fun.sel(done, 2))
       end, function (done, resp)
         if not resp then
           was_miss = true
