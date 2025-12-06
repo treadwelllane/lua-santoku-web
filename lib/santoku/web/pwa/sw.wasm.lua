@@ -238,10 +238,10 @@ return function (opts)
   opts.cached_files = opts.cached_files or {}
 
   Module.on_install = function ()
-    if opts.verbose then
-      print("Installing service worker")
-    end
     local is_update = global.registration.active ~= nil
+    if opts.verbose then
+      print("Installing service worker", "is_update:", is_update, "version:", opts.service_worker_version)
+    end
     return util.promise(function (complete)
       return async.pipe(function (done)
         if is_update then
