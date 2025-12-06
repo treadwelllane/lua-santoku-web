@@ -339,7 +339,7 @@ return function (opts)
         if not resp then
           was_miss = true
           if opts.verbose then
-            print("Cache miss", request.url)
+            print("Cache miss:", request.url)
           end
           return util.fetch(request, nil, {
             done = done,
@@ -347,6 +347,9 @@ return function (opts)
             raw = true,
           })
         else
+          if opts.verbose then
+            print("Cache hit:", request.url)
+          end
           return done(true, resp:clone())
         end
       end, function (done, resp)
