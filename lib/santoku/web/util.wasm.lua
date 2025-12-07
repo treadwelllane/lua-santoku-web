@@ -11,6 +11,8 @@ local global = js.self or js.global or js.window
 local localStorage = global.localStorage
 local Date = js.Date
 local WebSocket = js.WebSocket
+local Headers = js.Headers
+local Response = js.Response
 
 local M = {}
 
@@ -181,6 +183,52 @@ end
 
 M.date_utc = function (date)
   return num.trunc(date:getTime() / 1000, 0)
+end
+
+M.request_text = function (request, callback)
+  request:text():await(function (_, ok, text)
+    callback(ok and text or nil)
+  end)
+end
+
+M.request_json = function (request, callback)
+  local json = require("cjson")
+  M.request_text(request, function (text)
+    if text then
+      local ok, data = pcall(json.decode, text)
+      callback(ok and data or nil)
+    else
+      callback(nil)
+    end
+  end)
+end
+
+M.request_formdata = function (request, callback)
+  local str = require("santoku.string")
+  M.request_text(request, function (text)
+    if text then
+      callback(str.from_formdata(text))
+    else
+      callback({})
+    end
+  end)
+end
+
+M.response = function (body, opts)
+  opts = opts or {}
+  local headers = Headers:new()
+  if opts.content_type then
+    headers:set("Content-Type", opts.content_type)
+  end
+  if opts.headers then
+    for k, v in pairs(opts.headers) do
+      headers:set(k, v)
+    end
+  end
+  return Response:new(body, {
+    status = opts.status or 200,
+    headers = headers
+  })
 end
 
 return M
