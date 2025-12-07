@@ -236,7 +236,7 @@ return function (opts)
       url = js.Request:new(url, val({ headers = new_headers }, true))
     end
     return k(url, req_opts)
-  end)
+  end, true)
 
   http.on("response", function (k, ok, resp)
     if opts.version_check == false then
@@ -250,7 +250,7 @@ return function (opts)
       end
     end
     return k(ok, resp)
-  end)
+  end, true)
 
   if type(opts.routes) == "function" then
     opts.routes = opts.routes(db, http)
