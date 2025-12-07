@@ -15,7 +15,6 @@ local caches = js.caches
 local clients = js.clients
 local Promise = js.Promise
 local URL = js.URL
-local Response = js.Response
 local BroadcastChannel = js.BroadcastChannel
 local MessageChannel = js.MessageChannel
 
@@ -398,28 +397,6 @@ return function (opts)
     end
   end
 
-  local Headers = js.Headers
-
-  local function create_response (body, content_type)
-    content_type = content_type or "text/html"
-    local headers = Headers:new()
-    headers:set("Content-Type", content_type)
-    return Response:new(body, { headers = headers })
-  end
-
-  local function create_error_response (message, status)
-    status = status or 500
-    if opts.verbose then
-      print("SW error response:", status, tostring(message))
-    end
-    local headers = Headers:new()
-    headers:set("Content-Type", "text/plain")
-    return Response:new("Error: " .. tostring(message), {
-      status = status,
-      headers = headers
-    })
-  end
-
   Module.on_fetch = function (_, request, client_id)
     local url = URL:new(request.url)
     local pathname = url.pathname
@@ -430,9 +407,7 @@ return function (opts)
 
     if opts.index_html and (pathname == "/" or pathname == "/index.html") then
       return util.promise(function (complete)
-        local headers = Headers:new()
-        headers:set("Content-Type", "text/html")
-        complete(true, Response:new(opts.index_html, { headers = headers }))
+        complete(true, util.response(opts.index_html, { content_type = "text/html" }))
       end)
     end
 
@@ -440,9 +415,7 @@ return function (opts)
     if pathname == update_path then
       return util.promise(function (complete)
         local function respond ()
-          local headers = Headers:new()
-          headers:set("Content-Type", "text/html")
-          complete(true, Response:new([[<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/"></head></html>]], { headers = headers }))
+          complete(true, util.response([[<!doctype html><html><head><meta http-equiv="refresh" content="0;url=/"></head></html>]], { content_type = "text/html" }))
         end
         local function do_skip ()
           if global.registration.waiting then
@@ -458,15 +431,30 @@ return function (opts)
 
     local handler, path, params = match_route(pathname, request.url)
     if handler then
-      local req = { path = path, params = params, raw = request }
       return util.promise(function (complete)
-        handler(req, path, params, function (ok, result, content_type)
-          if ok then
-            complete(true, create_response(result, content_type))
-          else
-            complete(true, create_error_response(result))
-          end
-        end)
+        local function run_handler (merged_params)
+          local req = { path = path, params = merged_params, raw = request }
+          handler(req, path, merged_params, function (ok, result, content_type, extra_headers)
+            if ok then
+              complete(true, util.response(result, { content_type = content_type, headers = extra_headers }))
+            else
+              if opts.verbose then
+                print("SW error response:", 500, tostring(result))
+              end
+              complete(true, util.response("Error: " .. tostring(result), { status = 500, content_type = "text/plain" }))
+            end
+          end)
+        end
+        if request.method == "POST" then
+          util.request_formdata(request, function (form_params)
+            for k, v in pairs(form_params) do
+              params[k] = v
+            end
+            run_handler(params)
+          end)
+        else
+          run_handler(params)
+        end
       end)
     end
 
