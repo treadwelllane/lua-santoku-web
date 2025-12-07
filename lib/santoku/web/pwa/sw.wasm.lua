@@ -247,7 +247,7 @@ return function (opts)
     if not version_check_enabled then
       return k(ok, resp)
     end
-    if resp and resp.headers then
+    if not version_mismatch and resp and resp.headers then
       local server_version = resp.headers["x-app-version"]
       if server_version and server_version ~= client_version then
         version_mismatch = true
