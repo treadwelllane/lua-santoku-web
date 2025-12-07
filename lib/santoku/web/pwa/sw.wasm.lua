@@ -279,7 +279,7 @@ return function (opts)
       end, function (done, cache)
         return async.each(it.ivals(opts.cached_files), function (each_done, file)
           return async.pipe(function (done)
-            return http.get(file, {}, done)
+            return http.get(file, { retry = false }, done)
           end, function (done, ok, resp)
             if not ok or not resp or not resp.raw then
               return done(false, resp)
@@ -288,7 +288,8 @@ return function (opts)
             return cache:put(full_url, resp.raw):await(fun.sel(done, 2))
           end, function (ok, err, ...)
             if not ok and opts.verbose then
-              print("Failed caching", file, err and err.message)
+              local msg = err and (err.message or (err.error and err.error.message) or tostring(err.status))
+              print("Failed caching", file, msg)
             elseif opts.verbose then
               print("Cached", file)
             end
