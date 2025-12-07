@@ -22,6 +22,15 @@ return function (opts)
 
   opts = opts or {}
 
+  local function extract_error_msg (err)
+    if not err then return "unknown error" end
+    if type(err) == "string" then return err end
+    return err.message
+      or (err.error and err.error.message)
+      or (err.status and ("HTTP " .. tostring(err.status)))
+      or tostring(err)
+  end
+
   local page_ready = false
   local page_ready_callbacks = {}
 
@@ -148,6 +157,9 @@ return function (opts)
       __index = function (_, method)
         return function (...)
           local n = select("#", ...)
+          if n == 0 then
+            error("db." .. method .. "() called without callback")
+          end
           local callback = select(n, ...)
           local args = {}
           for i = 1, n - 1 do
@@ -291,13 +303,17 @@ return function (opts)
             local full_url = URL:new(file, global.location.origin).href
             return cache:put(full_url, resp.raw):await(fun.sel(done, 2))
           end, function (ok, err, ...)
-            if not ok and opts.verbose then
-              local msg = err and (err.message or (err.error and err.error.message) or tostring(err.status))
-              print("Failed caching", file, msg)
-            elseif opts.verbose then
+            if not ok then
+              local msg = extract_error_msg(err)
+              if opts.verbose then
+                print("Failed caching", file, msg)
+              end
+              return each_done(false, "Failed to cache " .. file .. ": " .. msg)
+            end
+            if opts.verbose then
               print("Cached", file)
             end
-            return each_done(ok, ...)
+            return each_done(true, ...)
           end)
         end, done)
       end, function (done)
@@ -306,13 +322,18 @@ return function (opts)
         else
           return done(true)
         end
-      end, function (ok, ...)
-        if ok and opts.verbose then
-          print("Installed service worker")
-        elseif not ok and opts.verbose then
-          print("Error installing service worker", (...) and (...).message or (...))
+      end, function (ok, err, ...)
+        if ok then
+          if opts.verbose then
+            print("Installed service worker")
+          end
+        else
+          local msg = extract_error_msg(err)
+          if opts.verbose then
+            print("Error installing service worker:", msg)
+          end
         end
-        return complete(ok, ...)
+        return complete(ok, err, ...)
       end)
     end)
   end
