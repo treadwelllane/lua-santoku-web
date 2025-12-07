@@ -1,25 +1,18 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
-local rand = require("santoku.random")
 local err = require("santoku.error")
-local async = require("santoku.async")
-local str = require("santoku.string")
 local arr = require("santoku.array")
 local fun = require("santoku.functional")
 local utc = require("santoku.utc")
 local num = require("santoku.num")
-local json = require("cjson")
 
 local Promise = js.Promise
 local global = js.self or js.global or js.window
 local localStorage = global.localStorage
 local Date = js.Date
 local WebSocket = js.WebSocket
-local AbortController = js.AbortController
 
 local M = {}
-
-M.sw_response_hook = nil
 
 M.set_timeout = function (fn, ms, ...)
   return global:setTimeout(fn, ms, ...)
@@ -27,145 +20,6 @@ end
 
 M.clear_timeout = function (id)
   return global:clearTimeout(id)
-end
-
-local reqs = setmetatable({}, { __mode = "k" })
-
-local function fetch_request (req)
-  local url, method, headers = req.url, req.method, req.headers
-  local signal = req.ctrl and req.ctrl.signal or nil
-  local body, params
-  if method == "GET" and req.qstr then
-    url = url .. req.qstr
-  end
-  if method == "GET" and req.params then
-    params = req.params
-  end
-  if method == "POST" and req.body then
-    body = json.encode(req.body)
-  end
-  return M.fetch(url, {
-    method = method,
-    headers = headers,
-    body = body,
-    params = params,
-    signal = signal,
-    cache = req.cache,
-  }, req)
-end
-
-M.request = function (url, opts, done, retry, raw)
-  if url and reqs[url] then
-    return url
-  end
-  local req = {}
-  reqs[req] = true
-  if type(url) ~= "string" then
-    req.url = url.url
-    req.body = url.body
-    req.params = url.params
-    req.headers = url.headers
-    req.done = done or url.done
-    req.retry = retry or url.retry
-    req.raw = raw or url.raw
-    req.cache = url.cache
-  elseif opts then
-    req.url = url
-    req.body = opts.body
-    req.params = opts.params
-    req.headers = opts.headers
-    req.done = done or url.done
-    req.retry = retry or opts.retry
-    req.raw = raw or opts.raw
-    req.cache = opts.cache
-  end
-  req.qstr = req.params and str.to_query(req.params) or ""
-  req.done = req.done or done or fun.noop
-  req.events = async.events()
-  req.ctrl = AbortController:new()
-  req.retry = req.retry == nil and {} or req.retry
-  if req.retry then
-    local retry = type(req.retry) == "table" and req.retry or {}
-    local times = retry.times or 3
-    local backoff = retry.backoff or 1
-    local multiplier = retry.multiplier or 3
-    local filter = retry.filter or function (ok, resp)
-      local s = resp and resp.status
-      return not ok and (s == 502 or s == 503 or s == 504 or s == 429)
-    end
-    req.events.on("response", function (k, ...)
-      if times > 0 and filter(...) then
-        return M.set_timeout(function ()
-          times = times - 1
-          backoff = backoff * multiplier
-          return fetch_request(req)
-        end, (backoff + (backoff * rand.num())) * 1000)
-      else
-        return k(...)
-      end
-    end, true)
-  end
-  req.cancel = function ()
-    return req.ctrl:abort()
-  end
-  return req
-end
-
-M.response = function (done, ok, resp, ...)
-  local result = { ok = ok and resp.ok, status = resp.status }
-  if resp.headers then
-    result.headers = {}
-    resp.headers:forEach(function (_, v, k)
-      result.headers[str.lower(k)] = v
-    end)
-  end
-  local ct = result.headers and result.headers["content-type"]
-  if ct and str.find(ct, "application/json") then
-    return resp:text():await(function (_, ok0, data, ...)
-      if ok0 then
-        result.body = json.decode(data)
-        return done(result.ok, result)
-      else
-        return done(ok0, data, ...)
-      end
-    end)
-  elseif resp and resp.text then
-    return resp:text():await(function (_, ok0, data, ...)
-      if ok0 then
-        result.body = data
-        return done(result.ok, result)
-      else
-        return done(ok0, data, ...)
-      end
-    end)
-  else
-    return done(result.ok, result, ...)
-  end
-end
-
-M.fetch = function (url, opts, req)
-  return global:fetch(url, val(opts, true)):await(function (_, ok, resp, ...)
-    if not ok and resp and resp.name == "AbortError" then
-      return
-    end
-    if M.sw_response_hook then
-      M.sw_response_hook(resp)
-    end
-    if req.raw then
-      if req.events then
-        return req.events.process("response", nil, req.done, ok, resp, ...)
-      else
-        return req.done(ok, resp, ...)
-      end
-    end
-    return M.response(function (...)
-      if req.events then
-        return req.events.process("response", nil, req.done, ...)
-      else
-        return req.done(...)
-      end
-    end, ok, resp, ...)
-  end)
 end
 
 M.ws = function (url, opts, each, retries, backoffs)
@@ -250,58 +104,6 @@ M.ws = function (url, opts, each, retries, backoffs)
       ws = nil
     end
   end
-end
-
-M.get = function (...)
-  local req = M.request(...)
-  req.method = "GET"
-  fetch_request(req)
-  return req.cancel
-end
-
-M.post = function (...)
-  local req = M.request(...)
-  req.method = "POST"
-  req.headers = req.headers or {}
-  req.headers["content-type"] = req.headers["content-type"] or "application/json"
-  fetch_request(req)
-  return req.cancel
-end
-
-local intercept = function (fn, events)
-  local req
-  return function (...)
-    events.process("request", nil, function (req0)
-      req = req0
-      req0.events.on("response", function (done0, ok0, ...)
-        return events.process("response", function (done1, ok1, req1, ...)
-          if ok1 == "retry" then
-            return fn(req0)
-          else
-            return done1(ok1, req1, ...)
-          end
-        end, function (ok2, _, ...)
-          return done0(ok2, ...)
-        end, ok0, req0, ...)
-      end, true)
-      return fn(req0)
-    end, M.request(...))
-    return function ()
-      if req then
-        return req.cancel()
-      end
-    end
-  end
-end
-
-M.http_client = function ()
-  local events = async.events()
-  return {
-    on = events.on,
-    off = events.off,
-    get = intercept(M.get, events),
-    post = intercept(M.post, events)
-  }
 end
 
 M.promise = function (fn)
