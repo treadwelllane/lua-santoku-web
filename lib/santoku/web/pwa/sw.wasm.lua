@@ -73,10 +73,11 @@ return function (opts)
   local version_mismatch = false
 
   local function broadcast_version_mismatch ()
-    clients:matchAll():await(function (_, all_clients)
-      for i = 0, all_clients.length - 1 do
-        all_clients[i]:postMessage(val({ type = "version_mismatch" }, true))
-      end
+    clients:matchAll():await(function (_, ok, all_clients)
+      if not ok or not all_clients then return end
+      all_clients:forEach(function (_, client)
+        client:postMessage(val({ type = "version_mismatch" }, true))
+      end)
     end)
   end
 
@@ -222,29 +223,33 @@ return function (opts)
 
   local http = http_factory(socket)
 
+  local version_check_enabled = type(opts.version_check) == "string"
+  local client_version = version_check_enabled and opts.version_check or nil
+
   http.on("request", function (k, url, req_opts)
-    if opts.version_check == false or not is_same_origin(url) then
+    if not version_check_enabled or not is_same_origin(url) then
       return k(url, req_opts)
     end
     if type(url) == "string" then
       req_opts = req_opts or {}
       req_opts.headers = req_opts.headers or {}
-      req_opts.headers["x-client-version"] = opts.service_worker_version
-    elseif url and url.headers then
-      local new_headers = js.Headers:new(url.headers)
-      new_headers:set("x-client-version", opts.service_worker_version)
-      url = js.Request:new(url, val({ headers = new_headers }, true))
+      req_opts.headers["x-client-version"] = client_version
+    elseif url and url.clone then
+      local cloned = url:clone()
+      local new_headers = js.Headers:new(cloned.headers)
+      new_headers:set("x-client-version", client_version)
+      url = js.Request:new(cloned, val({ headers = new_headers }, true))
     end
     return k(url, req_opts)
   end, true)
 
   http.on("response", function (k, ok, resp)
-    if opts.version_check == false then
+    if not version_check_enabled then
       return k(ok, resp)
     end
     if resp and resp.headers then
       local server_version = resp.headers["x-app-version"]
-      if server_version and server_version ~= opts.service_worker_version then
+      if server_version and server_version ~= client_version then
         version_mismatch = true
         broadcast_version_mismatch()
       end
@@ -280,8 +285,8 @@ return function (opts)
         return async.each(it.ivals(opts.cached_files), function (each_done, file)
           return async.pipe(function (done)
             return http.get(file, { retry = false }, done)
-          end, function (done, ok, resp)
-            if not ok or not resp or not resp.raw then
+          end, function (done, resp)
+            if not resp or not resp.raw then
               return done(false, resp)
             end
             local full_url = URL:new(file, global.location.origin).href
@@ -368,14 +373,14 @@ return function (opts)
           end
           return done(true, { raw = cached_resp:clone() })
         end
-      end, function (done, ok, resp)
+      end, function (done, resp)
         local raw = resp and resp.raw
         if was_miss and cache_ref and raw and raw.ok then
           cache_ref:put(request, raw:clone()):await(function ()
             return done(true, raw)
           end)
         else
-          return done(ok, raw)
+          return done(true, raw)
         end
       end, complete)
     end)
@@ -433,11 +438,6 @@ return function (opts)
 
     local handler, path, params = match_route(pathname, request.url)
     if handler then
-      if version_mismatch then
-        return util.promise(function (complete)
-          complete(true, create_error_response("Version mismatch", 503))
-        end)
-      end
       local req = { path = path, params = params, raw = request }
       return util.promise(function (complete)
         handler(req, path, params, function (ok, result, content_type)
