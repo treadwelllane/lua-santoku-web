@@ -436,6 +436,23 @@ return function (opts)
       end)
     end
 
+    local update_path = opts.update_path or "/update"
+    if pathname == update_path then
+      return util.promise(function (complete)
+        local function respond ()
+          local headers = Headers:new()
+          headers:set("Content-Type", "text/html")
+          complete(true, Response:new([[<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/"></head></html>]], { headers = headers }))
+        end
+        if global.registration.waiting then
+          global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+        end
+        global:skipWaiting():await(function ()
+          respond()
+        end)
+      end)
+    end
+
     local handler, path, params = match_route(pathname, request.url)
     if handler then
       local req = { path = path, params = params, raw = request }
