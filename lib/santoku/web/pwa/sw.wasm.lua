@@ -2,9 +2,10 @@ local js = require("santoku.web.js")
 local util = require("santoku.web.util")
 local val = require("santoku.web.val")
 local async = require("santoku.async")
+local socket = require("santoku.web.socket")
+local http_factory = require("santoku.http")
 local it = require("santoku.iter")
 local fun = require("santoku.functional")
-local tbl = require("santoku.table")
 local str = require("santoku.string")
 local arr = require("santoku.array")
 
@@ -18,16 +19,9 @@ local Response = js.Response
 local BroadcastChannel = js.BroadcastChannel
 local MessageChannel = js.MessageChannel
 
-local defaults = {
-  cache_fetch_retry_backoff_ms = 1000,
-  cache_fetch_retry_backoff_multiply = 2,
-  cache_fetch_retry_times = 3,
-  page_ready_timeout_ms = 10000,
-}
-
 return function (opts)
 
-  opts = tbl.merge({}, defaults, opts or {})
+  opts = opts or {}
 
   local page_ready = false
   local page_ready_callbacks = {}
@@ -86,17 +80,13 @@ return function (opts)
     end)
   end
 
-  local function check_version_header (response)
-    if opts.version_check == false then return end
-    if not response or not response.ok then return end
-    local origin = global.location.origin
-    if not response.url or not str.hasprefix(response.url, origin) then return end
-    local server_version = response.headers:get("X-App-Version")
-    if not server_version then return end
-    if server_version ~= opts.service_worker_version then
-      version_mismatch = true
-      broadcast_version_mismatch()
+  local function is_same_origin (url)
+    if type(url) == "string" then
+      return str.startswith(url, "/") or str.startswith(url, global.location.origin)
+    elseif url and url.url then
+      return str.startswith(url.url, global.location.origin)
     end
+    return false
   end
 
   local function send_db_call (method, args, callback)
@@ -230,11 +220,41 @@ return function (opts)
     end
   end
 
-  if type(opts.routes) == "function" then
-    opts.routes = opts.routes(db)
-  end
+  local http = http_factory(socket)
 
-  util.sw_response_hook = check_version_header
+  http.on("request", function (k, url, req_opts)
+    if opts.version_check == false or not is_same_origin(url) then
+      return k(url, req_opts)
+    end
+    if type(url) == "string" then
+      req_opts = req_opts or {}
+      req_opts.headers = req_opts.headers or {}
+      req_opts.headers["x-client-version"] = opts.service_worker_version
+    elseif url and url.headers then
+      local new_headers = js.Headers:new(url.headers)
+      new_headers:set("x-client-version", opts.service_worker_version)
+      url = js.Request:new(url, val({ headers = new_headers }, true))
+    end
+    return k(url, req_opts)
+  end)
+
+  http.on("response", function (k, ok, resp)
+    if opts.version_check == false then
+      return k(ok, resp)
+    end
+    if resp and resp.headers then
+      local server_version = resp.headers["x-app-version"]
+      if server_version and server_version ~= opts.service_worker_version then
+        version_mismatch = true
+        broadcast_version_mismatch()
+      end
+    end
+    return k(ok, resp)
+  end)
+
+  if type(opts.routes) == "function" then
+    opts.routes = opts.routes(db, http)
+  end
 
   opts.service_worker_version = opts.service_worker_version
     and tostring(opts.service_worker_version) or "0"
@@ -259,18 +279,13 @@ return function (opts)
       end, function (done, cache)
         return async.each(it.ivals(opts.cached_files), function (each_done, file)
           return async.pipe(function (done)
-            return util.get({
-              url = file,
-              raw = true,
-              done = done,
-              retries = opts.cache_fetch_retry_times,
-              backoffs = opts.cache_fetch_retry_backoff_ms
-                and (opts.cache_fetch_retry_backoff_ms * 1000)
-                or nil,
-            })
-          end, function (done, res)
+            return http.get(file, {}, done)
+          end, function (done, ok, resp)
+            if not ok or not resp or not resp.raw then
+              return done(false, resp)
+            end
             local full_url = URL:new(file, global.location.origin).href
-            return cache:put(full_url, res):await(fun.sel(done, 2))
+            return cache:put(full_url, resp.raw):await(fun.sel(done, 2))
           end, function (ok, err, ...)
             if not ok and opts.verbose then
               print("Failed caching", file, err and err.message)
@@ -339,33 +354,27 @@ return function (opts)
           ignoreVary = true,
           ignoreMethod = true
         }, true)):await(fun.sel(done, 2))
-      end, function (done, resp)
-        if not resp then
+      end, function (done, cached_resp)
+        if not cached_resp then
           was_miss = true
           if opts.verbose then
             print("Cache miss:", request.url)
           end
-          return util.fetch(request, nil, {
-            done = done,
-            retries = 0,
-            raw = true,
-          })
+          return http.fetch(request, { retry = false }, done)
         else
           if opts.verbose then
             print("Cache hit:", request.url)
           end
-          return done(true, resp:clone())
+          return done(true, { raw = cached_resp:clone() })
         end
-      end, function (done, resp)
-        if was_miss and resp then
-          check_version_header(resp)
-        end
-        if was_miss and cache_ref and resp and resp.ok then
-          cache_ref:put(request, resp:clone()):await(function ()
-            return done(true, resp)
+      end, function (done, ok, resp)
+        local raw = resp and resp.raw
+        if was_miss and cache_ref and raw and raw.ok then
+          cache_ref:put(request, raw:clone()):await(function ()
+            return done(true, raw)
           end)
         else
-          return done(true, resp)
+          return done(ok, raw)
         end
       end, complete)
     end)
