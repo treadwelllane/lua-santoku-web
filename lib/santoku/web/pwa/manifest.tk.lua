@@ -2,7 +2,7 @@ local json = require("cjson")
 local mustache = require("santoku.mustache")
 local tbl = require("santoku.table")
 
-local template = mustache([[ <% return readfile("res/pwa/manifest.mustache"), false %> ]]) -- luacheck: ignore
+local template = mustache([[ <% return readfile("res/pwa/manifest.json"), false %> ]]) -- luacheck: ignore
 
 local defaults = {
   start_url = "/",
