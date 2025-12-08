@@ -234,8 +234,8 @@ return function (opts)
 
   local http = http_factory(socket)
 
-  local version_check_enabled = type(opts.version_check) == "string"
-  local client_version = version_check_enabled and opts.version_check or nil
+  local version_check_enabled = type(opts.version) == "string"
+  local client_version = version_check_enabled and opts.version or nil
 
   http.on("request", function (k, url, req_opts)
     if not version_check_enabled or not is_same_origin(url) then
@@ -272,15 +272,14 @@ return function (opts)
     opts.routes = opts.routes(db, http)
   end
 
-  opts.service_worker_version = opts.service_worker_version
-    and tostring(opts.service_worker_version) or "0"
+  opts.nonce = opts.nonce and tostring(opts.nonce) or "0"
 
-  opts.cached_files = opts.cached_files or {}
+  opts.precache = opts.precache or {}
 
   Module.on_install = function ()
     local is_update = global.registration.active ~= nil
     if opts.verbose then
-      print("Installing service worker (is_update: " .. tostring(is_update) .. ", version: " .. opts.service_worker_version .. ")")
+      print("Installing service worker (is_update: " .. tostring(is_update) .. ", version: " .. opts.nonce .. ")")
     end
     return util.promise(function (complete)
       return async.pipe(function (done)
@@ -291,9 +290,9 @@ return function (opts)
           return done(true)
         end)
       end, function (done)
-        return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
+        return caches:open(opts.nonce):await(fun.sel(done, 2))
       end, function (done, cache)
-        return async.each(it.ivals(opts.cached_files), function (each_done, file)
+        return async.each(it.ivals(opts.precache), function (each_done, file)
           local full_url = URL:new(file, global.location.origin).href
           return async.pipe(function (done)
             return cache:match(full_url):await(fun.sel(done, 2))
@@ -355,7 +354,7 @@ return function (opts)
         return caches:keys():await(fun.sel(done, 2))
       end, function (done, keys)
         return Promise:all(keys:filter(function (_, k)
-          return k ~= opts.service_worker_version
+          return k ~= opts.nonce
         end):map(function (_, k)
           return caches:delete(k)
         end)):await(fun.sel(done, 2))
@@ -380,7 +379,7 @@ return function (opts)
         print("Fetching:", request.url)
       end
       return async.pipe(function (done)
-        return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
+        return caches:open(opts.nonce):await(fun.sel(done, 2))
       end, function (done, cache)
         cache_ref = cache
         return cache:match(request.url, val({

@@ -1,28 +1,8 @@
-<%
-  str = require("santoku.string")
-  squote = str.quote
-  to_base64 = str.to_base64
-  fs = require("santoku.fs")
-  readfile = fs.readfile
-%>
-
-local cjson = require("cjson")
 local mustache = require("santoku.mustache")
-local str = require("santoku.string")
 local tbl = require("santoku.table")
-
-local template = str.from_base64(<% return squote(to_base64(readfile("res/pwa/index.mustache"))) %>) -- luacheck: ignore
-
-local defaults = {
-  charset = "utf-8",
-  lang = "en",
-  manifest = "/manifest.json",
-  theme_color = "#000000",
-}
-
+local template = mustache([[<% return readfile("res/pwa/index.html"), false %>]]) -- luacheck: ignore
+local defaults = { charset = "utf-8", lang = "en" }
 return function(opts)
-  opts = tbl.merge({}, defaults, opts or {})
-  opts.cached_files_json = cjson.encode(opts.cached_files or {})
-  opts.deferred_scripts_json = cjson.encode(opts.deferred_scripts or {})
-  return mustache(template)(opts)
+  opts = tbl.merge({}, opts or {}, defaults)
+  return template(opts)
 end
