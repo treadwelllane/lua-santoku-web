@@ -101,8 +101,30 @@
           return;
         }
         signalPageReady(reg.installing || reg.waiting);
+        function waitForActive(worker) {
+          if (!worker) return;
+          if (worker.state === 'activated') {
+            if (navigator.serviceWorker.controller) {
+              onReady();
+            }
+            return;
+          }
+          worker.addEventListener('statechange', function() {
+            if (worker.state === 'activated' && navigator.serviceWorker.controller) {
+              onReady();
+            }
+          });
+        }
+        if (reg.installing) {
+          waitForActive(reg.installing);
+        } else if (reg.waiting) {
+          waitForActive(reg.waiting);
+        } else if (reg.active) {
+          waitForActive(reg.active);
+        }
         reg.addEventListener('updatefound', function() {
           var newWorker = reg.installing;
+          waitForActive(newWorker);
           newWorker.addEventListener('statechange', function() {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
               document.body.classList.add('sw-update');
