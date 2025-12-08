@@ -1,6 +1,6 @@
 {
   "name": "{{name}}",
-  "short_name": "{{short_name}}",
+  "short_name": "{{name}}",
   {{#description}}"description": "{{description}}",{{/description}}
   {{#id}}"id": "{{id}}",{{/id}}
   "start_url": "{{start_url}}",

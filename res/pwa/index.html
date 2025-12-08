@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+  <meta charset="{{charset}}">
+  {{#base_href}}<base href="{{base_href}}">{{/base_href}}
+  {{#title}}<title>{{title}}</title>{{/title}}
+  {{#title}}<meta name="apple-mobile-web-app-title" content="{{title}}">{{/title}}
+  {{#title}}<meta name="application-name" content="{{title}}">{{/title}}
+  {{#description}}<meta name="description" content="{{description}}">{{/description}}
+  {{#description}}<meta name="msapplication-tooltip" content="{{description}}">{{/description}}
+  {{#keywords}}<meta name="keywords" content="{{keywords}}">{{/keywords}}
+  {{#manifest}}<link rel="manifest" href="{{manifest}}">{{/manifest}}
+  {{#theme_color}}<meta name="theme-color" content="{{theme_color}}">{{/theme_color}}
+  {{#theme_color}}<meta name="msapplication-navbutton-color" content="{{theme_color}}">{{/theme_color}}
+  {{#theme_color}}<meta name="msapplication-TileColor" content="{{theme_color}}">{{/theme_color}}
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  {{#ios_icon}}<link rel="apple-touch-icon" href="{{ios_icon}}">{{/ios_icon}}
+  {{^ios_icon}}{{#icon}}<link rel="apple-touch-icon" href="{{icon}}">{{/icon}}{{/ios_icon}}
+  {{#ms_icon}}<meta name="msapplication-TileImage" content="{{ms_icon}}">{{/ms_icon}}
+  {{#favicon_ico}}<link rel="icon" href="{{favicon_ico}}" sizes="any">{{/favicon_ico}}
+  {{^favicon_ico}}{{#favicon}}<link rel="icon" href="{{favicon}}" sizes="any">{{/favicon}}{{/favicon_ico}}
+  {{#favicon_svg}}<link rel="icon" href="{{favicon_svg}}" type="image/svg+xml">{{/favicon_svg}}
+  {{#splash_screens}}
+  <link rel="apple-touch-startup-image" media="(device-width: {{width}}px) and (device-height: {{height}}px) and (-webkit-device-pixel-ratio: {{dpr}})" href="{{src}}">
+  {{/splash_screens}}
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="msapplication-starturl" content="">
+  <meta name="msapplication-tap-highlight" content="no">
+  <meta name="full-screen" content="yes">
+  <meta name="browsermode" content="application">
+  <meta name="nightmode" content="enable">
+  <meta name="layoutmode" content="fitscreen">
+  <meta name="imagemode" content="force">
+  {{{head}}}
+  {{#sw}}
+  {{#initial}}
+  <script defer>
+    (function() {
+      var swPath = '{{sw}}';
+      var swReadyFired = false;
+      function swReady() {
+        if (swReadyFired) return;
+        swReadyFired = true;
+        if (document.body) {
+          document.body.classList.add('sw-ready');
+          document.body.dispatchEvent(new CustomEvent('sw-ready'));
+        }
+      }
+      function swError() {
+        if (document.body) {
+          document.body.classList.add('sw-error');
+          document.body.dispatchEvent(new CustomEvent('sw-error'));
+        }
+      }
+      function onReady() {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', swReady);
+        } else {
+          swReady();
+        }
+      }
+      function signalPageReady(worker) {
+        if (!worker) return;
+        function doSignal() {
+          worker.postMessage({ type: 'page_resources_loaded' });
+        }
+        if (document.readyState === 'complete') {
+          doSignal();
+        } else {
+          window.addEventListener('load', doSignal, { once: true });
+        }
+      }
+      if (!('serviceWorker' in navigator)) {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', swError);
+        } else {
+          swError();
+        }
+        return;
+      }
+      navigator.serviceWorker.register(swPath).then(function(reg) {
+        window.swRegistration = reg;
+        if (reg.active && !navigator.serviceWorker.controller) {
+          window.location.reload();
+          return;
+        }
+        signalPageReady(reg.installing || reg.waiting);
+        reg.addEventListener('updatefound', function() {
+          var newWorker = reg.installing;
+          newWorker.addEventListener('statechange', function() {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
+              document.body.classList.add('sw-update');
+            }
+          });
+        });
+        var firstController = true;
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          if (firstController) {
+            firstController = false;
+            onReady();
+          } else {
+            window.location.reload();
+          }
+        });
+      }).catch(function() {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', swError);
+        } else {
+          swError();
+        }
+      });
+    })();
+  </script>
+  {{/initial}}
+  {{^initial}}
+  <script defer>
+    (function() {
+      function swReady() {
+        if (document.body) {
+          document.body.classList.add('sw-ready');
+          document.body.dispatchEvent(new CustomEvent('sw-ready'));
+        }
+      }
+      function swError() {
+        if (document.body) {
+          document.body.classList.add('sw-error');
+          document.body.dispatchEvent(new CustomEvent('sw-error'));
+        }
+      }
+      function onReady() {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', swReady);
+        } else {
+          swReady();
+        }
+      }
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        onReady();
+      } else if (navigator.serviceWorker) {
+        var timeout = setTimeout(function() {
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', swError);
+          } else {
+            swError();
+          }
+        }, 10000);
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          clearTimeout(timeout);
+          onReady();
+        }, { once: true });
+      } else {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', swError);
+        } else {
+          swError();
+        }
+      }
+      if (navigator.serviceWorker) {
+        navigator.serviceWorker.ready.then(function(reg) {
+          window.swRegistration = reg;
+          navigator.serviceWorker.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'version_mismatch' && document.body) {
+              document.body.classList.add('sw-update');
+              document.body.classList.add('sw-blocking');
+            }
+          });
+          reg.addEventListener('updatefound', function() {
+            var newWorker = reg.installing;
+            newWorker.addEventListener('statechange', function() {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
+                document.body.classList.add('sw-update');
+              }
+            });
+          });
+          navigator.serviceWorker.addEventListener('controllerchange', function() {
+            window.location.reload();
+          });
+        });
+      }
+    })();
+  </script>
+  {{/initial}}
+  {{/sw}}
+</head>
+{{#body}}{{{body}}}{{/body}}
+{{^body}}<body {{{body_attrs}}}>{{{body_content}}}</body>{{/body}}
+</html>

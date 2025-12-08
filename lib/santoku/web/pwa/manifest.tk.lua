@@ -1,17 +1,8 @@
-<%
-  str = require("santoku.string")
-  squote = str.quote
-  to_base64 = str.to_base64
-  fs = require("santoku.fs")
-  readfile = fs.readfile
-%>
-
 local json = require("cjson")
 local mustache = require("santoku.mustache")
-local str = require("santoku.string")
 local tbl = require("santoku.table")
 
-local template = str.from_base64(<% return squote(to_base64(readfile("res/pwa/manifest.mustache"))) %>) -- luacheck: ignore
+local template = mustache([[ <% return readfile("res/pwa/manifest.mustache"), false %> ]]) -- luacheck: ignore
 
 local defaults = {
   start_url = "/",
@@ -24,7 +15,7 @@ local defaults = {
 }
 
 return function(opts)
-  opts = tbl.merge({}, defaults, opts or {})
+  opts = tbl.merge({}, opts or {}, defaults)
   if opts.icons and #opts.icons > 0 then
     opts.icons_json = json.encode(opts.icons)
   else
@@ -39,5 +30,5 @@ return function(opts)
   if opts.screenshots and #opts.screenshots > 0 then
     opts.screenshots_json = json.encode(opts.screenshots)
   end
-  return mustache(template)(opts)
+  return template(opts)
 end
