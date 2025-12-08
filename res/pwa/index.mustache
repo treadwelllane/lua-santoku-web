@@ -155,7 +155,21 @@
 (function() {
   var bundlePath = '{{bundle}}';
   var cachedFiles = {{{cached_files_json}}};
+  var deferredScripts = {{{deferred_scripts_json}}};
   var bundleLoaded = false;
+  function loadScripts(scripts, callback) {
+    if (!scripts || !scripts.length) return callback();
+    var i = 0;
+    function next() {
+      if (i >= scripts.length) return callback();
+      var s = document.createElement('script');
+      s.src = scripts[i];
+      s.onload = function() { i++; next(); };
+      s.onerror = function() { i++; next(); };
+      document.head.appendChild(s);
+    }
+    next();
+  }
   function loadBundle() {
     if (bundleLoaded) return;
     bundleLoaded = true;
@@ -182,12 +196,14 @@
     }
   }
   function onReady() {
-    loadBundle();
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', swReady);
-    } else {
-      swReady();
-    }
+    loadScripts(deferredScripts, function() {
+      loadBundle();
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', swReady);
+      } else {
+        swReady();
+      }
+    });
   }
   if (navigator.serviceWorker && navigator.serviceWorker.controller) {
     preCacheFiles().then(onReady);
