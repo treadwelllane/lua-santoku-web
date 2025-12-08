@@ -23,5 +23,6 @@ local defaults = {
 return function(opts)
   opts = tbl.merge({}, defaults, opts or {})
   opts.cached_files_json = cjson.encode(opts.cached_files or {})
+  opts.deferred_scripts_json = cjson.encode(opts.deferred_scripts or {})
   return mustache(template)(opts)
 end
