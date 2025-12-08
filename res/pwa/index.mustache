@@ -47,7 +47,194 @@
   <meta name="imagemode" content="force">
 
   {{{head}}}
-  {{{sw_script}}}
+{{#sw}}
+<script defer>
+(function() {
+  var swPath = '{{sw}}';
+  var bundlePath = {{#bundle}}'{{bundle}}'{{/bundle}}{{^bundle}}null{{/bundle}};
+  var bundleLoaded = false;
+  var swReadyFired = false;
+  function loadBundle() {
+    if (bundleLoaded || !bundlePath) return;
+    bundleLoaded = true;
+    var s = document.createElement('script');
+    s.src = bundlePath;
+    document.head.appendChild(s);
+  }
+  function swReady() {
+    if (swReadyFired) return;
+    swReadyFired = true;
+    if (document.body) {
+      document.body.classList.add('sw-ready');
+      document.body.dispatchEvent(new CustomEvent('sw-ready'));
+    }
+  }
+  function swError() {
+    if (document.body) {
+      document.body.classList.add('sw-error');
+      document.body.dispatchEvent(new CustomEvent('sw-error'));
+    }
+  }
+  function onReady() {
+    loadBundle();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', swReady);
+    } else {
+      swReady();
+    }
+  }
+  function signalPageReady(worker) {
+    if (!worker) return;
+    function doSignal() {
+      worker.postMessage({ type: 'page_resources_loaded' });
+    }
+    if (document.readyState === 'complete') {
+      doSignal();
+    } else {
+      window.addEventListener('load', doSignal, { once: true });
+    }
+  }
+  if (!('serviceWorker' in navigator)) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', swError);
+    } else {
+      swError();
+    }
+    return;
+  }
+  if (navigator.serviceWorker.controller) {
+    onReady();
+    navigator.serviceWorker.ready.then(function(reg) {
+      window.swRegistration = reg;
+      navigator.serviceWorker.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'version_mismatch' && document.body) {
+          document.body.classList.add('sw-update');
+          document.body.classList.add('sw-blocking');
+        }
+      });
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      window.location.reload();
+    });
+    return;
+  }
+  navigator.serviceWorker.register(swPath).then(function(reg) {
+    window.swRegistration = reg;
+    signalPageReady(reg.installing || reg.waiting);
+    reg.addEventListener('updatefound', function() {
+      var newWorker = reg.installing;
+      newWorker.addEventListener('statechange', function() {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
+          document.body.classList.add('sw-update');
+        }
+      });
+    });
+    if (navigator.serviceWorker.controller) {
+      onReady();
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        window.location.reload();
+      });
+      return;
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      onReady();
+    }, { once: true });
+    setTimeout(loadBundle, 5000);
+  }).catch(function() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', swError);
+    } else {
+      swError();
+    }
+  });
+})();
+</script>
+{{/sw}}
+{{#sw_inline}}
+<script defer>
+(function() {
+  var bundlePath = '{{bundle}}';
+  var cachedFiles = {{{cached_files_json}}};
+  var bundleLoaded = false;
+  function loadBundle() {
+    if (bundleLoaded) return;
+    bundleLoaded = true;
+    var s = document.createElement('script');
+    s.src = bundlePath;
+    document.head.appendChild(s);
+  }
+  function preCacheFiles() {
+    if (!cachedFiles || !cachedFiles.length) return Promise.resolve();
+    return Promise.all(cachedFiles.map(function(url) {
+      return fetch(url).catch(function() {});
+    }));
+  }
+  function swReady() {
+    if (document.body) {
+      document.body.classList.add('sw-ready');
+      document.body.dispatchEvent(new CustomEvent('sw-ready'));
+    }
+  }
+  function swError() {
+    if (document.body) {
+      document.body.classList.add('sw-error');
+      document.body.dispatchEvent(new CustomEvent('sw-error'));
+    }
+  }
+  function onReady() {
+    loadBundle();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', swReady);
+    } else {
+      swReady();
+    }
+  }
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    preCacheFiles().then(onReady);
+  } else if (navigator.serviceWorker) {
+    var timeout = setTimeout(function() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', swError);
+      } else {
+        swError();
+      }
+    }, 10000);
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      clearTimeout(timeout);
+      preCacheFiles().then(onReady);
+    }, { once: true });
+  } else {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', swError);
+    } else {
+      swError();
+    }
+  }
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.ready.then(function(reg) {
+      window.swRegistration = reg;
+      navigator.serviceWorker.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'version_mismatch' && document.body) {
+          document.body.classList.add('sw-update');
+          document.body.classList.add('sw-blocking');
+        }
+      });
+      reg.addEventListener('updatefound', function() {
+        var newWorker = reg.installing;
+        newWorker.addEventListener('statechange', function() {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
+            document.body.classList.add('sw-update');
+          }
+        });
+      });
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        window.location.reload();
+      });
+    });
+  }
+})();
+</script>
+{{/sw_inline}}
 </head>
 {{#body_tag}}{{{body_tag}}}{{/body_tag}}
 {{^body_tag}}
