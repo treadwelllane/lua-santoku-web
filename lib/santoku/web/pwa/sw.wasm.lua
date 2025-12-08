@@ -294,13 +294,21 @@ return function (opts)
         return caches:open(opts.service_worker_version):await(fun.sel(done, 2))
       end, function (done, cache)
         return async.each(it.ivals(opts.cached_files), function (each_done, file)
+          local full_url = URL:new(file, global.location.origin).href
           return async.pipe(function (done)
+            return cache:match(full_url):await(fun.sel(done, 2))
+          end, function (done, existing)
+            if existing then
+              if opts.verbose then
+                print("Already cached", file)
+              end
+              return each_done(true)
+            end
             return http.get(file, { retry = false }, done)
           end, function (done, resp)
             if not resp or not resp.raw then
               return done(false, resp)
             end
-            local full_url = URL:new(file, global.location.origin).href
             return cache:put(full_url, resp.raw):await(fun.sel(done, 2))
           end, function (ok, err, ...)
             if not ok then
