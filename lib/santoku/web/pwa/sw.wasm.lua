@@ -276,6 +276,17 @@ return function (opts)
 
   opts.precache = opts.precache or {}
 
+  local hash_manifest = global.HASH_MANIFEST
+  local function resolve_hashed(file)
+    if hash_manifest then
+      local hashed = hash_manifest[file]
+      if hashed then
+        return hashed
+      end
+    end
+    return file
+  end
+
   Module.on_install = function ()
     local is_update = global.registration.active ~= nil
     if opts.verbose then
@@ -293,17 +304,18 @@ return function (opts)
         return caches:open(opts.nonce):await(fun.sel(done, 2))
       end, function (done, cache)
         return async.each(it.ivals(opts.precache), function (each_done, file)
-          local full_url = URL:new(file, global.location.origin).href
+          local hashed_file = resolve_hashed(file)
+          local full_url = URL:new(hashed_file, global.location.origin).href
           return async.pipe(function (done)
             return cache:match(full_url):await(fun.sel(done, 2))
           end, function (done, existing)
             if existing then
               if opts.verbose then
-                print("Already cached", file)
+                print("Already cached", hashed_file)
               end
               return each_done(true)
             end
-            return http.get(file, { retry = false }, done)
+            return http.get(hashed_file, { retry = false }, done)
           end, function (done, resp)
             if not resp or not resp.raw then
               return done(false, resp)
@@ -313,12 +325,12 @@ return function (opts)
             if not ok then
               local msg = extract_error_msg(err)
               if opts.verbose then
-                print("Failed caching", file, msg)
+                print("Failed caching", hashed_file, msg)
               end
-              return each_done(false, "Failed to cache " .. file .. ": " .. msg)
+              return each_done(false, "Failed to cache " .. hashed_file .. ": " .. msg)
             end
             if opts.verbose then
-              print("Cached", file)
+              print("Cached", hashed_file)
             end
             return each_done(true, ...)
           end)
