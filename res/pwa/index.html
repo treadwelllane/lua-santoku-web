@@ -81,10 +81,23 @@
         }
         return;
       }
+      var firstController = true;
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        if (firstController) {
+          firstController = false;
+          onReady();
+        } else {
+          window.location.reload();
+        }
+      });
       navigator.serviceWorker.register(swPath).then(function(reg) {
         window.swRegistration = reg;
         if (reg.active && !navigator.serviceWorker.controller) {
           window.location.reload();
+          return;
+        }
+        if (navigator.serviceWorker.controller) {
+          onReady();
           return;
         }
         signalPageReady(reg.installing || reg.waiting);
@@ -95,15 +108,6 @@
               document.body.classList.add('sw-update');
             }
           });
-        });
-        var firstController = true;
-        navigator.serviceWorker.addEventListener('controllerchange', function() {
-          if (firstController) {
-            firstController = false;
-            onReady();
-          } else {
-            window.location.reload();
-          }
         });
       }).catch(function() {
         if (document.readyState === 'loading') {
