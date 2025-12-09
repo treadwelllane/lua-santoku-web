@@ -81,14 +81,8 @@
         }
         return;
       }
-      var firstController = true;
       navigator.serviceWorker.addEventListener('controllerchange', function() {
-        if (firstController) {
-          firstController = false;
-          onReady();
-        } else {
-          window.location.reload();
-        }
+        window.location.reload();
       });
       navigator.serviceWorker.register(swPath).then(function(reg) {
         window.swRegistration = reg;

@@ -138,6 +138,16 @@ M.open = function (dbfile, opts, callback)
     opts = {}
   end
   opts = opts or {}
+  local hash_manifest = js.self.HASH_MANIFEST
+  if hash_manifest then
+    local hashed_wasm = hash_manifest["sqlite3.wasm"]
+    if hashed_wasm then
+      local sIMS = js.globalThis.sqlite3InitModuleState
+      if sIMS and sIMS.urlParams then
+        sIMS.urlParams:set("sqlite3.wasm", "/" .. hashed_wasm)
+      end
+    end
+  end
   js:sqlite3InitModule():await(function (_, ok, wsqlite)
     if not ok then
       return callback(false, wsqlite)
