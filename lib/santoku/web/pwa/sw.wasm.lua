@@ -334,7 +334,41 @@ return function (opts)
             end
             return each_done(true, ...)
           end)
-        end, done)
+        end, function (ok, ...) done(ok, cache, ...) end)
+      end, function (done, cache)
+        if not opts.self_alias then
+          return done(true, cache)
+        end
+        local hashed_alias = resolve_hashed(opts.self_alias)
+        if hashed_alias == opts.self_alias then
+          return done(true, cache)
+        end
+        local full_alias_url = URL:new("/" .. hashed_alias, global.location.origin).href
+        return cache:match(full_alias_url):await(function (_, ok0, existing)
+          if not ok0 then
+            return done(true, cache)
+          end
+          if existing then
+            if opts.verbose then
+              print("Self alias already cached:", hashed_alias)
+            end
+            return done(true, cache)
+          end
+          return http.get("/sw.js", { retry = false }, function (ok1, resp)
+            if not ok1 or not resp or not resp.raw then
+              if opts.verbose then
+                print("Failed to fetch /sw.js for self alias caching")
+              end
+              return done(true, cache)
+            end
+            return cache:put(full_alias_url, resp.raw):await(function ()
+              if opts.verbose then
+                print("Cached self alias:", hashed_alias)
+              end
+              return done(true, cache)
+            end)
+          end)
+        end)
       end, function (done)
         if not global.registration.active then
           return global:skipWaiting():await(fun.sel(done, 2))
