@@ -82,12 +82,12 @@
         return;
       }
       navigator.serviceWorker.addEventListener('controllerchange', function() {
-        window.location.reload();
+        window.location.replace(window.location.href);
       });
       navigator.serviceWorker.register(swPath).then(function(reg) {
         window.swRegistration = reg;
         if (reg.active && !navigator.serviceWorker.controller) {
-          window.location.reload();
+          window.location.replace(window.location.href);
           return;
         }
         if (navigator.serviceWorker.controller) {
@@ -196,7 +196,7 @@
             });
           });
           navigator.serviceWorker.addEventListener('controllerchange', function() {
-            window.location.reload();
+            window.location.replace(window.location.href);
           });
         });
       }
