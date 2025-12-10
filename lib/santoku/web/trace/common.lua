@@ -1,5 +1,4 @@
 local arr = require("santoku.array")
-local varg = require("santoku.varg")
 
 return function (callback, global, opts, run, ...)
 
@@ -31,7 +30,7 @@ return function (callback, global, opts, run, ...)
   end
 
   local function format (...)
-    return JSON:stringify({ opts.name or "(no label)", varg.map(format_one, ...) })
+    return JSON:stringify({ opts.name or "(no label)", arr.map(arr.pack(...), format_one) })
   end
 
   local function wrapFetch ()
@@ -109,11 +108,11 @@ return function (callback, global, opts, run, ...)
   end
 
   if run then
-    varg.tup(function (ok, ...)
+    (function (ok, ...)
       if not ok then
         callback(format("error", ...))
       end
-    end, pcall(run, ...))
+    end)(pcall(run, ...))
   end
 
   return {
