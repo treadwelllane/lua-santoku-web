@@ -51,7 +51,7 @@ M.init_port = function (port)
           args[i] = select(i, ...)
         end
 
-        local tfrs = arr.pullfilter(ipairs(args), function (_, t)
+        local tfrs = arr.filtered(args, function (t)
           local ok, name = pcall(function ()
             return t.constructor.name
           end)
