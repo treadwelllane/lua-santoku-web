@@ -1,8 +1,6 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local arr = require("santoku.array")
-local varg = require("santoku.varg")
-local it = require("santoku.iter")
 
 local Worker = js.Worker
 local MessageChannel = js.MessageChannel
@@ -45,17 +43,20 @@ M.init_port = function (port)
       return function (...)
 
         local ch = MessageChannel:new()
-        local n = varg.len(...)
-        local callback = varg.get(n, ...)
+        local n = select("#", ...)
+        local callback = select(n, ...)
 
-        local args = { varg.take(n - 1, ...) }
+        local args = {}
+        for i = 1, n - 1 do
+          args[i] = select(i, ...)
+        end
 
-        local tfrs = it.collect(it.filter(function (t)
-          local ok, n = pcall(function ()
+        local tfrs = arr.pullfilter(ipairs(args), function (_, t)
+          local ok, name = pcall(function ()
             return t.constructor.name
           end)
-          return ok and transferables[n]
-        end, it.ivals(args)))
+          return ok and transferables[name]
+        end)
 
         -- TODO: currently this only supports
         -- transferables that occur at the top-level of
