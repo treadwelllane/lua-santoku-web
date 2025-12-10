@@ -302,42 +302,38 @@ return function (opts)
       end, function (done)
         return caches:open(opts.nonce):await(fun.sel(done, 2))
       end, function (done, cache)
-        local fns = {}
-        for _, file in ipairs(opts.precache) do
-          fns[#fns + 1] = function (each_done)
-            local hashed_file = resolve_hashed(file)
-            local full_url = URL:new(hashed_file, global.location.origin).href
-            return async.pipe(function (done)
-              return cache:match(full_url):await(fun.sel(done, 2))
-            end, function (done, existing)
-              if existing then
-                if opts.verbose then
-                  print("Already cached", hashed_file)
-                end
-                return each_done(true)
-              end
-              return http.get(hashed_file, { retry = false }, done)
-            end, function (done, resp)
-              if not resp or not resp.raw then
-                return done(false, resp)
-              end
-              return cache:put(full_url, resp.raw):await(fun.sel(done, 2))
-            end, function (ok, err, ...)
-              if not ok then
-                local msg = extract_error_msg(err)
-                if opts.verbose then
-                  print("Failed caching", hashed_file, msg)
-                end
-                return each_done(false, "Failed to cache " .. hashed_file .. ": " .. msg)
-              end
+        return async.all(opts.precache, function (each_done, file)
+          local hashed_file = resolve_hashed(file)
+          local full_url = URL:new(hashed_file, global.location.origin).href
+          return async.pipe(function (done)
+            return cache:match(full_url):await(fun.sel(done, 2))
+          end, function (done, existing)
+            if existing then
               if opts.verbose then
-                print("Cached", hashed_file)
+                print("Already cached", hashed_file)
               end
-              return each_done(true, ...)
-            end)
-          end
-        end
-        return async.all(fns, function (ok, ...) done(ok, cache, ...) end)
+              return each_done(true)
+            end
+            return http.get(hashed_file, { retry = false }, done)
+          end, function (done, resp)
+            if not resp or not resp.raw then
+              return done(false, resp)
+            end
+            return cache:put(full_url, resp.raw):await(fun.sel(done, 2))
+          end, function (ok, err, ...)
+            if not ok then
+              local msg = extract_error_msg(err)
+              if opts.verbose then
+                print("Failed caching", hashed_file, msg)
+              end
+              return each_done(false, "Failed to cache " .. hashed_file .. ": " .. msg)
+            end
+            if opts.verbose then
+              print("Cached", hashed_file)
+            end
+            return each_done(true, ...)
+          end)
+        end, function (ok, ...) done(ok, cache, ...) end)
       end, function (done, cache)
         if not opts.self_alias then
           return done(true, cache)
