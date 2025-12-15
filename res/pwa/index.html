@@ -166,7 +166,7 @@
         }, 10000);
         navigator.serviceWorker.addEventListener('controllerchange', function() {
           clearTimeout(timeout);
-          onReady();
+          window.location.replace(window.location.href);
         }, { once: true });
       } else {
         if (document.readyState === 'loading') {
