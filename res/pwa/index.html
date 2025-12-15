@@ -81,9 +81,6 @@
         }
         return;
       }
-      navigator.serviceWorker.addEventListener('controllerchange', function() {
-        window.location.replace(window.location.href);
-      });
       navigator.serviceWorker.register(swPath).then(function(reg) {
         window.swRegistration = reg;
         if (reg.active && !navigator.serviceWorker.controller) {
@@ -194,9 +191,6 @@
                 document.body.classList.add('sw-update');
               }
             });
-          });
-          navigator.serviceWorker.addEventListener('controllerchange', function() {
-            window.location.replace(window.location.href);
           });
         });
       }
