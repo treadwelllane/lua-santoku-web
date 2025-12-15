@@ -488,8 +488,9 @@ return function (opts)
     if pathname == update_path then
       return util.promise(function (complete)
         local function respond_with_route (target_url)
-          local target_path = target_url:match("^[^?]*") or "/"
-          local handler, path, params = match_route(target_path, target_url)
+          local parsed_url = URL:new(target_url, global.location.origin)
+          local target_path = parsed_url.pathname
+          local handler, path, params = match_route(target_path, parsed_url.href)
           if handler then
             local req = { path = path, params = params, raw = request }
             handler(req, path, params, function (ok, result, content_type, extra_headers)
