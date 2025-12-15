@@ -487,17 +487,31 @@ return function (opts)
     local update_path = opts.update_path or "/update"
     if pathname == update_path then
       return util.promise(function (complete)
-        local function respond ()
-          complete(true, util.response([[<!doctype html><html><head><meta http-equiv="refresh" content="0;url=/"></head></html>]], { content_type = "text/html" }))
+        local function respond_with_route (target_url)
+          local target_path = target_url:match("^[^?]*") or "/"
+          local handler, path, params = match_route(target_path, target_url)
+          if handler then
+            local req = { path = path, params = params, raw = request }
+            handler(req, path, params, function (ok, result, content_type, extra_headers)
+              complete(ok, util.response(result, { content_type = content_type, headers = extra_headers }))
+            end)
+          else
+            complete(true, util.response(opts.index_html, { content_type = "text/html" }))
+          end
         end
-        local function do_skip ()
+        local function do_skip (target_url)
           if global.registration.waiting then
             global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
           end
-          global:skipWaiting():await(respond)
+          global:skipWaiting():await(function ()
+            respond_with_route(target_url)
+          end)
         end
-        global.registration:update():await(function ()
-          do_skip()
+        util.request_formdata(request, function (form_params)
+          local target_url = form_params.url or "/"
+          global.registration:update():await(function ()
+            do_skip(target_url)
+          end)
         end)
       end)
     end
