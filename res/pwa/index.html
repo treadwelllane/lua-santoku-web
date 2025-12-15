@@ -159,6 +159,9 @@
       }
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         onReady();
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          window.location.replace(window.location.href);
+        }, { once: true });
       } else if (navigator.serviceWorker) {
         var timeout = setTimeout(function() {
           if (document.readyState === 'loading') {
