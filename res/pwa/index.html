@@ -91,6 +91,9 @@
           onReady();
           return;
         }
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          window.location.replace(window.location.href);
+        }, { once: true });
         signalPageReady(reg.installing || reg.waiting);
         function waitForActive(worker) {
           if (!worker) return;
