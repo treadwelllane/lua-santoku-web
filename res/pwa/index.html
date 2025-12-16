@@ -141,33 +141,46 @@
   {{^initial}}
   <script defer>
     (function() {
+      {{#verbose}}var log = function() { console.log.apply(console, ['[SW-Page]'].concat(Array.prototype.slice.call(arguments))); };{{/verbose}}
+      {{^verbose}}var log = function() {};{{/verbose}}
       var swTarget = {{#sw_target}}document.querySelector('{{sw_target}}') || {{/sw_target}}document.body;
+      log('swTarget:', swTarget);
       function swReady() {
+        log('swReady called, swTarget:', swTarget);
         if (swTarget) {
           swTarget.classList.add('sw-ready');
           swTarget.dispatchEvent(new CustomEvent('sw-ready'));
+          log('Added sw-ready class');
         }
       }
       function swError() {
+        log('swError called');
         if (swTarget) {
           swTarget.classList.add('sw-error');
           swTarget.dispatchEvent(new CustomEvent('sw-error'));
+          log('Added sw-error class');
         }
       }
       function onReady() {
+        log('onReady called, readyState:', document.readyState);
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', swReady);
         } else {
           swReady();
         }
       }
+      log('navigator.serviceWorker:', !!navigator.serviceWorker, 'controller:', !!navigator.serviceWorker?.controller);
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        log('Controller exists, calling onReady');
         onReady();
         navigator.serviceWorker.addEventListener('controllerchange', function() {
+          log('controllerchange event, reloading');
           window.location.replace(window.location.href);
         }, { once: true });
       } else if (navigator.serviceWorker) {
+        log('No controller, waiting for controllerchange');
         var timeout = setTimeout(function() {
+          log('Timeout reached, calling swError');
           if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', swError);
           } else {
@@ -175,10 +188,12 @@
           }
         }, 10000);
         navigator.serviceWorker.addEventListener('controllerchange', function() {
+          log('controllerchange event, clearing timeout and reloading');
           clearTimeout(timeout);
           window.location.replace(window.location.href);
         }, { once: true });
       } else {
+        log('No serviceWorker support, calling swError');
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', swError);
         } else {
@@ -186,22 +201,35 @@
         }
       }
       if (navigator.serviceWorker) {
+        log('Setting up ready.then');
         navigator.serviceWorker.ready.then(function(reg) {
+          log('SW ready, reg:', reg);
           window.swRegistration = reg;
           navigator.serviceWorker.addEventListener('message', function(event) {
+            log('SW message:', event.data);
             if (event.data && event.data.type === 'version_mismatch' && swTarget) {
               swTarget.classList.add('sw-update');
               swTarget.classList.add('sw-blocking');
+              log('Added sw-update and sw-blocking classes');
             }
             if (event.data && event.data.type === 'sw-broadcast' && swTarget) {
+              log('Dispatching sw-broadcast event:', event.data.name);
               swTarget.dispatchEvent(new CustomEvent(event.data.name, { detail: event.data.data, bubbles: true }));
             }
           });
+          log('reg.waiting:', reg.waiting, 'controller:', !!navigator.serviceWorker.controller);
+          if (reg.waiting && navigator.serviceWorker.controller && swTarget) {
+            swTarget.classList.add('sw-update');
+            log('Added sw-update class (waiting worker)');
+          }
           reg.addEventListener('updatefound', function() {
+            log('updatefound event');
             var newWorker = reg.installing;
             newWorker.addEventListener('statechange', function() {
+              log('Worker statechange:', newWorker.state);
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller && swTarget) {
                 swTarget.classList.add('sw-update');
+                log('Added sw-update class (installed worker)');
               }
             });
           });
