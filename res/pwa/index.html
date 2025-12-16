@@ -143,21 +143,27 @@
     (function() {
       {{#verbose}}var log = function() { console.log.apply(console, ['[SW-Page]'].concat(Array.prototype.slice.call(arguments))); };{{/verbose}}
       {{^verbose}}var log = function() {};{{/verbose}}
-      var swTarget = {{#sw_target}}document.querySelector('{{sw_target}}') || {{/sw_target}}document.body;
-      log('swTarget:', swTarget);
+      var swTarget = null;
+      function getSwTarget() {
+        if (!swTarget) swTarget = {{#sw_target}}document.querySelector('{{sw_target}}') || {{/sw_target}}document.body;
+        return swTarget;
+      }
+      log('Initial document.body:', document.body);
       function swReady() {
-        log('swReady called, swTarget:', swTarget);
-        if (swTarget) {
-          swTarget.classList.add('sw-ready');
-          swTarget.dispatchEvent(new CustomEvent('sw-ready'));
+        var t = getSwTarget();
+        log('swReady called, swTarget:', t);
+        if (t) {
+          t.classList.add('sw-ready');
+          t.dispatchEvent(new CustomEvent('sw-ready'));
           log('Added sw-ready class');
         }
       }
       function swError() {
-        log('swError called');
-        if (swTarget) {
-          swTarget.classList.add('sw-error');
-          swTarget.dispatchEvent(new CustomEvent('sw-error'));
+        var t = getSwTarget();
+        log('swError called, swTarget:', t);
+        if (t) {
+          t.classList.add('sw-error');
+          t.dispatchEvent(new CustomEvent('sw-error'));
           log('Added sw-error class');
         }
       }
@@ -206,29 +212,32 @@
           log('SW ready, reg:', reg);
           window.swRegistration = reg;
           navigator.serviceWorker.addEventListener('message', function(event) {
+            var t = getSwTarget();
             log('SW message:', event.data);
-            if (event.data && event.data.type === 'version_mismatch' && swTarget) {
-              swTarget.classList.add('sw-update');
-              swTarget.classList.add('sw-blocking');
+            if (event.data && event.data.type === 'version_mismatch' && t) {
+              t.classList.add('sw-update');
+              t.classList.add('sw-blocking');
               log('Added sw-update and sw-blocking classes');
             }
-            if (event.data && event.data.type === 'sw-broadcast' && swTarget) {
+            if (event.data && event.data.type === 'sw-broadcast' && t) {
               log('Dispatching sw-broadcast event:', event.data.name);
-              swTarget.dispatchEvent(new CustomEvent(event.data.name, { detail: event.data.data, bubbles: true }));
+              t.dispatchEvent(new CustomEvent(event.data.name, { detail: event.data.data, bubbles: true }));
             }
           });
+          var t = getSwTarget();
           log('reg.waiting:', reg.waiting, 'controller:', !!navigator.serviceWorker.controller);
-          if (reg.waiting && navigator.serviceWorker.controller && swTarget) {
-            swTarget.classList.add('sw-update');
+          if (reg.waiting && navigator.serviceWorker.controller && t) {
+            t.classList.add('sw-update');
             log('Added sw-update class (waiting worker)');
           }
           reg.addEventListener('updatefound', function() {
             log('updatefound event');
             var newWorker = reg.installing;
             newWorker.addEventListener('statechange', function() {
+              var t = getSwTarget();
               log('Worker statechange:', newWorker.state);
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller && swTarget) {
-                swTarget.classList.add('sw-update');
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller && t) {
+                t.classList.add('sw-update');
                 log('Added sw-update class (installed worker)');
               }
             });
