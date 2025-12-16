@@ -267,8 +267,17 @@ return function (opts)
     return k(ok, resp)
   end, true)
 
+  local function broadcast (name, data)
+    clients:matchAll():await(function (_, ok, all_clients)
+      if not ok or not all_clients then return end
+      all_clients:forEach(function (_, client)
+        client:postMessage(val({ type = "sw-broadcast", name = name, data = data }, true))
+      end)
+    end)
+  end
+
   if type(opts.routes) == "function" then
-    opts.routes = opts.routes(db, http)
+    opts.routes = opts.routes(db, http, broadcast)
   end
 
   opts.nonce = opts.nonce and tostring(opts.nonce) or "0"

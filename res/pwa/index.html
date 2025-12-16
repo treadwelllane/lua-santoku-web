@@ -141,16 +141,17 @@
   {{^initial}}
   <script defer>
     (function() {
+      var swTarget = {{#sw_target}}document.querySelector('{{sw_target}}') || {{/sw_target}}document.body;
       function swReady() {
-        if (document.body) {
-          document.body.classList.add('sw-ready');
-          document.body.dispatchEvent(new CustomEvent('sw-ready'));
+        if (swTarget) {
+          swTarget.classList.add('sw-ready');
+          swTarget.dispatchEvent(new CustomEvent('sw-ready'));
         }
       }
       function swError() {
-        if (document.body) {
-          document.body.classList.add('sw-error');
-          document.body.dispatchEvent(new CustomEvent('sw-error'));
+        if (swTarget) {
+          swTarget.classList.add('sw-error');
+          swTarget.dispatchEvent(new CustomEvent('sw-error'));
         }
       }
       function onReady() {
@@ -188,16 +189,19 @@
         navigator.serviceWorker.ready.then(function(reg) {
           window.swRegistration = reg;
           navigator.serviceWorker.addEventListener('message', function(event) {
-            if (event.data && event.data.type === 'version_mismatch' && document.body) {
-              document.body.classList.add('sw-update');
-              document.body.classList.add('sw-blocking');
+            if (event.data && event.data.type === 'version_mismatch' && swTarget) {
+              swTarget.classList.add('sw-update');
+              swTarget.classList.add('sw-blocking');
+            }
+            if (event.data && event.data.type === 'sw-broadcast' && swTarget) {
+              swTarget.dispatchEvent(new CustomEvent(event.data.name, { detail: event.data.data }));
             }
           });
           reg.addEventListener('updatefound', function() {
             var newWorker = reg.installing;
             newWorker.addEventListener('statechange', function() {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
-                document.body.classList.add('sw-update');
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller && swTarget) {
+                swTarget.classList.add('sw-update');
               }
             });
           });
