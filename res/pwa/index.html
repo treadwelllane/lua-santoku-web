@@ -89,6 +89,9 @@
         }
         if (navigator.serviceWorker.controller) {
           onReady();
+          navigator.serviceWorker.addEventListener('controllerchange', function() {
+            window.location.replace(window.location.href);
+          }, { once: true });
           return;
         }
         navigator.serviceWorker.addEventListener('controllerchange', function() {
