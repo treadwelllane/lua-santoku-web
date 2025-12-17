@@ -448,7 +448,7 @@ return function (opts)
           print("Bypassing cache (no_cache_pattern):", pathname)
         end
         return http.fetch(request, { retry = false }, function (ok, resp)
-          complete(true, resp and resp.raw)
+          complete(ok, resp and resp.raw)
         end)
       end
       local cache_ref = nil
