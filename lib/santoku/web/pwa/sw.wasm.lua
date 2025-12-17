@@ -97,6 +97,14 @@ return function (opts)
     return false
   end
 
+  local function matches_no_cache_pattern (pathname)
+    if not opts.no_cache_patterns then return false end
+    for i = 1, #opts.no_cache_patterns do
+      if pathname:match(opts.no_cache_patterns[i]) then return true end
+    end
+    return false
+  end
+
   local function send_db_call (method, args, callback)
     db_request_id = db_request_id + 1
     local id = db_request_id
@@ -312,6 +320,12 @@ return function (opts)
         return caches:open(opts.nonce):await(fun.sel(done, 2))
       end, function (done, cache)
         return async.all(opts.precache, function (each_done, file)
+          if matches_no_cache_pattern("/" .. file) then
+            if opts.verbose then
+              print("Skipping precache (no_cache_pattern):", file)
+            end
+            return each_done(true)
+          end
           local hashed_file = resolve_hashed(file)
           local full_url = URL:new(hashed_file, global.location.origin).href
           return async.pipe(function (done)
@@ -427,6 +441,16 @@ return function (opts)
 
   local function default_fetch_handler(request)
     return util.promise(function (complete)
+      local url_obj = URL:new(request.url)
+      local pathname = url_obj.pathname
+      if matches_no_cache_pattern(pathname) then
+        if opts.verbose then
+          print("Bypassing cache (no_cache_pattern):", pathname)
+        end
+        return http.fetch(request, { retry = false }, function (ok, resp)
+          complete(true, resp and resp.raw)
+        end)
+      end
       local cache_ref = nil
       local was_miss = false
       if opts.verbose then
