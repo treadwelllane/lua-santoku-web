@@ -547,16 +547,12 @@ return function (opts)
               complete(true, util.response("Error: " .. tostring(result), { status = 500, content_type = "text/plain" }))
               return
             end
-            if type(result) == "table" and (result.body ~= nil or result.status or result.redirect) then
-              if result.redirect then
-                complete(true, util.response("", { status = 302, headers = { Location = result.redirect } }))
-              else
-                complete(true, util.response(result.body or "", {
-                  status = result.status,
-                  content_type = result.content_type,
-                  headers = result.headers
-                }))
-              end
+            if type(result) == "table" and (result.body ~= nil or result.status or result.headers) then
+              complete(true, util.response(result.body or "", {
+                status = result.status,
+                content_type = result.content_type,
+                headers = result.headers
+              }))
               return
             end
             complete(true, util.response(result, { content_type = content_type, headers = extra_headers }))
