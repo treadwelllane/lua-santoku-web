@@ -148,9 +148,9 @@ end
 M.atleast = function (fn, min_ms)
   return function (...)
     local args = {...}
-    local done = arr.remove(args)
+    local _, done = arr.pop(args)
     local start = utc.time(true)
-    arr.insert(args, function (...)
+    arr.push(args, function (...)
       local elapsed = (utc.time(true) - start) * 1000
       local remaining = min_ms - elapsed
       if remaining > 0 then
