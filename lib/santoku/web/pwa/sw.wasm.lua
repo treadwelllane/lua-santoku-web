@@ -78,12 +78,22 @@ return function (opts)
   local db_provider_debounce_timer = nil
   local pending_consumer_ports = {}
   local version_mismatch = false
+  local sw_update_available = false
 
   local function broadcast_version_mismatch ()
     clients:matchAll():await(function (_, ok, all_clients)
       if not ok or not all_clients then return end
       all_clients:forEach(function (_, client)
         client:postMessage(val({ type = "version_mismatch" }, true))
+      end)
+    end)
+  end
+
+  local function broadcast_sw_update_available ()
+    clients:matchAll():await(function (_, ok, all_clients)
+      if not ok or not all_clients then return end
+      all_clients:forEach(function (_, client)
+        client:postMessage(val({ type = "sw_update_available" }, true))
       end)
     end)
   end
@@ -272,6 +282,13 @@ return function (opts)
         broadcast_version_mismatch()
       end
     end
+    if sw_version and not sw_update_available and resp and resp.headers then
+      local server_sw_version = resp.headers["x-sw-version"]
+      if server_sw_version and server_sw_version ~= sw_version then
+        sw_update_available = true
+        broadcast_sw_update_available()
+      end
+    end
     return k(ok, resp)
   end, true)
 
@@ -288,7 +305,8 @@ return function (opts)
     opts.routes = opts.routes(db, http, broadcast)
   end
 
-  opts.nonce = opts.nonce and tostring(opts.nonce) or "0"
+  local sw_version = opts.sw_version and tostring(opts.sw_version) or nil
+  opts.nonce = sw_version or (opts.nonce and tostring(opts.nonce) or "0")
 
   opts.precache = opts.precache or {}
 
@@ -524,12 +542,22 @@ return function (opts)
           if global.registration.waiting then
             global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
           end
-          global:skipWaiting():await(function ()
-            complete(true, util.response("", { content_type = "text/plain" }))
-          end)
+          complete(true, util.response("", { content_type = "text/plain" }))
         end
         global.registration:update():await(function ()
-          do_skip()
+          if global.registration.waiting then
+            return do_skip()
+          end
+          if global.registration.installing then
+            local installing = global.registration.installing
+            installing:addEventListener("statechange", function ()
+              if installing.state == "installed" then
+                return do_skip()
+              end
+            end)
+            return
+          end
+          complete(true, util.response("no_update", { content_type = "text/plain" }))
         end)
       end)
     end
