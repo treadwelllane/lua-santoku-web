@@ -488,7 +488,7 @@ return function (opts)
           if opts.verbose then
             print("Cache miss:", request.url)
           end
-          return http.fetch(request, { retry = false }, function (ok, resp)
+          return http.fetch(request, { retry = false }, function (_, resp)
             if resp and resp.raw then
               return done(true, resp)
             end
