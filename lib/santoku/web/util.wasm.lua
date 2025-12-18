@@ -148,21 +148,21 @@ end
 M.atleast = function (fn, min_ms)
   return function (...)
     local args = {...}
-    local done = table.remove(args)
+    local done = arr.remove(args)
     local start = utc.time(true)
-    table.insert(args, function (...)
+    arr.insert(args, function (...)
       local elapsed = (utc.time(true) - start) * 1000
       local remaining = min_ms - elapsed
       if remaining > 0 then
         local results = {...}
         return util.set_timeout(function ()
-          done(table.unpack(results))
+          done(arr.spread(results))
         end, remaining)
       else
         return done(...)
       end
     end)
-    return fn(table.unpack(args))
+    return fn(arr.spread(args))
   end
 end
 
