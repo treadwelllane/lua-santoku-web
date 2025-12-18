@@ -145,6 +145,27 @@ M.debounce = function (fn, time)
   end
 end
 
+M.atleast = function (fn, min_ms)
+  return function (...)
+    local args = {...}
+    local done = table.remove(args)
+    local start = utc.time(true)
+    table.insert(args, function (...)
+      local elapsed = (utc.time(true) - start) * 1000
+      local remaining = min_ms - elapsed
+      if remaining > 0 then
+        local results = {...}
+        return util.set_timeout(function ()
+          done(table.unpack(results))
+        end, remaining)
+      else
+        return done(...)
+      end
+    end)
+    return fn(table.unpack(args))
+  end
+end
+
 M.component = function (tag, callback)
   if not callback then
     callback = tag
