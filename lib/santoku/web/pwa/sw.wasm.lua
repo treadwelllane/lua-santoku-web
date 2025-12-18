@@ -540,14 +540,26 @@ return function (opts)
         local function run_handler (merged_params)
           local req = { path = path, params = merged_params, raw = request }
           handler(req, path, merged_params, function (ok, result, content_type, extra_headers)
-            if ok then
-              complete(true, util.response(result, { content_type = content_type, headers = extra_headers }))
-            else
+            if not ok then
               if opts.verbose then
                 print("SW error response:", 500, tostring(result))
               end
               complete(true, util.response("Error: " .. tostring(result), { status = 500, content_type = "text/plain" }))
+              return
             end
+            if type(result) == "table" and (result.body ~= nil or result.status or result.redirect) then
+              if result.redirect then
+                complete(true, util.response("", { status = 302, headers = { Location = result.redirect } }))
+              else
+                complete(true, util.response(result.body or "", {
+                  status = result.status,
+                  content_type = result.content_type,
+                  headers = result.headers
+                }))
+              end
+              return
+            end
+            complete(true, util.response(result, { content_type = content_type, headers = extra_headers }))
           end)
         end
         if request.method == "POST" then
