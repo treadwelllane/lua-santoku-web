@@ -155,7 +155,7 @@ M.atleast = function (fn, min_ms)
       local remaining = min_ms - elapsed
       if remaining > 0 then
         local results = {...}
-        return util.set_timeout(function ()
+        return M.set_timeout(function ()
           done(arr.spread(results))
         end, remaining)
       else
