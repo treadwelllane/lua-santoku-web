@@ -271,6 +271,10 @@ return function (opts)
     return k(url, req_opts)
   end, true)
 
+  local sw_version = opts.sw_version and tostring(opts.sw_version) or nil
+  opts.nonce = sw_version or (opts.nonce and tostring(opts.nonce) or "0")
+  opts.precache = opts.precache or {}
+
   http.on("response", function (k, ok, resp)
     if not version_check_enabled then
       return k(ok, resp)
@@ -304,11 +308,6 @@ return function (opts)
   if type(opts.routes) == "function" then
     opts.routes = opts.routes(db, http, broadcast)
   end
-
-  local sw_version = opts.sw_version and tostring(opts.sw_version) or nil
-  opts.nonce = sw_version or (opts.nonce and tostring(opts.nonce) or "0")
-
-  opts.precache = opts.precache or {}
 
   local hash_manifest = global.HASH_MANIFEST
   local function resolve_hashed(file)
