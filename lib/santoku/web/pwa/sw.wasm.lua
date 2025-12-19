@@ -542,26 +542,59 @@ return function (opts)
     local update_path = opts.update_path or "/update"
     if pathname == update_path then
       return util.promise(function (complete)
+        local completed = false
         local function do_skip ()
+          if completed then return end
+          completed = true
           if global.registration.waiting then
             global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
           end
           complete(true, util.response("", { content_type = "text/plain" }))
         end
+        local function wait_for_install (sw)
+          if sw.state == "installed" then
+            return do_skip()
+          end
+          sw:addEventListener("statechange", function ()
+            if sw.state == "installed" then
+              return do_skip()
+            elseif sw.state == "redundant" then
+              if completed then return end
+              completed = true
+              complete(true, util.response("update_failed", { content_type = "text/plain" }))
+            end
+          end)
+        end
+        if global.registration.waiting then
+          return do_skip()
+        end
+        if global.registration.installing then
+          return wait_for_install(global.registration.installing)
+        end
+        global.registration:addEventListener("updatefound", function ()
+          if global.registration.installing then
+            wait_for_install(global.registration.installing)
+          end
+        end)
         global.registration:update():await(function ()
+          if completed then return end
           if global.registration.waiting then
             return do_skip()
           end
           if global.registration.installing then
-            local installing = global.registration.installing
-            installing:addEventListener("statechange", function ()
-              if installing.state == "installed" then
-                return do_skip()
-              end
-            end)
-            return
+            return wait_for_install(global.registration.installing)
           end
-          complete(true, util.response("no_update", { content_type = "text/plain" }))
+          util.set_timeout(function ()
+            if completed then return end
+            if global.registration.waiting then
+              return do_skip()
+            end
+            if global.registration.installing then
+              return wait_for_install(global.registration.installing)
+            end
+            completed = true
+            complete(true, util.response("no_update", { content_type = "text/plain" }))
+          end, 500)
         end)
       end)
     end
