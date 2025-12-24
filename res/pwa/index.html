@@ -219,10 +219,6 @@
               t.classList.add('sw-blocking');
               log('Added sw-update and sw-blocking classes');
             }
-            if (event.data && event.data.type === 'sw_update_available' && t) {
-              t.classList.add('sw-update');
-              log('Added sw-update class (soft update)');
-            }
             if (event.data && event.data.type === 'sw-broadcast' && t) {
               log('Dispatching sw-broadcast event:', event.data.name);
               t.dispatchEvent(new CustomEvent(event.data.name, { detail: event.data.data, bubbles: true }));
