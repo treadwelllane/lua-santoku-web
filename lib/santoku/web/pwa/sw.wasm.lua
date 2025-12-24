@@ -78,22 +78,12 @@ return function (opts)
   local db_provider_debounce_timer = nil
   local pending_consumer_ports = {}
   local version_mismatch = false
-  local sw_update_available = false
 
   local function broadcast_version_mismatch ()
     clients:matchAll():await(function (_, ok, all_clients)
       if not ok or not all_clients then return end
       all_clients:forEach(function (_, client)
         client:postMessage(val({ type = "version_mismatch" }, true))
-      end)
-    end)
-  end
-
-  local function broadcast_sw_update_available ()
-    clients:matchAll():await(function (_, ok, all_clients)
-      if not ok or not all_clients then return end
-      all_clients:forEach(function (_, client)
-        client:postMessage(val({ type = "sw_update_available" }, true))
       end)
     end)
   end
@@ -271,8 +261,7 @@ return function (opts)
     return k(url, req_opts)
   end, true)
 
-  local sw_version = opts.sw_version and tostring(opts.sw_version) or nil
-  opts.nonce = sw_version or (opts.nonce and tostring(opts.nonce) or "0")
+  opts.nonce = opts.nonce and tostring(opts.nonce) or "0"
   opts.precache = opts.precache or {}
 
   http.on("response", function (k, ok, resp)
@@ -284,13 +273,6 @@ return function (opts)
       if server_version and server_version ~= client_version then
         version_mismatch = true
         broadcast_version_mismatch()
-      end
-    end
-    if sw_version and not sw_update_available and resp and resp.headers then
-      local server_sw_version = resp.headers["x-sw-version"]
-      if server_sw_version and server_sw_version ~= sw_version then
-        sw_update_available = true
-        broadcast_sw_update_available()
       end
     end
     return k(ok, resp)
