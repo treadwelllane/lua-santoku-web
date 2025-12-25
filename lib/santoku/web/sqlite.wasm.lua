@@ -150,7 +150,7 @@ M.open = function (dbfile, opts)
     end
   end
   if verbose then print("[sqlite.open] calling sqlite3InitModule") end
-  local ok, wsqlite = js:sqlite3InitModule():await()
+  local ok, wsqlite = js.sqlite3InitModule():await()
   if verbose then print("[sqlite.open] sqlite3InitModule returned:", ok) end
   if not ok then
     return false, wsqlite
