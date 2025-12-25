@@ -137,8 +137,6 @@ M.open = function (dbfile, opts)
     opts = {}
   end
   opts = opts or {}
-  local verbose = opts.verbose
-  if verbose then print("[sqlite.open] starting") end
   local hash_manifest = js.self.HASH_MANIFEST
   if hash_manifest then
     local hashed_wasm = hash_manifest["sqlite3.wasm"]
@@ -149,23 +147,16 @@ M.open = function (dbfile, opts)
       end
     end
   end
-  if verbose then print("[sqlite.open] calling sqlite3InitModule") end
-  if verbose then print("[sqlite.open] __tk_await:", _G.__tk_await) end
-  local promise = js.sqlite3InitModule()
-  if verbose then print("[sqlite.open] promise:", promise) end
-  if verbose then print("[sqlite.open] promise.await:", promise.await) end
-  local ok, wsqlite = promise:await()
-  if verbose then print("[sqlite.open] sqlite3InitModule returned:", ok) end
+  local ok, wsqlite = js:sqlite3InitModule():await(function (...)
+    print(...)
+  end)
   if not ok then
     return false, wsqlite
   end
-  if verbose then print("[sqlite.open] calling installOpfsSAHPoolVfs") end
   local ok2, pool_util = wsqlite:installOpfsSAHPoolVfs(opts):await()
-  if verbose then print("[sqlite.open] installOpfsSAHPoolVfs returned:", ok2) end
   if not ok2 then
     return false, pool_util
   end
-  if verbose then print("[sqlite.open] creating db wrapper") end
   return err.pcall(function ()
     local raw_db = pool_util.OpfsSAHPoolDb:new(dbfile)
     return create_db_wrapper(wsqlite, raw_db)
