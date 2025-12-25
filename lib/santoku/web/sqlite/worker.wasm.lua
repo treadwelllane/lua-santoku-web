@@ -46,7 +46,6 @@ return function (db_path, opts, handler)
     end
     if verbose then print("[sqlite-worker] calling Module:start()") end
     Module:start()
-    if verbose then print("[sqlite-worker] Module:start() complete, posting db_ready") end
-    global:postMessage(val({ type = "db_ready" }, true))
+    if verbose then print("[sqlite-worker] Module:start() complete") end
   end)
 end
