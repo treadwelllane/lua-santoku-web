@@ -167,7 +167,7 @@ return function (opts)
     db = setmetatable({}, {
       __index = function (_, method)
         return function (...)
-          return db_call(method, { ... })
+          return db_call(method, { ... }):await()
         end
       end
     })
