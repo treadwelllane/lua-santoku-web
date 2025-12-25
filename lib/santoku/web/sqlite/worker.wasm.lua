@@ -13,9 +13,12 @@ return function (db_path, opts, handler)
     opts = nil
   end
 
+  local verbose = opts and opts.verbose
+  if verbose then print("[sqlite-worker] function called, db_path:", db_path) end
+
   async(function ()
+    if verbose then print("[sqlite-worker] async block started") end
     local aok, aerr = pcall(function ()
-      local verbose = opts and opts.verbose
       if verbose then print("[sqlite-worker] starting sqlite.open") end
       local ok, db = sqlite.open(db_path, opts)
       if verbose then print("[sqlite-worker] sqlite.open returned:", ok) end
