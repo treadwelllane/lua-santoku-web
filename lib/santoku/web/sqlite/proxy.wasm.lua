@@ -2,6 +2,7 @@ local js = require("santoku.web.js")
 local util = require("santoku.web.util")
 local val = require("santoku.web.val")
 local arr = require("santoku.array")
+local async = require("santoku.web.async")
 local wrpc = require("santoku.web.worker.rpc.client")
 
 local navigator = js.navigator
@@ -13,23 +14,22 @@ local function create_wrpc_proxy (port)
   return setmetatable({}, {
     __index = function (_, method)
       return function (...)
-        local n = select("#", ...)
-        local callback = select(n, ...)
-        local args = {}
-        for i = 1, n - 1 do args[i] = select(i, ...) end
-        local ch = MessageChannel:new()
-        port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
-        ch.port1.onmessage = function (_, ev)
-          local result = {}
-          for i = 1, ev.data.length do result[i] = ev.data[i] end
-          callback(arr.spread(result))
-        end
+        local args = { ... }
+        return util.promise(function (complete)
+          local ch = MessageChannel:new()
+          port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
+          ch.port1.onmessage = function (_, ev)
+            local result = {}
+            for i = 1, ev.data.length do result[i] = ev.data[i] end
+            complete(true, arr.spread(result))
+          end
+        end)
       end
     end
   })
 end
 
-return function (bundle_path, callback, opts)
+return function (bundle_path, opts)
   opts = opts or {}
   local verbose = opts.verbose
 
@@ -39,6 +39,7 @@ return function (bundle_path, callback, opts)
   local client_id = nil
   local provider_counter = 0
   local current_provider_port = nil
+  local ready_resolver = nil
 
   local broadcast_channel = BroadcastChannel:new("sqlite_shared_service")
 
@@ -46,42 +47,47 @@ return function (bundle_path, callback, opts)
     print("[proxy] Initializing sqlite proxy")
   end
 
-  local function get_client_id (done)
+  local function get_client_id ()
     local nonce = "client_id_" .. tostring(math.random()):sub(3)
     if verbose then
       print("[proxy] Getting client ID with nonce:", nonce)
     end
-    navigator.locks:request(nonce, function ()
-      navigator.locks:query():await(function (_, ok, state)
-        if verbose then
-          print("[proxy] Lock query result - ok:", ok, "state:", state)
-        end
-        if ok and state and state.held then
-          local held = state.held
+    local found_client_id = nil
+    util.promise(function (complete)
+      navigator.locks:request(nonce, function ()
+        async(function ()
+          local ok, state = navigator.locks:query():await()
           if verbose then
-            print("[proxy] Held locks count:", held.length)
+            print("[proxy] Lock query result - ok:", ok, "state:", state)
           end
-              for i = 1, held.length do
-            local lock = held[i]
+          if ok and state and state.held then
+            local held = state.held
             if verbose then
-              print("[proxy] Checking lock", i, "name:", lock and lock.name, "clientId:", lock and lock.clientId)
+              print("[proxy] Held locks count:", held.length)
             end
-            if lock and lock.name == nonce then
+            for i = 1, held.length do
+              local lock = held[i]
               if verbose then
-                print("[proxy] Found our lock, clientId:", lock.clientId)
+                print("[proxy] Checking lock", i, "name:", lock and lock.name, "clientId:", lock and lock.clientId)
               end
-              done(lock.clientId)
-              return
+              if lock and lock.name == nonce then
+                if verbose then
+                  print("[proxy] Found our lock, clientId:", lock.clientId)
+                end
+                found_client_id = lock.clientId
+                break
+              end
             end
           end
-        end
-        if verbose then
-          print("[proxy] Failed to find client ID")
-        end
-        done(nil)
+          if verbose and not found_client_id then
+            print("[proxy] Failed to find client ID")
+          end
+        end)
+        return util.resolved(true)
       end)
-      return util.promise(function (complete) complete(true) end)
-    end)
+      util.set_timeout(function () complete(found_client_id) end, 10)
+    end):await()
+    return found_client_id
   end
 
   local function close_provider_connection ()
@@ -130,7 +136,10 @@ return function (bundle_path, callback, opts)
           end
           current_provider_port = port
           db = create_wrpc_proxy(port)
-          if callback then callback() end
+          if ready_resolver then
+            ready_resolver()
+            ready_resolver = nil
+          end
         elseif port then
           if verbose then
             print("[proxy] Closing stale port")
@@ -245,16 +254,22 @@ return function (bundle_path, callback, opts)
     end
   end
 
-  if verbose then
-    print("[proxy] Waiting for SW ready...")
-  end
-  navigator.serviceWorker.ready:await(function (_, ok)
-    if verbose then
-      print("[proxy] SW ready callback, ok:", ok)
+  return util.promise(function (complete)
+    ready_resolver = function ()
+      complete(true)
     end
-    if not ok then return end
 
-    get_client_id(function (cid)
+    async(function ()
+      if verbose then
+        print("[proxy] Waiting for SW ready...")
+      end
+      local ok = navigator.serviceWorker.ready:await()
+      if verbose then
+        print("[proxy] SW ready callback, ok:", ok)
+      end
+      if not ok then return end
+
+      local cid = get_client_id()
       if verbose then
         print("[proxy] Got client ID:", cid)
       end
@@ -273,7 +288,7 @@ return function (bundle_path, callback, opts)
         if verbose then
           print("[proxy] Context lock acquired")
         end
-        return util.promise(function () end)
+        return util.never()
       end):catch(function () end)
 
       if verbose then
@@ -312,14 +327,15 @@ return function (bundle_path, callback, opts)
           clientId = client_id
         }, true))
 
-        if callback then
+        if ready_resolver then
           if verbose then
-            print("[proxy] Calling ready callback")
+            print("[proxy] Resolving ready promise")
           end
-          callback()
+          ready_resolver()
+          ready_resolver = nil
         end
 
-        return util.promise(function () end)
+        return util.never()
       end)
 
       if verbose then

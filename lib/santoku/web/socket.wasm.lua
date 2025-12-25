@@ -2,6 +2,7 @@ local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local str = require("santoku.string")
 local global = js.self or js.global or js.window
+local Promise = js.Promise
 
 local valid_fetch_opts = {
   method = true, headers = true, body = true, mode = true,
@@ -20,33 +21,38 @@ local function filter_opts (opts)
 end
 
 return {
-  fetch = function (url, opts, done)
+  fetch = function (url, opts)
     opts = opts or {}
     local fetch_opts = filter_opts(opts)
-    return global:fetch(url, val(fetch_opts, true)):await(function (_, ok, resp)
-      if not ok then
-        return done(false, { status = 0, headers = {}, ok = false, error = resp })
-      end
-      local headers = {}
-      if resp.headers then
-        resp.headers:forEach(function (_, v, k)
-          headers[str.lower(k)] = v
-        end)
-      end
-      return done(resp.ok, {
-        status = resp.status,
-        headers = headers,
-        ok = resp.ok,
-        raw = resp,
-        body = function (cb)
-          return resp:text():await(function (_, ok, text)
-            return cb(ok, text)
-          end)
+    local ok, resp = global:fetch(url, val(fetch_opts, true)):await()
+    if not ok then
+      return false, { status = 0, headers = {}, ok = false, error = resp }
+    end
+    local headers = {}
+    if resp.headers then
+      resp.headers:forEach(function (_, v, k)
+        headers[str.lower(k)] = v
+      end)
+    end
+    return resp.ok, {
+      status = resp.status,
+      headers = headers,
+      ok = resp.ok,
+      raw = resp,
+      body = function ()
+        local ok, text = resp:text():await()
+        if ok then
+          return text
         end
-      })
-    end)
+        return nil
+      end
+    }
   end,
-  sleep = function (ms, fn)
-    return global:setTimeout(fn, ms)
+  sleep = function (ms)
+    Promise:new(function (this, resolve)
+      global:setTimeout(function ()
+        resolve(this)
+      end, ms)
+    end):await()
   end
 }

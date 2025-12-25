@@ -1,6 +1,7 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local arr = require("santoku.array")
+local util = require("santoku.web.util")
 
 local Worker = js.Worker
 local MessageChannel = js.MessageChannel
@@ -41,15 +42,7 @@ M.init_port = function (port)
   return setmetatable({}, {
     __index = function (_, k)
       return function (...)
-
-        local ch = MessageChannel:new()
-        local n = select("#", ...)
-        local callback = select(n, ...)
-
-        local args = {}
-        for i = 1, n - 1 do
-          args[i] = select(i, ...)
-        end
+        local args = { ... }
 
         local tfrs = arr.filtered(args, function (t)
           local ok, name = pcall(function ()
@@ -58,24 +51,19 @@ M.init_port = function (port)
           return ok and transferables[name]
         end)
 
-        -- TODO: currently this only supports
-        -- transferables that occur at the top-level of
-        -- arguments, not nested within objects and
-        -- tables. Ideally, the val(..., true)
-        -- traversal could optionally return a table of
-        -- all transferables encountered.
-        port:postMessage(
-          val({ k, ch.port2, arr.spread(args) }, true),
-          { ch.port2, arr.spread(tfrs) })
-
-        ch.port1.onmessage = function (_, ev)
-          local args = {}
-          for i = 1, ev.data.length do
-            args[#args + 1] = ev.data[i]
+        return util.promise(function (complete)
+          local ch = MessageChannel:new()
+          port:postMessage(
+            val({ k, ch.port2, arr.spread(args) }, true),
+            { ch.port2, arr.spread(tfrs) })
+          ch.port1.onmessage = function (_, ev)
+            local result = {}
+            for i = 1, ev.data.length do
+              result[#result + 1] = ev.data[i]
+            end
+            complete(true, arr.spread(result))
           end
-          callback(arr.spread(args))
-        end
-
+        end)
       end
     end
   })

@@ -132,9 +132,8 @@ local function create_db_wrapper (wsqlite, raw_db)
   })
 end
 
-M.open = function (dbfile, opts, callback)
+M.open = function (dbfile, opts)
   if type(opts) == "function" then
-    callback = opts
     opts = {}
   end
   opts = opts or {}
@@ -148,19 +147,17 @@ M.open = function (dbfile, opts, callback)
       end
     end
   end
-  js:sqlite3InitModule():await(function (_, ok, wsqlite)
-    if not ok then
-      return callback(false, wsqlite)
-    end
-    wsqlite:installOpfsSAHPoolVfs(opts):await(function (_, ok2, pool_util)
-      if not ok2 then
-        return callback(false, pool_util)
-      end
-      callback(err.pcall(function ()
-        local raw_db = pool_util.OpfsSAHPoolDb:new(dbfile)
-        return create_db_wrapper(wsqlite, raw_db)
-      end))
-    end)
+  local ok, wsqlite = js:sqlite3InitModule():await()
+  if not ok then
+    return false, wsqlite
+  end
+  local ok2, pool_util = wsqlite:installOpfsSAHPoolVfs(opts):await()
+  if not ok2 then
+    return false, pool_util
+  end
+  return err.pcall(function ()
+    local raw_db = pool_util.OpfsSAHPoolDb:new(dbfile)
+    return create_db_wrapper(wsqlite, raw_db)
   end)
 end
 

@@ -1,10 +1,9 @@
 local js = require("santoku.web.js")
 local util = require("santoku.web.util")
 local val = require("santoku.web.val")
-local async = require("santoku.async")
+local async = require("santoku.web.async")
 local socket = require("santoku.web.socket")
 local http_factory = require("santoku.http")
-local fun = require("santoku.functional")
 local str = require("santoku.string")
 local arr = require("santoku.array")
 
@@ -45,28 +44,27 @@ return function (opts)
     page_ready_callbacks = {}
   end
 
-  local function wait_for_page_ready (callback)
+  local function wait_for_page_ready ()
     if page_ready then
-      return callback()
+      return util.resolved()
     end
-
-    local called = false
-    local function call_once ()
-      if called then return end
-      called = true
-      callback()
-    end
-
-    page_ready_callbacks[#page_ready_callbacks + 1] = call_once
-
-    if opts.page_ready_timeout_ms then
-      util.set_timeout(function ()
-        if opts.verbose and not page_ready then
-          print("Page ready timeout, proceeding with pre-cache")
-        end
-        call_once()
-      end, opts.page_ready_timeout_ms)
-    end
+    return util.promise(function (complete)
+      local called = false
+      local function call_once ()
+        if called then return end
+        called = true
+        complete(true)
+      end
+      page_ready_callbacks[#page_ready_callbacks + 1] = call_once
+      if opts.page_ready_timeout_ms then
+        util.set_timeout(function ()
+          if opts.verbose and not page_ready then
+            print("Page ready timeout, proceeding with pre-cache")
+          end
+          call_once()
+        end, opts.page_ready_timeout_ms)
+      end
+    end)
   end
 
   local db_sw_port = nil
@@ -80,7 +78,8 @@ return function (opts)
   local version_mismatch = false
 
   local function broadcast_version_mismatch ()
-    clients:matchAll():await(function (_, ok, all_clients)
+    async(function ()
+      local ok, all_clients = clients:matchAll():await()
       if not ok or not all_clients then return end
       all_clients:forEach(function (_, client)
         client:postMessage(val({ type = "version_mismatch" }, true))
@@ -105,18 +104,20 @@ return function (opts)
     return false
   end
 
-  local function send_db_call (method, args, callback)
-    db_request_id = db_request_id + 1
-    local id = db_request_id
-    local ch = MessageChannel:new()
-    db_inflight_requests[id] = { method = method, args = args, callback = callback, port = ch.port1 }
-    db_sw_port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
-    ch.port1.onmessage = function (_, ev)
-      db_inflight_requests[id] = nil
-      local result = {}
-      for i = 1, ev.data.length do result[i] = ev.data[i] end
-      callback(arr.spread(result))
-    end
+  local function send_db_call (method, args)
+    return util.promise(function (complete)
+      db_request_id = db_request_id + 1
+      local id = db_request_id
+      local ch = MessageChannel:new()
+      db_inflight_requests[id] = { method = method, args = args, complete = complete, port = ch.port1 }
+      db_sw_port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
+      ch.port1.onmessage = function (_, ev)
+        db_inflight_requests[id] = nil
+        local result = {}
+        for i = 1, ev.data.length do result[i] = ev.data[i] end
+        complete(true, arr.spread(result))
+      end
+    end)
   end
 
   local function requeue_inflight_requests ()
@@ -128,7 +129,7 @@ return function (opts)
       db_pending_queue[#db_pending_queue + 1] = {
         method = req.method,
         args = req.args,
-        callback = req.callback
+        complete = req.complete
       }
     end
     db_inflight_requests = {}
@@ -142,20 +143,23 @@ return function (opts)
     db_pending_queue = {}
     for i = 1, #queue do
       local req = queue[i]
-      send_db_call(req.method, req.args, req.callback)
+      send_db_call(req.method, req.args):await(function (_, ...)
+        req.complete(...)
+      end)
     end
   end
 
-  local function db_call (method, args, callback)
+  local function db_call (method, args)
     if not db_sw_port then
-      db_pending_queue[#db_pending_queue + 1] = {
-        method = method,
-        args = args,
-        callback = callback
-      }
-      return
+      return util.promise(function (complete)
+        db_pending_queue[#db_pending_queue + 1] = {
+          method = method,
+          args = args,
+          complete = complete
+        }
+      end)
     end
-    send_db_call(method, args, callback)
+    return send_db_call(method, args)
   end
 
   local db = nil
@@ -163,16 +167,7 @@ return function (opts)
     db = setmetatable({}, {
       __index = function (_, method)
         return function (...)
-          local n = select("#", ...)
-          if n == 0 then
-            error("db." .. method .. "() called without callback")
-          end
-          local callback = select(n, ...)
-          local args = {}
-          for i = 1, n - 1 do
-            args[i] = select(i, ...)
-          end
-          return db_call(method, args, callback)
+          return db_call(method, { ... })
         end
       end
     })
@@ -279,7 +274,8 @@ return function (opts)
   end, true)
 
   local function broadcast (name, data)
-    clients:matchAll():await(function (_, ok, all_clients)
+    async(function ()
+      local ok, all_clients = clients:matchAll():await()
       if not ok or not all_clients then return end
       all_clients:forEach(function (_, client)
         client:postMessage(val({ type = "sw-broadcast", name = name, data = data }, true))
@@ -303,195 +299,154 @@ return function (opts)
   end
 
   Module.on_install = function ()
-    local is_update = global.registration.active ~= nil
-    if opts.verbose then
-      print("Installing service worker (is_update: " .. tostring(is_update) .. ", version: " .. opts.nonce .. ")")
-    end
-    return util.promise(function (complete)
-      return async.pipe(function (done)
-        if is_update then
-          return done(true)
+    return async(function ()
+      local is_update = global.registration.active ~= nil
+      if opts.verbose then
+        print("Installing service worker (is_update: " .. tostring(is_update) .. ", version: " .. opts.nonce .. ")")
+      end
+
+      if not is_update then
+        wait_for_page_ready():await()
+      end
+
+      local ok, cache = caches:open(opts.nonce):await()
+      if not ok then
+        if opts.verbose then
+          print("Error installing service worker:", extract_error_msg(cache))
         end
-        return wait_for_page_ready(function ()
-          return done(true)
-        end)
-      end, function (done)
-        return caches:open(opts.nonce):await(fun.sel(done, 2))
-      end, function (done, cache)
-        return async.all(opts.precache, function (each_done, file)
-          if matches_no_cache_pattern("/" .. file) then
-            if opts.verbose then
-              print("Skipping precache (no_cache_pattern):", file)
-            end
-            return each_done(true)
+        return false, cache
+      end
+
+      for _, file in ipairs(opts.precache) do
+        if matches_no_cache_pattern("/" .. file) then
+          if opts.verbose then
+            print("Skipping precache (no_cache_pattern):", file)
           end
+        else
           local hashed_file = resolve_hashed(file)
           local full_url = URL:new(hashed_file, global.location.origin).href
-          return async.pipe(function (done)
-            return cache:match(full_url):await(fun.sel(done, 2))
-          end, function (done, existing)
-            if existing then
-              if opts.verbose then
-                print("Already cached", hashed_file)
-              end
-              return each_done(true)
+          local _, existing = cache:match(full_url):await()
+          if existing then
+            if opts.verbose then
+              print("Already cached", hashed_file)
             end
-            return http.get(hashed_file, { retry = false }, done)
-          end, function (done, resp)
-            if not resp or not resp.raw then
-              return done(false, resp)
-            end
-            return cache:put(full_url, resp.raw):await(fun.sel(done, 2))
-          end, function (ok, err, ...)
-            if not ok then
-              local msg = extract_error_msg(err)
+          else
+            local resp_ok, resp = http.get(hashed_file, { retry = false })
+            if not resp_ok or not resp or not resp.raw then
+              local msg = extract_error_msg(resp)
               if opts.verbose then
                 print("Failed caching", hashed_file, msg)
               end
-              return each_done(false, "Failed to cache " .. hashed_file .. ": " .. msg)
-            end
-            if opts.verbose then
-              print("Cached", hashed_file)
-            end
-            return each_done(true, ...)
-          end)
-        end, function (ok, ...) done(ok, cache, ...) end)
-      end, function (done, cache)
-        if not opts.self_alias then
-          return done(true, cache)
-        end
-        local hashed_alias = resolve_hashed(opts.self_alias)
-        if hashed_alias == opts.self_alias then
-          return done(true, cache)
-        end
-        local full_alias_url = URL:new("/" .. hashed_alias, global.location.origin).href
-        return cache:match(full_alias_url):await(function (_, ok0, existing)
-          if not ok0 then
-            return done(true, cache)
-          end
-          if existing then
-            if opts.verbose then
-              print("Self alias already cached:", hashed_alias)
-            end
-            return done(true, cache)
-          end
-          return http.get("/sw.js", { retry = false }, function (ok1, resp)
-            if not ok1 or not resp or not resp.raw then
+            else
+              cache:put(full_url, resp.raw):await()
               if opts.verbose then
-                print("Failed to fetch /sw.js for self alias caching")
+                print("Cached", hashed_file)
               end
-              return done(true, cache)
             end
-            return cache:put(full_alias_url, resp.raw):await(function ()
+          end
+        end
+      end
+
+      if opts.self_alias then
+        local hashed_alias = resolve_hashed(opts.self_alias)
+        if hashed_alias ~= opts.self_alias then
+          local full_alias_url = URL:new("/" .. hashed_alias, global.location.origin).href
+          local _, existing = cache:match(full_alias_url):await()
+          if not existing then
+            local ok1, resp = http.get("/sw.js", { retry = false })
+            if ok1 and resp and resp.raw then
+              cache:put(full_alias_url, resp.raw):await()
               if opts.verbose then
                 print("Cached self alias:", hashed_alias)
               end
-              return done(true, cache)
-            end)
-          end)
-        end)
-      end, function (done)
-        if not global.registration.active then
-          return global:skipWaiting():await(fun.sel(done, 2))
-        else
-          return done(true)
-        end
-      end, function (ok, err, ...)
-        if ok then
-          if opts.verbose then
-            print("Installed service worker")
-          end
-        else
-          local msg = extract_error_msg(err)
-          if opts.verbose then
-            print("Error installing service worker:", msg)
+            elseif opts.verbose then
+              print("Failed to fetch /sw.js for self alias caching")
+            end
+          elseif opts.verbose then
+            print("Self alias already cached:", hashed_alias)
           end
         end
-        return complete(ok, err, ...)
-      end)
+      end
+
+      if not global.registration.active then
+        global:skipWaiting():await()
+      end
+
+      if opts.verbose then
+        print("Installed service worker")
+      end
+      return true
     end)
   end
 
   Module.on_activate = function ()
-    if opts.verbose then
-      print("Activating service worker")
-    end
-    return util.promise(function (complete)
-      return async.pipe(function (done)
-        return caches:keys():await(fun.sel(done, 2))
-      end, function (done, keys)
-        return Promise:all(keys:filter(function (_, k)
-          return k ~= opts.nonce
-        end):map(function (_, k)
-          return caches:delete(k)
-        end)):await(fun.sel(done, 2))
-      end, function (done)
-        return clients:claim():await(fun.sel(done, 2))
-      end, function (ok, ...)
-        if ok and opts.verbose then
-          print("Activated service worker")
-        elseif not ok and opts.verbose then
+    return async(function ()
+      if opts.verbose then
+        print("Activating service worker")
+      end
+
+      local ok, keys = caches:keys():await()
+      if not ok then
+        if opts.verbose then
           print("Error activating service worker")
         end
-        return complete(ok, ...)
-      end)
+        return false, keys
+      end
+
+      Promise:all(keys:filter(function (_, k)
+        return k ~= opts.nonce
+      end):map(function (_, k)
+        return caches:delete(k)
+      end)):await()
+
+      clients:claim():await()
+
+      if opts.verbose then
+        print("Activated service worker")
+      end
+      return true
     end)
   end
 
   local function default_fetch_handler(request)
-    return util.promise(function (complete)
+    return async(function ()
       local url_obj = URL:new(request.url)
       local pathname = url_obj.pathname
       if matches_no_cache_pattern(pathname) then
         if opts.verbose then
           print("Bypassing cache (no_cache_pattern):", pathname)
         end
-        return http.fetch(request, { retry = false }, function (ok, resp)
-          complete(ok, resp and resp.raw)
-        end)
+        local ok, resp = http.fetch(request, { retry = false })
+        return ok, resp and resp.raw
       end
-      local cache_ref = nil
-      local was_miss = false
+
       if opts.verbose then
         print("Fetching:", request.url)
       end
-      return async.pipe(function (done)
-        return caches:open(opts.nonce):await(fun.sel(done, 2))
-      end, function (done, cache)
-        cache_ref = cache
-        return cache:match(request.url, val({
-          ignoreSearch = true,
-          ignoreVary = true,
-          ignoreMethod = true
-        }, true)):await(fun.sel(done, 2))
-      end, function (done, cached_resp)
-        if not cached_resp then
-          was_miss = true
-          if opts.verbose then
-            print("Cache miss:", request.url)
-          end
-          return http.fetch(request, { retry = false }, function (_, resp)
-            if resp and resp.raw then
-              return done(true, resp)
-            end
-            return done(false, resp)
-          end)
-        else
-          if opts.verbose then
-            print("Cache hit:", request.url)
-          end
-          return done(true, { raw = cached_resp:clone() })
+
+      local _, cache = caches:open(opts.nonce):await()
+      local _, cached_resp = cache:match(request.url, val({
+        ignoreSearch = true,
+        ignoreVary = true,
+        ignoreMethod = true
+      }, true)):await()
+
+      if cached_resp then
+        if opts.verbose then
+          print("Cache hit:", request.url)
         end
-      end, function (done, resp)
-        local raw = resp and resp.raw
-        if was_miss and cache_ref and raw and raw.ok then
-          cache_ref:put(request, raw:clone()):await(function ()
-            return done(true, raw)
-          end)
-        else
-          return done(true, raw)
-        end
-      end, complete)
+        return true, cached_resp:clone()
+      end
+
+      if opts.verbose then
+        print("Cache miss:", request.url)
+      end
+      local _, resp = http.fetch(request, { retry = false })
+      local raw = resp and resp.raw
+      if raw and raw.ok then
+        cache:put(request, raw:clone()):await()
+      end
+      return true, raw
     end)
   end
 
@@ -516,8 +471,8 @@ return function (opts)
     end
 
     if opts.index_html and (pathname == "/" or pathname == "/index.html") then
-      return util.promise(function (complete)
-        complete(true, util.response(opts.index_html, { content_type = "text/html" }))
+      return async(function ()
+        return true, util.response(opts.index_html, { content_type = "text/html" })
       end)
     end
 
@@ -558,7 +513,8 @@ return function (opts)
             wait_for_install(global.registration.installing)
           end
         end)
-        global.registration:update():await(function ()
+        async(function ()
+          global.registration:update():await()
           if completed then return end
           if global.registration.waiting then
             return do_skip()
@@ -583,38 +539,29 @@ return function (opts)
 
     local handler, path, params = match_route(pathname, request.url)
     if handler then
-      return util.promise(function (complete)
-        local function run_handler (merged_params)
-          local req = { path = path, params = merged_params, raw = request }
-          handler(req, path, merged_params, function (ok, result, content_type, extra_headers)
-            if not ok then
-              if opts.verbose then
-                print("SW error response:", 500, tostring(result))
-              end
-              complete(true, util.response("Error: " .. tostring(result), { status = 500, content_type = "text/plain" }))
-              return
-            end
-            if type(result) == "table" and (result.body ~= nil or result.status or result.headers) then
-              complete(true, util.response(result.body or "", {
-                status = result.status,
-                content_type = result.content_type,
-                headers = result.headers
-              }))
-              return
-            end
-            complete(true, util.response(result, { content_type = content_type, headers = extra_headers }))
-          end)
-        end
+      return async(function ()
         if request.method == "POST" then
-          util.request_formdata(request, function (form_params)
-            for k, v in pairs(form_params) do
-              params[k] = v
-            end
-            run_handler(params)
-          end)
-        else
-          run_handler(params)
+          local form_params = util.request_formdata(request)
+          for k, v in pairs(form_params) do
+            params[k] = v
+          end
         end
+        local req = { path = path, params = params, raw = request }
+        local ok, result, content_type, extra_headers = handler(req, path, params)
+        if not ok then
+          if opts.verbose then
+            print("SW error response:", 500, tostring(result))
+          end
+          return true, util.response("Error: " .. tostring(result), { status = 500, content_type = "text/plain" })
+        end
+        if type(result) == "table" and (result.body ~= nil or result.status or result.headers) then
+          return true, util.response(result.body or "", {
+            status = result.status,
+            content_type = result.content_type,
+            headers = result.headers
+          })
+        end
+        return true, util.response(result, { content_type = content_type, headers = extra_headers })
       end)
     end
 
