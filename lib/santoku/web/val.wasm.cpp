@@ -1114,8 +1114,15 @@ static inline int mto_typeof (lua_State *L) {
 }
 
 static inline int mtp_index (lua_State *L) {
+  const char *key = lua_tostring(L, 2);
+  if (key && strcmp(key, "await") == 0) {
+    lua_getglobal(L, "__tk_await");
+    if (lua_type(L, -1) == LUA_TFUNCTION)
+      return 1;
+    lua_pop(L, 1);
+  }
   lua_rawgeti(L, LUA_REGISTRYINDEX, MTP_FNS);
-  lua_pushvalue(L, -2);
+  lua_pushvalue(L, 2);
   lua_gettable(L, -2);
   if (lua_type(L, -1) != LUA_TNIL)
     return 1;

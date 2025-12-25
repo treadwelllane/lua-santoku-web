@@ -60,8 +60,10 @@ M.ws = function (url, opts, each, retries, backoffs)
       arr.clear(buffer)
     end)
     ws0:addEventListener("message", function (_, ev)
-      ev.data:text():await(function (_, ...)
-        each("message", err.checkok(...))
+      local async = require("santoku.web.async")
+      async(function ()
+        local ok, text = ev.data:text():await()
+        each("message", err.checkok(ok, text))
       end)
     end)
     ws0:addEventListener("close", function (_, ev)
@@ -120,6 +122,24 @@ M.promise = function (fn)
   end)
 end
 
+M.never = function ()
+  return Promise:new(function () end)
+end
+
+M.resolved = function (...)
+  local args = { ... }
+  return Promise:new(function (this, resolve)
+    resolve(this, arr.spread(args))
+  end)
+end
+
+M.rejected = function (...)
+  local args = { ... }
+  return Promise:new(function (this, _, reject)
+    reject(this, arr.spread(args))
+  end)
+end
+
 M.after_frame = function (fn)
   return global:requestAnimationFrame(function ()
     return global:requestAnimationFrame(fn)
@@ -147,22 +167,22 @@ end
 
 M.atleast = function (fn, min_ms)
   return function (...)
-    local args = {...}
-    local _, done = arr.pop(args)
+    local args = { ... }
     local start = utc.time(true)
-    arr.push(args, function (...)
-      local elapsed = (utc.time(true) - start) * 1000
-      local remaining = min_ms - elapsed
-      if remaining > 0 then
-        local results = {...}
-        return M.set_timeout(function ()
-          done(arr.spread(results))
-        end, remaining)
-      else
-        return done(...)
-      end
+    return M.promise(function (complete)
+      fn(arr.spread(args)):await(function (_, ok, ...)
+        local results = { ... }
+        local elapsed = (utc.time(true) - start) * 1000
+        local remaining = min_ms - elapsed
+        if remaining > 0 then
+          M.set_timeout(function ()
+            complete(ok, arr.spread(results))
+          end, remaining)
+        else
+          complete(ok, arr.spread(results))
+        end
+      end)
     end)
-    return fn(arr.spread(args))
   end
 end
 
@@ -206,33 +226,28 @@ M.date_utc = function (date)
   return num.trunc(date:getTime() / 1000, 0)
 end
 
-M.request_text = function (request, callback)
-  request:text():await(function (_, ok, text)
-    callback(ok and text or nil)
-  end)
+M.request_text = function (request)
+  local ok, text = request:text():await()
+  return ok and text or nil
 end
 
-M.request_json = function (request, callback)
+M.request_json = function (request)
   local json = require("cjson")
-  M.request_text(request, function (text)
-    if text then
-      local ok, data = pcall(json.decode, text)
-      callback(ok and data or nil)
-    else
-      callback(nil)
-    end
-  end)
+  local text = M.request_text(request)
+  if text then
+    local ok, data = pcall(json.decode, text)
+    return ok and data or nil
+  end
+  return nil
 end
 
-M.request_formdata = function (request, callback)
+M.request_formdata = function (request)
   local str = require("santoku.string")
-  M.request_text(request, function (text)
-    if text then
-      callback(str.from_formdata(text))
-    else
-      callback({})
-    end
-  end)
+  local text = M.request_text(request)
+  if text then
+    return str.from_formdata(text)
+  end
+  return {}
 end
 
 M.response = function (body, opts)
