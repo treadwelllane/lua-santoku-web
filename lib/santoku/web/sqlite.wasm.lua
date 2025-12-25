@@ -1,5 +1,6 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
+local util = require("santoku.web.util")
 local sqlite = require("santoku.sqlite")
 local err = require("santoku.error")
 local Object = js.Object
@@ -150,12 +151,14 @@ M.open = function (dbfile, opts)
     end
   end
   if verbose then print("[sqlite.open] calling sqlite3InitModule") end
-  if verbose then print("[sqlite.open] __tk_await:", _G.__tk_await) end
-  local promise = js.sqlite3InitModule()
-  if verbose then print("[sqlite.open] promise:", promise) end
-  if verbose then print("[sqlite.open] promise.await:", promise.await) end
-  local ok, wsqlite = promise:await()
-  if verbose then print("[sqlite.open] sqlite3InitModule returned:", ok) end
+  local ok, wsqlite = util.promise(function (complete)
+    util.set_timeout(function ()
+      js:sqlite3InitModule():await(function (_, ...)
+        return complete(...)
+      end)
+    end, 0)
+  end):await()
+  if verbose then print("[sqlite.open] sqlite3InitModule returned:", ok, wsqlite) end
   if not ok then
     return false, wsqlite
   end
