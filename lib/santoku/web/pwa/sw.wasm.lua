@@ -6,6 +6,7 @@ local socket = require("santoku.web.socket")
 local http_factory = require("santoku.http")
 local str = require("santoku.string")
 local arr = require("santoku.array")
+local err = require("santoku.error")
 
 local global = js.self
 local Module = global.Module
@@ -167,7 +168,7 @@ return function (opts)
     db = setmetatable({}, {
       __index = function (_, method)
         return function (...)
-          return db_call(method, { ... }):await()
+          return err.checkok(db_call(method, { ... }):await())
         end
       end
     })
@@ -416,8 +417,8 @@ return function (opts)
         if opts.verbose then
           print("Bypassing cache (no_cache_pattern):", pathname)
         end
-        local ok, resp = http.fetch(request, { retry = false })
-        return ok, resp and resp.raw
+        local _, resp = http.fetch(request, { retry = false })
+        return resp and resp.raw
       end
 
       if opts.verbose then
@@ -435,7 +436,7 @@ return function (opts)
         if opts.verbose then
           print("Cache hit:", request.url)
         end
-        return true, cached_resp:clone()
+        return cached_resp:clone()
       end
 
       if opts.verbose then
@@ -446,7 +447,7 @@ return function (opts)
       if raw and raw.ok then
         cache:put(request, raw:clone()):await()
       end
-      return true, raw
+      return raw
     end)
   end
 
@@ -472,7 +473,7 @@ return function (opts)
 
     if opts.index_html and (pathname == "/" or pathname == "/index.html") then
       return async(function ()
-        return true, util.response(opts.index_html, { content_type = "text/html" })
+        return util.response(opts.index_html, { content_type = "text/html" })
       end)
     end
 
@@ -547,21 +548,15 @@ return function (opts)
           end
         end
         local req = { path = path, params = params, raw = request }
-        local ok, result, content_type, extra_headers = handler(req, path, params)
-        if not ok then
-          if opts.verbose then
-            print("SW error response:", 500, tostring(result))
-          end
-          return true, util.response("Error: " .. tostring(result), { status = 500, content_type = "text/plain" })
-        end
+        local result, content_type, extra_headers = handler(req, path, params)
         if type(result) == "table" and (result.body ~= nil or result.status or result.headers) then
-          return true, util.response(result.body or "", {
+          return util.response(result.body or "", {
             status = result.status,
             content_type = result.content_type,
             headers = result.headers
           })
         end
-        return true, util.response(result, { content_type = content_type, headers = extra_headers })
+        return util.response(result, { content_type = content_type, headers = extra_headers })
       end)
     end
 
