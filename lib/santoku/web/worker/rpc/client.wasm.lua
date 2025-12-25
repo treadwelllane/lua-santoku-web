@@ -63,7 +63,7 @@ M.init_port = function (port)
             end
             complete(true, arr.spread(result))
           end
-        end)
+        end):await()
       end
     end
   })

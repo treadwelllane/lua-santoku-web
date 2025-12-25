@@ -167,22 +167,16 @@ end
 
 M.atleast = function (fn, min_ms)
   return function (...)
-    local args = { ... }
     local start = utc.time(true)
-    return M.promise(function (complete)
-      fn(arr.spread(args)):await(function (_, ok, ...)
-        local results = { ... }
-        local elapsed = (utc.time(true) - start) * 1000
-        local remaining = min_ms - elapsed
-        if remaining > 0 then
-          M.set_timeout(function ()
-            complete(ok, arr.spread(results))
-          end, remaining)
-        else
-          complete(ok, arr.spread(results))
-        end
-      end)
-    end)
+    local results = { fn(...) }
+    local elapsed = (utc.time(true) - start) * 1000
+    local remaining = min_ms - elapsed
+    if remaining > 0 then
+      Promise:new(function (this, resolve)
+        M.set_timeout(function () resolve(this) end, remaining)
+      end):await()
+    end
+    return arr.spread(results)
   end
 end
 
