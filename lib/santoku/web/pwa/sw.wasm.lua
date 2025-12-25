@@ -114,9 +114,7 @@ return function (opts)
       db_sw_port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
       ch.port1.onmessage = function (_, ev)
         db_inflight_requests[id] = nil
-        local result = {}
-        for i = 1, ev.data.length do result[i] = ev.data[i] end
-        complete(true, arr.spread(result))
+        complete(true, ev.data)
       end
     end)
   end
@@ -168,7 +166,8 @@ return function (opts)
     db = setmetatable({}, {
       __index = function (_, method)
         return function (...)
-          return err.checkok(db_call(method, { ... }):await())
+          local _, result = db_call(method, { ... }):await()
+          return err.checkok(arr.spread(val.lua(result, true)))
         end
       end
     })

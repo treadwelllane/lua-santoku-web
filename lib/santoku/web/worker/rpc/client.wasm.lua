@@ -51,19 +51,16 @@ M.init_port = function (port)
           return ok and transferables[name]
         end)
 
-        return util.promise(function (complete)
+        local _, result = util.promise(function (complete)
           local ch = MessageChannel:new()
           port:postMessage(
             val({ k, ch.port2, arr.spread(args) }, true),
             { ch.port2, arr.spread(tfrs) })
           ch.port1.onmessage = function (_, ev)
-            local result = {}
-            for i = 1, ev.data.length do
-              result[#result + 1] = ev.data[i]
-            end
-            complete(true, arr.spread(result))
+            complete(true, ev.data)
           end
         end):await()
+        return arr.spread(val.lua(result, true))
       end
     end
   })
