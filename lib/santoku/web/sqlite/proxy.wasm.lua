@@ -53,36 +53,39 @@ return function (bundle_path, opts)
       print("[proxy] Getting client ID with nonce:", nonce)
     end
     local found_client_id = nil
-    navigator.locks:request(nonce, function ()
-      return async(function ()
-        local ok, state = navigator.locks:query():await()
-        if verbose then
-          print("[proxy] Lock query result - ok:", ok, "state:", state)
-        end
-        if ok and state and state.held then
-          local held = state.held
+    util.promise(function (complete)
+      navigator.locks:request(nonce, function ()
+        async(function ()
+          local ok, state = navigator.locks:query():await()
           if verbose then
-            print("[proxy] Held locks count:", held.length)
+            print("[proxy] Lock query result - ok:", ok, "state:", state)
           end
-          for i = 1, held.length do
-            local lock = held[i]
+          if ok and state and state.held then
+            local held = state.held
             if verbose then
-              print("[proxy] Checking lock", i, "name:", lock and lock.name, "clientId:", lock and lock.clientId)
+              print("[proxy] Held locks count:", held.length)
             end
-            if lock and lock.name == nonce then
+            for i = 1, held.length do
+              local lock = held[i]
               if verbose then
-                print("[proxy] Found our lock, clientId:", lock.clientId)
+                print("[proxy] Checking lock", i, "name:", lock and lock.name, "clientId:", lock and lock.clientId)
               end
-              found_client_id = lock.clientId
-              break
+              if lock and lock.name == nonce then
+                if verbose then
+                  print("[proxy] Found our lock, clientId:", lock.clientId)
+                end
+                found_client_id = lock.clientId
+                break
+              end
             end
           end
-        end
-        if verbose and not found_client_id then
-          print("[proxy] Failed to find client ID")
-        end
-        return true
+          if verbose and not found_client_id then
+            print("[proxy] Failed to find client ID")
+          end
+        end)
+        return util.resolved(true)
       end)
+      util.set_timeout(function () complete(found_client_id) end, 10)
     end):await()
     return found_client_id
   end
