@@ -72,7 +72,11 @@ local function await (p, callback)
       queue[#queue + 1] = { ctx, false, res }
       schedule:call(nil)
     end)
-  return ctx.co.yield()
+  local ok, res = ctx.co.yield()
+  if not ok then
+    error(res)
+  end
+  return res
 end
 
 _G.__tk_await = await
