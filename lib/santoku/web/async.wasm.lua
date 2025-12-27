@@ -1,6 +1,7 @@
 local co_factory = require("santoku.co")
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
+local err = require("santoku.error")
 
 local Promise = js.Promise
 
@@ -74,7 +75,7 @@ local function await (p, callback)
     end)
   local ok, res = ctx.co.yield()
   if not ok then
-    error(res)
+    err.error(res)
   end
   return res
 end
