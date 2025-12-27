@@ -62,8 +62,8 @@ M.ws = function (url, opts, each, retries, backoffs)
     ws0:addEventListener("message", function (_, ev)
       local async = require("santoku.web.async")
       async(function ()
-        local ok, text = ev.data:text():await()
-        each("message", err.checkok(ok, text))
+        local text = ev.data:text():await()
+        each("message", text)
       end)
     end)
     ws0:addEventListener("close", function (_, ev)
@@ -221,7 +221,9 @@ M.date_utc = function (date)
 end
 
 M.request_text = function (request)
-  local ok, text = request:text():await()
+  local ok, text = err.pcall(function ()
+    return request:text():await()
+  end)
   return ok and text or nil
 end
 

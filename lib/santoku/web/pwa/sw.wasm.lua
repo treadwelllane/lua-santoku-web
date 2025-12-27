@@ -80,8 +80,8 @@ return function (opts)
 
   local function broadcast_version_mismatch ()
     async(function ()
-      local ok, all_clients = clients:matchAll():await()
-      if not ok or not all_clients then return end
+      local all_clients = clients:matchAll():await()
+      if not all_clients then return end
       all_clients:forEach(function (_, client)
         client:postMessage(val({ type = "version_mismatch" }, true))
       end)
@@ -166,7 +166,7 @@ return function (opts)
     db = setmetatable({}, {
       __index = function (_, method)
         return function (...)
-          local _, result = db_call(method, { ... }):await()
+          local result = db_call(method, { ... }):await()
           return err.checkok(arr.spread(val.lua(result, true)))
         end
       end
@@ -275,8 +275,8 @@ return function (opts)
 
   local function broadcast (name, data)
     async(function ()
-      local ok, all_clients = clients:matchAll():await()
-      if not ok or not all_clients then return end
+      local all_clients = clients:matchAll():await()
+      if not all_clients then return end
       all_clients:forEach(function (_, client)
         client:postMessage(val({ type = "sw-broadcast", name = name, data = data }, true))
       end)
@@ -309,13 +309,7 @@ return function (opts)
         wait_for_page_ready():await()
       end
 
-      local ok, cache = caches:open(opts.nonce):await()
-      if not ok then
-        if opts.verbose then
-          print("Error installing service worker:", extract_error_msg(cache))
-        end
-        return false, cache
-      end
+      local cache = caches:open(opts.nonce):await()
 
       for _, file in ipairs(opts.precache) do
         if matches_no_cache_pattern("/" .. file) then
@@ -325,7 +319,7 @@ return function (opts)
         else
           local hashed_file = resolve_hashed(file)
           local full_url = URL:new(hashed_file, global.location.origin).href
-          local _, existing = cache:match(full_url):await()
+          local existing = cache:match(full_url):await()
           if existing then
             if opts.verbose then
               print("Already cached", hashed_file)
@@ -351,7 +345,7 @@ return function (opts)
         local hashed_alias = resolve_hashed(opts.self_alias)
         if hashed_alias ~= opts.self_alias then
           local full_alias_url = URL:new("/" .. hashed_alias, global.location.origin).href
-          local _, existing = cache:match(full_alias_url):await()
+          local existing = cache:match(full_alias_url):await()
           if not existing then
             local ok1, resp = http.get("/sw.js", { retry = false })
             if ok1 and resp and resp.raw then
@@ -385,13 +379,7 @@ return function (opts)
         print("Activating service worker")
       end
 
-      local ok, keys = caches:keys():await()
-      if not ok then
-        if opts.verbose then
-          print("Error activating service worker")
-        end
-        return false, keys
-      end
+      local keys = caches:keys():await()
 
       Promise:all(keys:filter(function (_, k)
         return k ~= opts.nonce
@@ -424,8 +412,8 @@ return function (opts)
         print("Fetching:", request.url)
       end
 
-      local _, cache = caches:open(opts.nonce):await()
-      local _, cached_resp = cache:match(request.url, val({
+      local cache = caches:open(opts.nonce):await()
+      local cached_resp = cache:match(request.url, val({
         ignoreSearch = true,
         ignoreVary = true,
         ignoreMethod = true

@@ -55,11 +55,11 @@ return function (bundle_path, opts)
     local found_client_id = nil
     navigator.locks:request(nonce, function ()
       return async(function ()
-        local ok, state = navigator.locks:query():await()
+        local state = navigator.locks:query():await()
         if verbose then
-          print("[proxy] Lock query result - ok:", ok, "state:", state)
+          print("[proxy] Lock query result - state:", state)
         end
-        if ok and state and state.held then
+        if state and state.held then
           local held = state.held
           if verbose then
             print("[proxy] Held locks count:", held.length)
@@ -260,11 +260,11 @@ return function (bundle_path, opts)
       if verbose then
         print("[proxy] Waiting for SW ready...")
       end
-      local ok = navigator.serviceWorker.ready:await()
+      local registration = navigator.serviceWorker.ready:await()
       if verbose then
-        print("[proxy] SW ready callback, ok:", ok)
+        print("[proxy] SW ready callback, registration:", registration)
       end
-      if not ok then return end
+      if not registration then return end
 
       local cid = get_client_id()
       if verbose then

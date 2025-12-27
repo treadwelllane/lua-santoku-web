@@ -1,6 +1,7 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local str = require("santoku.string")
+local err = require("santoku.error")
 local global = js.self or js.global or js.window
 local Promise = js.Promise
 
@@ -24,7 +25,9 @@ return {
   fetch = function (url, opts)
     opts = opts or {}
     local fetch_opts = filter_opts(opts)
-    local ok, resp = global:fetch(url, val(fetch_opts, true)):await()
+    local ok, resp = err.pcall(function ()
+      return global:fetch(url, val(fetch_opts, true)):await()
+    end)
     if not ok then
       return false, { status = 0, headers = {}, ok = false, error = resp }
     end
@@ -40,7 +43,9 @@ return {
       ok = resp.ok,
       raw = resp,
       body = function ()
-        local ok, text = resp:text():await()
+        local ok, text = err.pcall(function ()
+          return resp:text():await()
+        end)
         if ok then
           return text
         end
