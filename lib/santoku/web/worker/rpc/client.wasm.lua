@@ -51,7 +51,7 @@ M.init_port = function (port)
           return ok and transferables[name]
         end)
 
-        local result = util.promise(function (complete)
+        local _, result = util.promise(function (complete)
           local ch = MessageChannel:new()
           port:postMessage(
             val({ k, ch.port2, arr.spread(args) }, true),
