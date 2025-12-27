@@ -151,23 +151,19 @@ M.open = function (dbfile, opts)
     end
   end
   if verbose then print("[sqlite.open] calling sqlite3InitModule") end
-  local ok, wsqlite = err.pcall(function ()
-    return util.promise(function (complete)
-      util.set_timeout(function ()
-        js:sqlite3InitModule():await(function (_, ...)
-          return complete(...)
-        end)
-      end, 0)
-    end):await()
-  end)
+  local ok, wsqlite = util.promise(function (complete)
+    util.set_timeout(function ()
+      js:sqlite3InitModule():await(function (_, ...)
+        return complete(...)
+      end)
+    end, 0)
+  end):await()
   if verbose then print("[sqlite.open] sqlite3InitModule returned:", ok, wsqlite) end
   if not ok then
     return false, wsqlite
   end
   if verbose then print("[sqlite.open] calling installOpfsSAHPoolVfs") end
-  local ok2, pool_util = err.pcall(function ()
-    return wsqlite:installOpfsSAHPoolVfs(opts):await()
-  end)
+  local ok2, pool_util = wsqlite:installOpfsSAHPoolVfs(opts):await()
   if verbose then print("[sqlite.open] installOpfsSAHPoolVfs returned:", ok2) end
   if not ok2 then
     return false, pool_util
