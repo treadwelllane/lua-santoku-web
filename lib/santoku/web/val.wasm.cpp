@@ -64,6 +64,7 @@ static int MTA_FNS;
 static int MTF_FNS;
 
 static int TK_WEB_EPHEMERON_IDX;
+static lua_State *tk_web_main_L = NULL;
 static inline void tk_web_set_ephemeron (lua_State *, int, int);
 static inline int tk_web_get_ephemeron (lua_State *, int, int);
 
@@ -623,6 +624,13 @@ static inline void table_to_val (lua_State *L, int i, bool recurse) {
 
     int tblref = val_ref(L, i_tbl); // val
 
+    int thread_ref = LUA_NOREF;
+    int is_main = lua_pushthread(L);
+    if (!is_main) {
+      thread_ref = val_ref(L, -1);
+    }
+    lua_pop(L, 1);
+
     push_val(L, val::take_ownership((EM_VAL) EM_ASM_PTR(({
       var obj = $2 ? [] : {};
       return Emval.toHandle(new Proxy(obj, {
@@ -692,10 +700,17 @@ static inline void table_to_val (lua_State *L, int i, bool recurse) {
 
     val v = peek_val(L, -1);
 
-    EM_ASM(({
-      var v = Emval.toValue($0);
-      Module["FINALIZERS"].register(v, $1);
-    }), v.as_handle(), tblref);
+    if (thread_ref == LUA_NOREF) {
+      EM_ASM(({
+        var v = Emval.toValue($0);
+        Module["FINALIZERS"].register(v, $1);
+      }), v.as_handle(), tblref);
+    } else {
+      EM_ASM(({
+        var v = Emval.toValue($0);
+        Module["FINALIZERS"].register(v, { ref: $1, thread_ref: $2 });
+      }), v.as_handle(), tblref, thread_ref);
+    }
 
   } else if (isarray) {
 
@@ -744,6 +759,13 @@ static inline void function_to_val (lua_State *L, int i) {
 
   int fnref = val_ref(L, i_fn);
 
+  int thread_ref = LUA_NOREF;
+  int is_main = lua_pushthread(L);
+  if (!is_main) {
+    thread_ref = val_ref(L, -1);
+  }
+  lua_pop(L, 1);
+
   push_val(L, val::take_ownership((EM_VAL) EM_ASM_PTR(({
     return Emval.toHandle(new Proxy(function () {}, {
       apply(_, this_, args) {
@@ -755,10 +777,17 @@ static inline void function_to_val (lua_State *L, int i) {
 
   val v = peek_val(L, -1);
 
-  EM_ASM(({
-    var v = Emval.toValue($0);
-    Module["FINALIZERS"]["register"](v, $1);
-  }), v.as_handle(), fnref);
+  if (thread_ref == LUA_NOREF) {
+    EM_ASM(({
+      var v = Emval.toValue($0);
+      Module["FINALIZERS"]["register"](v, $1);
+    }), v.as_handle(), fnref);
+  } else {
+    EM_ASM(({
+      var v = Emval.toValue($0);
+      Module["FINALIZERS"]["register"](v, { ref: $1, thread_ref: $2 });
+    }), v.as_handle(), fnref, thread_ref);
+  }
 
 }
 
@@ -1410,6 +1439,8 @@ static inline void set_common_obj_mtfns (lua_State *L) {
 
 int luaopen_santoku_web_val (lua_State *L)
 {
+  tk_web_main_L = L;
+
   lua_newtable(L);
 
   lua_newtable(L);
@@ -1462,7 +1493,14 @@ int luaopen_santoku_web_val (lua_State *L)
 
   EM_ASM(({
     Module["FINALIZERS"] = new FinalizationRegistry(ref => {
-      Module["val_ref_delete"]($0, ref);
+      if (typeof ref === "number") {
+        Module["val_ref_delete"]($0, ref);
+      } else {
+        Module["val_ref_delete"]($0, ref.ref);
+        if (ref.thread_ref !== undefined) {
+          Module["val_ref_delete"]($0, ref.thread_ref);
+        }
+      }
     })
   }), L);
 
