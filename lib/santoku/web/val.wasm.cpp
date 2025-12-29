@@ -1169,11 +1169,11 @@ static inline int mtp_await (lua_State *L) {
   int fref = val_ref(L, -1);
 
   EM_ASM(({
-    var L = $0;
+    var mainL = $0;
     var fref = $1;
     var v = Emval.toValue($2);
     var f = Emval.toValue($3);
-    var cleanup = function() { Module["val_ref_delete"](L, fref); };
+    var cleanup = function() { Module["val_ref_delete"](mainL, fref); };
     // Use two-argument then(onFulfilled, onRejected) to prevent double-cleanup
     // if the success handler throws (with .then().catch(), catch runs on both
     // promise rejection AND success handler exceptions)
@@ -1201,7 +1201,7 @@ static inline int mtp_await (lua_State *L) {
         }
       }
     );
-  }), L, fref, v.as_handle(), f.as_handle());
+  }), tk_web_main_L, fref, v.as_handle(), f.as_handle());
   return 0;
 }
 
