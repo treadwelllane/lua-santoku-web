@@ -1,7 +1,6 @@
 local js = require("santoku.web.js")
 local util = require("santoku.web.util")
 local val = require("santoku.web.val")
-local arr = require("santoku.array")
 local async = require("santoku.web.async")
 local wrpc = require("santoku.web.worker.rpc.client")
 
@@ -10,24 +9,6 @@ local document = js.document
 local MessageChannel = js.MessageChannel
 local BroadcastChannel = js.BroadcastChannel
 
-local function create_wrpc_proxy (port)
-  return setmetatable({}, {
-    __index = function (_, method)
-      return function (...)
-        local args = { ... }
-        return util.promise(function (complete)
-          local ch = MessageChannel:new()
-          port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
-          ch.port1.onmessage = function (_, ev)
-            local result = {}
-            for i = 1, ev.data.length do result[i] = ev.data[i] end
-            complete(true, arr.spread(result))
-          end
-        end)
-      end
-    end
-  })
-end
 
 return function (bundle_path, opts)
   opts = opts or {}
@@ -132,7 +113,7 @@ return function (bundle_path, opts)
             print("[proxy] Becoming consumer with port")
           end
           current_provider_port = port
-          db = create_wrpc_proxy(port)
+          db = wrpc.init_port(port)
           if ready_resolver then
             ready_resolver()
             ready_resolver = nil
