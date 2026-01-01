@@ -7,10 +7,10 @@ local M = {}
 M.init = function (obj)
   return function (ev)
     local port = ev.data[2]
-    local key = ev.data[1]
+    local key = val.lua(ev.data[1])
     local args = {}
     for i = 3, ev.data.length do
-      args[#args + 1] = ev.data[i]
+      args[#args + 1] = val.lua(ev.data[i], true)
     end
     if obj[key] then
       return port:postMessage(val({ err.pcall(obj[key], arr.spread(args)) }, true))
