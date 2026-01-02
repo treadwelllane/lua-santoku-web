@@ -90,12 +90,26 @@
         if (navigator.serviceWorker.controller) {
           onReady();
           navigator.serviceWorker.addEventListener('controllerchange', function() {
+            {{#update_redirect_delay}}
+            if (document.body) document.body.classList.remove('sw-update');
+            setTimeout(function() {
+            {{/update_redirect_delay}}
             window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
+            {{#update_redirect_delay}}
+            }, {{update_redirect_delay}});
+            {{/update_redirect_delay}}
           }, { once: true });
           return;
         }
         navigator.serviceWorker.addEventListener('controllerchange', function() {
+          {{#update_redirect_delay}}
+          if (document.body) document.body.classList.remove('sw-update');
+          setTimeout(function() {
+          {{/update_redirect_delay}}
           window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
+          {{#update_redirect_delay}}
+          }, {{update_redirect_delay}});
+          {{/update_redirect_delay}}
         }, { once: true });
         signalPageReady(reg.installing || reg.waiting);
         function waitForActive(worker) {
@@ -181,7 +195,15 @@
         onReady();
         navigator.serviceWorker.addEventListener('controllerchange', function() {
           log('controllerchange event, reloading');
+          {{#update_redirect_delay}}
+          var t = getSwTarget();
+          if (t) t.classList.remove('sw-update');
+          setTimeout(function() {
+          {{/update_redirect_delay}}
           window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
+          {{#update_redirect_delay}}
+          }, {{update_redirect_delay}});
+          {{/update_redirect_delay}}
         }, { once: true });
       } else if (navigator.serviceWorker) {
         log('No controller, waiting for controllerchange');
@@ -196,7 +218,15 @@
         navigator.serviceWorker.addEventListener('controllerchange', function() {
           log('controllerchange event, clearing timeout and reloading');
           clearTimeout(timeout);
+          {{#update_redirect_delay}}
+          var t = getSwTarget();
+          if (t) t.classList.remove('sw-update');
+          setTimeout(function() {
+          {{/update_redirect_delay}}
           window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
+          {{#update_redirect_delay}}
+          }, {{update_redirect_delay}});
+          {{/update_redirect_delay}}
         }, { once: true });
       } else {
         log('No serviceWorker support, calling swError');
