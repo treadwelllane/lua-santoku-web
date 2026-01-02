@@ -483,8 +483,14 @@ return function (opts)
         local function do_skip ()
           if completed then return end
           completed = true
+          if opts.verbose then
+            print("[SW] do_skip called, waiting:", global.registration.waiting ~= nil)
+          end
           if global.registration.waiting then
             global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+            if opts.verbose then
+              print("[SW] Posted skip_waiting message to waiting worker")
+            end
           end
           complete(true, util.response("", { content_type = "text/plain" }))
         end
@@ -572,6 +578,9 @@ return function (opts)
     end
 
     if data.type == "skip_waiting" then
+      if opts.verbose then
+        print("[SW] Received skip_waiting message, calling skipWaiting()")
+      end
       return global:skipWaiting()
     end
 
