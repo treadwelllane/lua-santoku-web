@@ -74,16 +74,6 @@
     (function() {
       var swPath = '{{sw}}';
       var swReadyFired = false;
-      var SW_RELOAD_KEY = 'sw_reload_ts';
-      var recentReload = (function() {
-        var ts = sessionStorage.getItem(SW_RELOAD_KEY);
-        if (ts && Date.now() - parseInt(ts, 10) < 2000) return true;
-        sessionStorage.removeItem(SW_RELOAD_KEY);
-        return false;
-      })();
-      function markReload() {
-        sessionStorage.setItem(SW_RELOAD_KEY, Date.now().toString());
-      }
       function swReady() {
         if (swReadyFired) return;
         swReadyFired = true;
@@ -127,8 +117,6 @@
       navigator.serviceWorker.register(swPath).then(function(reg) {
         window.swRegistration = reg;
         if (reg.active && !navigator.serviceWorker.controller) {
-          if (recentReload) return;
-          markReload();
           window.location.replace(window.location.href);
           return;
         }
@@ -139,13 +127,11 @@
             if (document.body && document.body.classList.contains('sw-update')) {
               document.body.classList.remove('sw-update');
               setTimeout(function() {
-                markReload();
                 window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
               }, {{update_redirect_delay}});
               return;
             }
             {{/update_redirect_delay}}
-            markReload();
             window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
           }, { once: true });
           return;
@@ -155,13 +141,11 @@
           if (document.body && document.body.classList.contains('sw-update')) {
             document.body.classList.remove('sw-update');
             setTimeout(function() {
-              markReload();
               window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
             }, {{update_redirect_delay}});
             return;
           }
           {{/update_redirect_delay}}
-          markReload();
           window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
         }, { once: true });
         signalPageReady(reg.installing || reg.waiting);
@@ -190,7 +174,7 @@
           var newWorker = reg.installing;
           waitForActive(newWorker);
           newWorker.addEventListener('statechange', function() {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body && !recentReload) {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller && document.body) {
               document.body.classList.add('sw-update');
             }
           });
@@ -210,16 +194,6 @@
     (function() {
       {{#verbose}}var log = function() { console.log.apply(console, ['[SW-Page]'].concat(Array.prototype.slice.call(arguments))); };{{/verbose}}
       {{^verbose}}var log = function() {};{{/verbose}}
-      var SW_RELOAD_KEY = 'sw_reload_ts';
-      var recentReload = (function() {
-        var ts = sessionStorage.getItem(SW_RELOAD_KEY);
-        if (ts && Date.now() - parseInt(ts, 10) < 2000) return true;
-        sessionStorage.removeItem(SW_RELOAD_KEY);
-        return false;
-      })();
-      function markReload() {
-        sessionStorage.setItem(SW_RELOAD_KEY, Date.now().toString());
-      }
       var swTarget = null;
       function getSwTarget() {
         if (!swTarget) swTarget = {{#sw_target}}document.querySelector('{{sw_target}}') || {{/sw_target}}document.body;
@@ -263,13 +237,11 @@
           if (t && t.classList.contains('sw-update')) {
             t.classList.remove('sw-update');
             setTimeout(function() {
-              markReload();
               window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
             }, {{update_redirect_delay}});
             return;
           }
           {{/update_redirect_delay}}
-          markReload();
           window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
         }, { once: true });
       } else if (navigator.serviceWorker) {
@@ -290,13 +262,11 @@
           if (t && t.classList.contains('sw-update')) {
             t.classList.remove('sw-update');
             setTimeout(function() {
-              markReload();
               window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
             }, {{update_redirect_delay}});
             return;
           }
           {{/update_redirect_delay}}
-          markReload();
           window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
         }, { once: true });
       } else {
@@ -326,8 +296,8 @@
             }
           });
           var t = getSwTarget();
-          log('reg.waiting:', reg.waiting, 'controller:', !!navigator.serviceWorker.controller, 'recentReload:', recentReload);
-          if (reg.waiting && navigator.serviceWorker.controller && t && !recentReload) {
+          log('reg.waiting:', reg.waiting, 'controller:', !!navigator.serviceWorker.controller);
+          if (reg.waiting && navigator.serviceWorker.controller && t) {
             t.classList.add('sw-update');
             log('Added sw-update class (waiting worker)');
           }
@@ -337,7 +307,7 @@
             newWorker.addEventListener('statechange', function() {
               var t = getSwTarget();
               log('Worker statechange:', newWorker.state);
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller && t && !recentReload) {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller && t) {
                 t.classList.add('sw-update');
                 log('Added sw-update class (installed worker)');
               }
