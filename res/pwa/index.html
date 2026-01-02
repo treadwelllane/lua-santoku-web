@@ -20,9 +20,42 @@
   {{#favicon_ico}}<link rel="icon" href="{{favicon_ico}}" sizes="any">{{/favicon_ico}}
   {{^favicon_ico}}{{#favicon}}<link rel="icon" href="{{favicon}}" sizes="any">{{/favicon}}{{/favicon_ico}}
   {{#favicon_svg}}<link rel="icon" href="{{favicon_svg}}" type="image/svg+xml">{{/favicon_svg}}
-  {{#splash_screens}}
-  <link rel="apple-touch-startup-image" media="(device-width: {{width}}px) and (device-height: {{height}}px) and (-webkit-device-pixel-ratio: {{dpr}})" href="{{src}}">
-  {{/splash_screens}}
+  {{#splash_icon}}
+  <script>
+    (function() {
+      var icon = '{{splash_icon}}';
+      var bgLight = '{{splash_background}}' || '{{background_color}}' || '#ffffff';
+      var bgDark = '{{splash_background_dark}}' || '{{theme_color}}' || '#000000';
+      var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var bg = isDark ? bgDark : bgLight;
+      var dpr = window.devicePixelRatio || 1;
+      var w = screen.width, h = screen.height;
+      var pw = Math.round(w * dpr), ph = Math.round(h * dpr);
+      function gen(pw, ph, orientation) {
+        var canvas = document.createElement('canvas');
+        canvas.width = pw;
+        canvas.height = ph;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, pw, ph);
+        var img = new Image();
+        img.onload = function() {
+          var iconSize = Math.min(pw, ph) * 0.3;
+          var x = (pw - iconSize) / 2, y = (ph - iconSize) / 2;
+          ctx.drawImage(img, x, y, iconSize, iconSize);
+          var link = document.createElement('link');
+          link.rel = 'apple-touch-startup-image';
+          link.media = '(device-width: ' + w + 'px) and (device-height: ' + h + 'px) and (-webkit-device-pixel-ratio: ' + dpr + ') and (orientation: ' + orientation + ')';
+          link.href = canvas.toDataURL('image/png');
+          document.head.appendChild(link);
+        };
+        img.src = icon;
+      }
+      gen(pw, ph, 'portrait');
+      gen(ph, pw, 'landscape');
+    })();
+  </script>
+  {{/splash_icon}}
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
   <meta name="apple-mobile-web-app-capable" content="yes">
