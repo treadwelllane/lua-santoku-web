@@ -13,7 +13,7 @@
   {{#theme_color}}<meta name="theme-color" content="{{theme_color}}">{{/theme_color}}
   {{#theme_color}}<meta name="msapplication-navbutton-color" content="{{theme_color}}">{{/theme_color}}
   {{#theme_color}}<meta name="msapplication-TileColor" content="{{theme_color}}">{{/theme_color}}
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   {{#ios_icon}}<link rel="apple-touch-icon" href="{{ios_icon}}">{{/ios_icon}}
   {{^ios_icon}}{{#icon}}<link rel="apple-touch-icon" href="{{icon}}">{{/icon}}{{/ios_icon}}
   {{#ms_icon}}<meta name="msapplication-TileImage" content="{{ms_icon}}">{{/ms_icon}}
@@ -24,7 +24,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: {{width}}px) and (device-height: {{height}}px) and (-webkit-device-pixel-ratio: {{dpr}})" href="{{src}}">
   {{/splash_screens}}
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="msapplication-starturl" content="">
@@ -91,25 +91,29 @@
           onReady();
           navigator.serviceWorker.addEventListener('controllerchange', function() {
             {{#update_redirect_delay}}
-            if (document.body) document.body.classList.remove('sw-update');
-            setTimeout(function() {
+            if (document.body && document.body.classList.contains('sw-update')) {
+              document.body.classList.remove('sw-update');
+              setTimeout(function() {
+                window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
+              }, {{update_redirect_delay}});
+              return;
+            }
             {{/update_redirect_delay}}
             window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
-            {{#update_redirect_delay}}
-            }, {{update_redirect_delay}});
-            {{/update_redirect_delay}}
           }, { once: true });
           return;
         }
         navigator.serviceWorker.addEventListener('controllerchange', function() {
           {{#update_redirect_delay}}
-          if (document.body) document.body.classList.remove('sw-update');
-          setTimeout(function() {
+          if (document.body && document.body.classList.contains('sw-update')) {
+            document.body.classList.remove('sw-update');
+            setTimeout(function() {
+              window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
+            }, {{update_redirect_delay}});
+            return;
+          }
           {{/update_redirect_delay}}
           window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
-          {{#update_redirect_delay}}
-          }, {{update_redirect_delay}});
-          {{/update_redirect_delay}}
         }, { once: true });
         signalPageReady(reg.installing || reg.waiting);
         function waitForActive(worker) {
@@ -197,13 +201,15 @@
           log('controllerchange event, reloading');
           {{#update_redirect_delay}}
           var t = getSwTarget();
-          if (t) t.classList.remove('sw-update');
-          setTimeout(function() {
+          if (t && t.classList.contains('sw-update')) {
+            t.classList.remove('sw-update');
+            setTimeout(function() {
+              window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
+            }, {{update_redirect_delay}});
+            return;
+          }
           {{/update_redirect_delay}}
           window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
-          {{#update_redirect_delay}}
-          }, {{update_redirect_delay}});
-          {{/update_redirect_delay}}
         }, { once: true });
       } else if (navigator.serviceWorker) {
         log('No controller, waiting for controllerchange');
@@ -220,13 +226,15 @@
           clearTimeout(timeout);
           {{#update_redirect_delay}}
           var t = getSwTarget();
-          if (t) t.classList.remove('sw-update');
-          setTimeout(function() {
+          if (t && t.classList.contains('sw-update')) {
+            t.classList.remove('sw-update');
+            setTimeout(function() {
+              window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
+            }, {{update_redirect_delay}});
+            return;
+          }
           {{/update_redirect_delay}}
           window.location.replace({{#update_redirect}}'{{update_redirect}}'{{/update_redirect}}{{^update_redirect}}window.location.href{{/update_redirect}});
-          {{#update_redirect_delay}}
-          }, {{update_redirect_delay}});
-          {{/update_redirect_delay}}
         }, { once: true });
       } else {
         log('No serviceWorker support, calling swError');
