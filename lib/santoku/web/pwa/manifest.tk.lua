@@ -17,9 +17,9 @@ local defaults = {
 return function(opts)
   opts = tbl.merge({}, opts or {}, defaults)
   if opts.icons and #opts.icons > 0 then
-    opts.icons_json = json.encode(opts.icons)
-  else
-    opts.icons_json = "[]"
+    for i, icon in ipairs(opts.icons) do
+      icon.comma = i < #opts.icons and "," or ""
+    end
   end
   if opts.categories and #opts.categories > 0 then
     opts.categories_json = json.encode(opts.categories)
