@@ -348,6 +348,7 @@ return function (opts)
               if opts.verbose then
                 print("Failed caching", hashed_file, msg)
               end
+              return false, "Failed to cache: " .. hashed_file .. " (" .. msg .. ")"
             else
               cache:put(full_url, resp.raw):await()
               if opts.verbose then
@@ -370,8 +371,11 @@ return function (opts)
               if opts.verbose then
                 print("Cached self alias:", hashed_alias)
               end
-            elseif opts.verbose then
-              print("Failed to fetch /sw.js for self alias caching")
+            else
+              if opts.verbose then
+                print("Failed to fetch /sw.js for self alias caching")
+              end
+              return false, "Failed to cache self alias: " .. hashed_alias
             end
           elseif opts.verbose then
             print("Self alias already cached:", hashed_alias)
@@ -489,68 +493,71 @@ return function (opts)
 
     local update_path = opts.update_path or "/update"
     if pathname == update_path then
-      return util.promise(function (complete)
-        local completed = false
-        local function do_skip ()
-          if completed then return end
-          completed = true
-          if opts.verbose then
-            print("[SW] do_skip called, waiting:", global.registration.waiting ~= nil)
-          end
-          if global.registration.waiting then
-            global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
-            if opts.verbose then
-              print("[SW] Posted skip_waiting message to waiting worker")
-            end
-          end
-          complete(true, util.response("", { content_type = "text/plain" }))
+      local function wait_for_worker_state (sw, target_state)
+        if sw.state == target_state then
+          return util.resolved(true)
         end
-        local function wait_for_install (sw)
-          if sw.state == "installed" then
-            return do_skip()
-          end
+        if sw.state == "redundant" then
+          return util.resolved(false)
+        end
+        return util.promise(function (complete)
           sw:addEventListener("statechange", function ()
-            if sw.state == "installed" then
-              return do_skip()
+            if sw.state == target_state then
+              complete(true, true)
             elseif sw.state == "redundant" then
-              if completed then return end
-              completed = true
-              complete(true, util.response("update_failed", { content_type = "text/plain" }))
+              complete(true, false)
             end
           end)
+        end)
+      end
+      return async(function ()
+        if opts.verbose then
+          print("[SW] /update called")
         end
         if global.registration.waiting then
-          return do_skip()
+          if opts.verbose then
+            print("[SW] Activating waiting worker")
+          end
+          global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+          return util.response("")
         end
         if global.registration.installing then
-          return wait_for_install(global.registration.installing)
+          if opts.verbose then
+            print("[SW] Waiting for installing worker")
+          end
+          local ok = wait_for_worker_state(global.registration.installing, "installed"):await()
+          if ok and global.registration.waiting then
+            global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+            return util.response("")
+          end
+          return util.response("update_failed")
         end
-        global.registration:addEventListener("updatefound", function ()
-          if global.registration.installing then
-            wait_for_install(global.registration.installing)
+        if opts.verbose then
+          print("[SW] Checking for updates")
+        end
+        global.registration:update():await()
+        if global.registration.waiting then
+          if opts.verbose then
+            print("[SW] Found waiting worker after update check")
           end
-        end)
-        async(function ()
-          global.registration:update():await()
-          if completed then return end
-          if global.registration.waiting then
-            return do_skip()
+          global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+          return util.response("")
+        end
+        if global.registration.installing then
+          if opts.verbose then
+            print("[SW] Found installing worker after update check")
           end
-          if global.registration.installing then
-            return wait_for_install(global.registration.installing)
+          local ok = wait_for_worker_state(global.registration.installing, "installed"):await()
+          if ok and global.registration.waiting then
+            global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+            return util.response("")
           end
-          util.set_timeout(function ()
-            if completed then return end
-            if global.registration.waiting then
-              return do_skip()
-            end
-            if global.registration.installing then
-              return wait_for_install(global.registration.installing)
-            end
-            completed = true
-            complete(true, util.response("no_update", { content_type = "text/plain" }))
-          end, 500)
-        end)
+          return util.response("update_failed")
+        end
+        if opts.verbose then
+          print("[SW] No update available")
+        end
+        return util.response("no_update")
       end)
     end
 
