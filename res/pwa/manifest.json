@@ -13,5 +13,5 @@
   {{#handle_links}}"handle_links": "{{handle_links}}",{{/handle_links}}
   {{#launch_handler}}"launch_handler": {{{launch_handler_json}}},{{/launch_handler}}
   {{#screenshots}}"screenshots": {{{screenshots_json}}},{{/screenshots}}
-  "icons": {{{icons_json}}}
+  "icons": [{{#icons}}{"src":"{{src}}","sizes":"{{sizes}}","type":"{{type}}"{{#purpose}},"purpose":"{{purpose}}"{{/purpose}}}{{{comma}}}{{/icons}}]
 }
