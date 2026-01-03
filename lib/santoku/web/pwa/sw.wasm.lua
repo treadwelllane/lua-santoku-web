@@ -230,6 +230,17 @@ return function (opts)
           db_port_request_pending = false
           request_sw_port()
         end, 200)
+      elseif data and data.type == "provider_backgrounded" then
+        if opts.verbose then
+          print("[SW] Provider backgrounded:", data.clientId)
+        end
+        if db_sw_port then
+          db_sw_port:close()
+          db_sw_port = nil
+        end
+        requeue_inflight_requests()
+        db_provider_client_id = nil
+        db_port_request_pending = false
       end
     end
   end
