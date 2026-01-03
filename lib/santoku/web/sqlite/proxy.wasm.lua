@@ -8,6 +8,7 @@ local navigator = js.navigator
 local document = js.document
 local MessageChannel = js.MessageChannel
 local BroadcastChannel = js.BroadcastChannel
+local AbortController = js.AbortController
 
 
 return function (bundle_path, opts)
@@ -21,6 +22,8 @@ return function (bundle_path, opts)
   local provider_counter = 0
   local current_provider_port = nil
   local ready_resolver = nil
+  local lock_abort = nil
+  local becoming_provider = false
 
   local broadcast_channel = BroadcastChannel:new("sqlite_shared_service")
 
@@ -74,6 +77,28 @@ return function (bundle_path, opts)
       current_provider_port = nil
     end
     db = nil
+  end
+
+  local function release_provider ()
+    if lock_abort then
+      lock_abort:abort()
+      lock_abort = nil
+    end
+    becoming_provider = false
+    if not is_provider then return end
+    if verbose then
+      print("[proxy] Releasing provider role (tab backgrounded)")
+    end
+    is_provider = false
+    if worker then
+      worker:terminate()
+      worker = nil
+    end
+    db = nil
+    broadcast_channel:postMessage(val({
+      type = "provider_backgrounded",
+      clientId = client_id
+    }, true))
   end
 
   local function request_provider_port (counter)
@@ -269,51 +294,86 @@ return function (bundle_path, opts)
         return util.never()
       end):catch(function () end)
 
-      if verbose then
-        print("[proxy] Requesting sqlite_db_access lock...")
-      end
-      navigator.locks:request("sqlite_db_access", function ()
+      local function try_become_provider ()
+        if is_provider or becoming_provider then return end
+        if document.hidden then return end
+        becoming_provider = true
         if verbose then
-          print("[proxy] Acquired sqlite_db_access lock - becoming provider!")
+          print("[proxy] Requesting sqlite_db_access lock...")
         end
-        is_provider = true
+        lock_abort = AbortController:new()
+        navigator.locks:request("sqlite_db_access", val({ signal = lock_abort.signal }, true), function ()
+          becoming_provider = false
+          if verbose then
+            print("[proxy] Acquired sqlite_db_access lock - becoming provider!")
+          end
+          is_provider = true
 
-        if verbose then
-          print("[proxy] Initializing database worker...")
-        end
-        db, worker = wrpc.init(bundle_path)
-        if verbose then
-          print("[proxy] Database worker initialized, db:", db, "worker:", worker)
-        end
+          if verbose then
+            print("[proxy] Initializing database worker...")
+          end
+          db, worker = wrpc.init(bundle_path)
+          if verbose then
+            print("[proxy] Database worker initialized, db:", db, "worker:", worker)
+          end
 
-        worker.onmessage = function (_, ev)
-          if ev.data and ev.data.type == "db_error" then
-            if document and document.body then
-              document.body.classList:add("db-error")
-              document.body:dispatchEvent(js.CustomEvent:new("db-error", {
-                detail = { error = ev.data.error }
-              }))
+          worker.onmessage = function (_, ev)
+            if ev.data and ev.data.type == "db_error" then
+              if document and document.body then
+                document.body.classList:add("db-error")
+                document.body:dispatchEvent(js.CustomEvent:new("db-error", {
+                  detail = { error = ev.data.error }
+                }))
+              end
             end
           end
-        end
 
-        if verbose then
-          print("[proxy] Announcing as provider, clientId:", client_id)
-        end
-        broadcast_channel:postMessage(val({
-          type = "provider",
-          clientId = client_id
-        }, true))
-
-        if ready_resolver then
           if verbose then
-            print("[proxy] Resolving ready promise")
+            print("[proxy] Announcing as provider, clientId:", client_id)
           end
-          ready_resolver()
-          ready_resolver = nil
-        end
+          broadcast_channel:postMessage(val({
+            type = "provider",
+            clientId = client_id
+          }, true))
 
-        return util.never()
+          if ready_resolver then
+            if verbose then
+              print("[proxy] Resolving ready promise")
+            end
+            ready_resolver()
+            ready_resolver = nil
+          end
+
+          return util.never()
+        end):catch(function (_, e)
+          becoming_provider = false
+          if e and e.name == "AbortError" then
+            if verbose then
+              print("[proxy] Lock request aborted (tab backgrounded)")
+            end
+          else
+            if verbose then
+              print("[proxy] Lock request failed:", e)
+            end
+          end
+        end)
+      end
+
+      try_become_provider()
+
+      document:addEventListener("visibilitychange", function ()
+        if document.hidden then
+          release_provider()
+        else
+          if verbose then
+            print("[proxy] Tab visible, trying to become provider or consumer")
+          end
+          try_become_provider()
+          if not is_provider and not becoming_provider then
+            provider_counter = provider_counter + 1
+            request_provider_port(provider_counter)
+          end
+        end
       end)
 
       if verbose then
