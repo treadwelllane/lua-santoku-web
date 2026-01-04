@@ -376,6 +376,52 @@ return function (bundle_path, opts)
         end
       end)
 
+      navigator.serviceWorker:addEventListener("message", function (_, ev)
+        if ev.data and ev.data.type == "steal_provider" then
+          if verbose then
+            print("[proxy] Received steal_provider from SW")
+          end
+          release_provider()
+          navigator.locks:request("sqlite_db_access", val({ steal = true }, true), function ()
+            becoming_provider = false
+            if verbose then
+              print("[proxy] Acquired lock via steal, becoming provider")
+            end
+            is_provider = true
+            db, worker = wrpc.init(bundle_path)
+            worker.onmessage = function (_, wev)
+              if wev.data and wev.data.type == "db_error" then
+                if document and document.body then
+                  document.body.classList:add("db-error")
+                  document.body:dispatchEvent(js.CustomEvent:new("db-error", {
+                    detail = { error = wev.data.error }
+                  }))
+                end
+              end
+            end
+            broadcast_channel:postMessage(val({
+              type = "provider",
+              clientId = client_id
+            }, true))
+            local controller = navigator.serviceWorker.controller
+            if controller then
+              local port = create_worker_port()
+              controller:postMessage(val({ type = "sw_port" }, true), { port })
+            end
+            if ready_resolver then
+              ready_resolver()
+              ready_resolver = nil
+            end
+            return util.never()
+          end):catch(function (_, e)
+            becoming_provider = false
+            if verbose then
+              print("[proxy] Steal lock request failed:", e)
+            end
+          end)
+        end
+      end)
+
       if verbose then
         print("[proxy] Also trying to connect as consumer...")
       end
