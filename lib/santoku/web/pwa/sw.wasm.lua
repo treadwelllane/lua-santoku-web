@@ -148,7 +148,59 @@ return function (opts)
     end
   end
 
+  local function ping_provider (timeout)
+    if not db_sw_port then return util.resolved(false) end
+    return util.promise(function (complete)
+      local done = false
+      local timer = util.set_timeout(function ()
+        if not done then done = true; complete(true, false) end
+      end, timeout)
+      local ch = MessageChannel:new()
+      ch.port1.onmessage = function ()
+        if not done then done = true; util.clear_timeout(timer); complete(true, true) end
+      end
+      db_sw_port:postMessage(val({ type = "ping" }, true), { ch.port2 })
+    end)
+  end
+
+  local function elect_new_provider ()
+    return async(function ()
+      local ok, all_clients = clients:matchAll(val({ type = "window" }, true)):await()
+      if not ok or not all_clients then return end
+      local candidates = {}
+      for i = 1, all_clients.length do
+        if all_clients[i].id ~= db_provider_client_id then
+          candidates[#candidates + 1] = all_clients[i]
+        end
+      end
+      if #candidates == 0 then return end
+      local new_provider = candidates[math.random(#candidates)]
+      if opts.verbose then
+        print("[SW] Electing new provider:", new_provider.id)
+      end
+      new_provider:postMessage(val({ type = "steal_provider" }, true))
+      if db_sw_port then db_sw_port:close() end
+      db_sw_port = nil
+      db_provider_client_id = nil
+    end)
+  end
+
+  local debounced_health_check = util.debounce(function ()
+    async(function ()
+      local alive = ping_provider(1000):await()
+      if not alive then
+        if opts.verbose then
+          print("[SW] Provider ping failed, electing new provider")
+        end
+        elect_new_provider():await()
+      end
+    end)
+  end, 1000)
+
   local function db_call (method, args)
+    if opts.sqlite then
+      debounced_health_check()
+    end
     if not db_sw_port then
       return util.promise(function (complete)
         db_pending_queue[#db_pending_queue + 1] = {

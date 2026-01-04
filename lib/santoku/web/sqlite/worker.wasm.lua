@@ -39,6 +39,14 @@ return function (db_path, opts, handler)
       if ev.data and ev.data.REGISTER_PORT then
         if verbose then print("[sqlite-worker] REGISTER_PORT received") end
         ev.data.REGISTER_PORT.onmessage = function (_, port_ev)
+          if port_ev.data and port_ev.data.type == "ping" then
+            local pong_port = port_ev.ports and port_ev.ports[1]
+            if pong_port then
+              if verbose then print("[sqlite-worker] ping received, sending pong") end
+              pong_port:postMessage(val({ type = "pong" }, true))
+            end
+            return
+          end
           if verbose then print("[sqlite-worker] port message received:", port_ev.data and port_ev.data[1]) end
           return rpc_handler(port_ev)
         end
