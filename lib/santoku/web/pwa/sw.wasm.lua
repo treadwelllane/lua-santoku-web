@@ -617,9 +617,17 @@ return function (opts)
     if handler then
       return async(function ()
         if request.method == "POST" then
-          local form_params = util.request_formdata(request)
-          for k, v in pairs(form_params) do
-            params[k] = v
+          local content_type = request.headers and request.headers:get("Content-Type") or ""
+          local body_params
+          if content_type:match("application/json") then
+            body_params = util.request_json(request)
+          else
+            body_params = util.request_formdata(request)
+          end
+          if body_params then
+            for k, v in pairs(body_params) do
+              params[k] = v
+            end
           end
         end
         local req = { path = path, params = params, raw = request }
