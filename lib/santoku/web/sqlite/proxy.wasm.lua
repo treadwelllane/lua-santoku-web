@@ -376,12 +376,18 @@ return function (bundle_path, opts)
         end
       end)
 
+      if verbose then
+        print("[proxy] Setting up steal_provider listener")
+      end
       navigator.serviceWorker:addEventListener("message", function (_, ev)
         if ev.data and ev.data.type == "steal_provider" then
           if verbose then
-            print("[proxy] Received steal_provider from SW")
+            print("[proxy] Received steal_provider from SW, is_provider:", is_provider, "becoming_provider:", becoming_provider)
           end
           release_provider()
+          if verbose then
+            print("[proxy] Requesting lock with steal=true")
+          end
           navigator.locks:request("sqlite_db_access", val({ steal = true }, true), function ()
             becoming_provider = false
             if verbose then
@@ -389,6 +395,9 @@ return function (bundle_path, opts)
             end
             is_provider = true
             db, worker = wrpc.init(bundle_path)
+            if verbose then
+              print("[proxy] Worker initialized after steal")
+            end
             worker.onmessage = function (_, wev)
               if wev.data and wev.data.type == "db_error" then
                 if document and document.body then
@@ -403,12 +412,25 @@ return function (bundle_path, opts)
               type = "provider",
               clientId = client_id
             }, true))
+            if verbose then
+              print("[proxy] Broadcasted provider announcement after steal")
+            end
             local controller = navigator.serviceWorker.controller
             if controller then
               local port = create_worker_port()
               controller:postMessage(val({ type = "sw_port" }, true), { port })
+              if verbose then
+                print("[proxy] Sent sw_port to controller after steal")
+              end
+            else
+              if verbose then
+                print("[proxy] No controller available to send sw_port after steal")
+              end
             end
             if ready_resolver then
+              if verbose then
+                print("[proxy] Resolving ready promise after steal")
+              end
               ready_resolver()
               ready_resolver = nil
             end
