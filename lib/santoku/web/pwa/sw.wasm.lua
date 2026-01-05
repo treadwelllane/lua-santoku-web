@@ -149,15 +149,36 @@ return function (opts)
   end
 
   local function ping_provider (timeout)
-    if not db_sw_port then return util.resolved(false) end
+    if not db_sw_port then
+      if opts.verbose then
+        print("[SW] ping_provider: no db_sw_port, returning false")
+      end
+      return util.resolved(false)
+    end
+    if opts.verbose then
+      print("[SW] ping_provider: sending ping with timeout", timeout)
+    end
     return util.promise(function (complete)
       local done = false
       local timer = util.set_timeout(function ()
-        if not done then done = true; complete(true, false) end
+        if not done then
+          done = true
+          if opts.verbose then
+            print("[SW] ping_provider: timeout, no pong received")
+          end
+          complete(true, false)
+        end
       end, timeout)
       local ch = MessageChannel:new()
       ch.port1.onmessage = function ()
-        if not done then done = true; util.clear_timeout(timer); complete(true, true) end
+        if not done then
+          done = true
+          util.clear_timeout(timer)
+          if opts.verbose then
+            print("[SW] ping_provider: pong received, provider alive")
+          end
+          complete(true, true)
+        end
       end
       db_sw_port:postMessage(val({ type = "ping" }, true), { ch.port2 })
     end)
@@ -165,18 +186,34 @@ return function (opts)
 
   local function elect_new_provider ()
     return async(function ()
+      if opts.verbose then
+        print("[SW] elect_new_provider: getting all clients")
+      end
       local ok, all_clients = clients:matchAll(val({ type = "window" }, true)):await()
-      if not ok or not all_clients then return end
+      if not ok or not all_clients then
+        if opts.verbose then
+          print("[SW] elect_new_provider: failed to get clients")
+        end
+        return
+      end
+      if opts.verbose then
+        print("[SW] elect_new_provider: total clients:", all_clients.length, "current provider:", db_provider_client_id)
+      end
       local candidates = {}
       for i = 1, all_clients.length do
         if all_clients[i].id ~= db_provider_client_id then
           candidates[#candidates + 1] = all_clients[i]
         end
       end
-      if #candidates == 0 then return end
+      if #candidates == 0 then
+        if opts.verbose then
+          print("[SW] elect_new_provider: no candidates available")
+        end
+        return
+      end
       local new_provider = candidates[math.random(#candidates)]
       if opts.verbose then
-        print("[SW] Electing new provider:", new_provider.id)
+        print("[SW] elect_new_provider: selected candidate:", new_provider.id, "from", #candidates, "candidates")
       end
       new_provider:postMessage(val({ type = "steal_provider" }, true))
       if db_sw_port then db_sw_port:close() end
@@ -186,13 +223,20 @@ return function (opts)
   end
 
   local debounced_health_check = util.debounce(function ()
+    if opts.verbose then
+      print("[SW] debounced_health_check: firing")
+    end
     async(function ()
       local alive = ping_provider(1000):await()
       if not alive then
         if opts.verbose then
-          print("[SW] Provider ping failed, electing new provider")
+          print("[SW] debounced_health_check: provider not alive, electing new")
         end
         elect_new_provider():await()
+      else
+        if opts.verbose then
+          print("[SW] debounced_health_check: provider is alive")
+        end
       end
     end)
   end, 1000)
