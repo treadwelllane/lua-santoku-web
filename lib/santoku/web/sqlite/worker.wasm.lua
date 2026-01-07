@@ -42,6 +42,8 @@ return function (db_path, opts, handler)
           pending_ports[#pending_ports + 1] = port_ev
         end
       end
+      if verbose then print("[sqlite-worker] Sending port_ready through port") end
+      port:postMessage(val({ type = "port_ready" }, true))
       if not first_port_ready then
         first_port_ready = true
         if verbose then print("[sqlite-worker] First port registered, signaling worker_ready") end
