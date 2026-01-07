@@ -65,7 +65,7 @@ return function (bundle_path, opts)
     }, true))
   end
 
-  local function setup_worker_error_handler (w)
+  local function setup_worker_message_handler (w, on_ready)
     w.onmessage = function (_, ev)
       if ev.data and ev.data.type == "db_error" then
         if verbose then
@@ -77,6 +77,13 @@ return function (bundle_path, opts)
           document.body:dispatchEvent(js.CustomEvent:new("db-error", {
             detail = { error = ev.data.error }
           }))
+        end
+      elseif ev.data and ev.data.type == "worker_ready" then
+        if verbose then
+          print("[proxy] Worker signaled ready")
+        end
+        if on_ready then
+          on_ready()
         end
       end
     end
@@ -357,23 +364,23 @@ return function (bundle_path, opts)
           if verbose then
             print("[proxy] Database worker initialized, db:", db, "worker:", worker)
           end
-          setup_worker_error_handler(worker)
-
-          if verbose then
-            print("[proxy] Announcing as provider, clientId:", client_id)
-          end
-          broadcast_channel:postMessage(val({
-            type = "provider",
-            clientId = client_id
-          }, true))
-
-          if ready_resolver then
+          setup_worker_message_handler(worker, function ()
             if verbose then
-              print("[proxy] Resolving ready promise")
+              print("[proxy] Announcing as provider, clientId:", client_id)
             end
-            ready_resolver()
-            ready_resolver = nil
-          end
+            broadcast_channel:postMessage(val({
+              type = "provider",
+              clientId = client_id
+            }, true))
+
+            if ready_resolver then
+              if verbose then
+                print("[proxy] Resolving ready promise")
+              end
+              ready_resolver()
+              ready_resolver = nil
+            end
+          end)
 
           return hold_lock()
         end):catch(function (_, e)
@@ -435,33 +442,34 @@ return function (bundle_path, opts)
             if verbose then
               print("[proxy] Worker initialized after steal")
             end
-            setup_worker_error_handler(worker)
-            broadcast_channel:postMessage(val({
-              type = "provider",
-              clientId = client_id
-            }, true))
-            if verbose then
-              print("[proxy] Broadcasted provider announcement after steal")
-            end
-            local controller = navigator.serviceWorker.controller
-            if controller then
-              local port = create_worker_port()
-              controller:postMessage(val({ type = "sw_port" }, true), { port })
+            setup_worker_message_handler(worker, function ()
+              broadcast_channel:postMessage(val({
+                type = "provider",
+                clientId = client_id
+              }, true))
               if verbose then
-                print("[proxy] Sent sw_port to controller after steal")
+                print("[proxy] Broadcasted provider announcement after steal")
               end
-            else
-              if verbose then
-                print("[proxy] No controller available to send sw_port after steal")
+              local controller = navigator.serviceWorker.controller
+              if controller then
+                local port = create_worker_port()
+                controller:postMessage(val({ type = "sw_port" }, true), { port })
+                if verbose then
+                  print("[proxy] Sent sw_port to controller after steal")
+                end
+              else
+                if verbose then
+                  print("[proxy] No controller available to send sw_port after steal")
+                end
               end
-            end
-            if ready_resolver then
-              if verbose then
-                print("[proxy] Resolving ready promise after steal")
+              if ready_resolver then
+                if verbose then
+                  print("[proxy] Resolving ready promise after steal")
+                end
+                ready_resolver()
+                ready_resolver = nil
               end
-              ready_resolver()
-              ready_resolver = nil
-            end
+            end)
             return hold_lock()
           end):catch(function (_, e)
             becoming_provider = false
@@ -497,29 +505,30 @@ return function (bundle_path, opts)
           if verbose then
             print("[proxy] Fallback: worker initialized")
           end
-          setup_worker_error_handler(worker)
-          broadcast_channel:postMessage(val({
-            type = "provider",
-            clientId = client_id
-          }, true))
-          if verbose then
-            print("[proxy] Fallback: broadcasted provider")
-          end
-          local controller = navigator.serviceWorker.controller
-          if controller then
-            local port = create_worker_port()
-            controller:postMessage(val({ type = "sw_port" }, true), { port })
+          setup_worker_message_handler(worker, function ()
+            broadcast_channel:postMessage(val({
+              type = "provider",
+              clientId = client_id
+            }, true))
             if verbose then
-              print("[proxy] Fallback: sent sw_port to controller")
+              print("[proxy] Fallback: broadcasted provider")
             end
-          end
-          if ready_resolver then
-            if verbose then
-              print("[proxy] Fallback: resolving ready promise")
+            local controller = navigator.serviceWorker.controller
+            if controller then
+              local port = create_worker_port()
+              controller:postMessage(val({ type = "sw_port" }, true), { port })
+              if verbose then
+                print("[proxy] Fallback: sent sw_port to controller")
+              end
             end
-            ready_resolver()
-            ready_resolver = nil
-          end
+            if ready_resolver then
+              if verbose then
+                print("[proxy] Fallback: resolving ready promise")
+              end
+              ready_resolver()
+              ready_resolver = nil
+            end
+          end)
           return hold_lock()
         end):catch(function (_, e)
           becoming_provider = false

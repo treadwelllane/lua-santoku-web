@@ -19,6 +19,8 @@ return function (db_path, opts, handler)
   local rpc_handler = nil
   local pending_ports = {}
 
+  local first_port_ready = false
+
   Module.on_message = function (_, ev)
     if ev.data and ev.data.REGISTER_PORT then
       if verbose then print("[sqlite-worker] REGISTER_PORT received") end
@@ -39,6 +41,11 @@ return function (db_path, opts, handler)
           if verbose then print("[sqlite-worker] queuing message, db not ready yet") end
           pending_ports[#pending_ports + 1] = port_ev
         end
+      end
+      if not first_port_ready then
+        first_port_ready = true
+        if verbose then print("[sqlite-worker] First port registered, signaling worker_ready") end
+        global:postMessage(val({ type = "worker_ready" }, true))
       end
     end
   end
