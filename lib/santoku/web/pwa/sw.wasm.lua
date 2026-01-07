@@ -243,6 +243,12 @@ return function (opts)
     if opts.verbose then
       print("[SW] debounced_health_check: firing")
     end
+    if next(db_inflight_requests) then
+      if opts.verbose then
+        print("[SW] debounced_health_check: skipping, has in-flight requests")
+      end
+      return
+    end
     async(function ()
       local _, alive = ping_provider(1000):await()
       if not alive then
