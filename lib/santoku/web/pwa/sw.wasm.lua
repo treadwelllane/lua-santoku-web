@@ -227,7 +227,7 @@ return function (opts)
       print("[SW] debounced_health_check: firing")
     end
     async(function ()
-      local alive = ping_provider(1000):await()
+      local _, alive = ping_provider(1000):await()
       if not alive then
         if opts.verbose then
           print("[SW] debounced_health_check: provider not alive, electing new")

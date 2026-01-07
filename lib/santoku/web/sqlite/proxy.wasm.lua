@@ -24,6 +24,16 @@ return function (bundle_path, opts)
   local ready_resolver = nil
   local lock_abort = nil
   local becoming_provider = false
+  local lock_release_resolver = nil
+
+  local function hold_lock ()
+    return util.promise(function (complete)
+      lock_release_resolver = function ()
+        lock_release_resolver = nil
+        complete(true)
+      end
+    end)
+  end
 
   local broadcast_channel = BroadcastChannel:new("sqlite_shared_service")
 
@@ -95,6 +105,12 @@ return function (bundle_path, opts)
       worker = nil
     end
     db = nil
+    if lock_release_resolver then
+      if verbose then
+        print("[proxy] Releasing sqlite_db_access lock")
+      end
+      lock_release_resolver()
+    end
     broadcast_channel:postMessage(val({
       type = "provider_backgrounded",
       clientId = client_id
@@ -291,10 +307,13 @@ return function (bundle_path, opts)
         if verbose then
           print("[proxy] Context lock acquired")
         end
-        return util.never()
+        return hold_lock()
       end):catch(function () end)
 
       local function try_become_provider ()
+        if verbose then
+          print("[proxy] try_become_provider called, is_provider:", is_provider, "becoming_provider:", becoming_provider, "hidden:", document.hidden)
+        end
         if is_provider or becoming_provider then return end
         if document.hidden then return end
         becoming_provider = true
@@ -344,7 +363,7 @@ return function (bundle_path, opts)
             ready_resolver = nil
           end
 
-          return util.never()
+          return hold_lock()
         end):catch(function (_, e)
           becoming_provider = false
           if e and e.name == "AbortError" then
@@ -434,7 +453,7 @@ return function (bundle_path, opts)
               ready_resolver()
               ready_resolver = nil
             end
-            return util.never()
+            return hold_lock()
           end):catch(function (_, e)
             becoming_provider = false
             if verbose then
@@ -448,6 +467,63 @@ return function (bundle_path, opts)
         print("[proxy] Also trying to connect as consumer...")
       end
       request_provider_port(provider_counter)
+
+      util.set_timeout(function ()
+        if db or is_provider then return end
+        if verbose then
+          print("[proxy] Fallback timeout: still no db after 5s, attempting steal")
+        end
+        release_provider()
+        navigator.locks:request("sqlite_db_access", val({ steal = true }, true), function ()
+          becoming_provider = false
+          if verbose then
+            print("[proxy] Fallback: acquired lock via steal")
+          end
+          is_provider = true
+          db, worker = wrpc.init(bundle_path)
+          if verbose then
+            print("[proxy] Fallback: worker initialized")
+          end
+          worker.onmessage = function (_, wev)
+            if wev.data and wev.data.type == "db_error" then
+              if document and document.body then
+                document.body.classList:add("db-error")
+                document.body:dispatchEvent(js.CustomEvent:new("db-error", {
+                  detail = { error = wev.data.error }
+                }))
+              end
+            end
+          end
+          broadcast_channel:postMessage(val({
+            type = "provider",
+            clientId = client_id
+          }, true))
+          if verbose then
+            print("[proxy] Fallback: broadcasted provider")
+          end
+          local controller = navigator.serviceWorker.controller
+          if controller then
+            local port = create_worker_port()
+            controller:postMessage(val({ type = "sw_port" }, true), { port })
+            if verbose then
+              print("[proxy] Fallback: sent sw_port to controller")
+            end
+          end
+          if ready_resolver then
+            if verbose then
+              print("[proxy] Fallback: resolving ready promise")
+            end
+            ready_resolver()
+            ready_resolver = nil
+          end
+          return hold_lock()
+        end):catch(function (_, e)
+          becoming_provider = false
+          if verbose then
+            print("[proxy] Fallback steal failed:", e)
+          end
+        end)
+      end, 5000)
     end)
   end)
 end
