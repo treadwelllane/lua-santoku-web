@@ -37,6 +37,51 @@ return function (bundle_path, opts)
 
   local broadcast_channel = BroadcastChannel:new("sqlite_shared_service")
 
+  local function release_provider ()
+    if lock_abort then
+      lock_abort:abort()
+      lock_abort = nil
+    end
+    becoming_provider = false
+    if not is_provider then return end
+    if verbose then
+      print("[proxy] Releasing provider role (tab backgrounded)")
+    end
+    is_provider = false
+    if worker then
+      worker:terminate()
+      worker = nil
+    end
+    db = nil
+    if lock_release_resolver then
+      if verbose then
+        print("[proxy] Releasing sqlite_db_access lock")
+      end
+      lock_release_resolver()
+    end
+    broadcast_channel:postMessage(val({
+      type = "provider_backgrounded",
+      clientId = client_id
+    }, true))
+  end
+
+  local function setup_worker_error_handler (w)
+    w.onmessage = function (_, ev)
+      if ev.data and ev.data.type == "db_error" then
+        if verbose then
+          print("[proxy] Worker reported db_error, releasing provider role")
+        end
+        release_provider()
+        if document and document.body then
+          document.body.classList:add("db-error")
+          document.body:dispatchEvent(js.CustomEvent:new("db-error", {
+            detail = { error = ev.data.error }
+          }))
+        end
+      end
+    end
+  end
+
   if verbose then
     print("[proxy] Initializing sqlite proxy")
   end
@@ -87,34 +132,6 @@ return function (bundle_path, opts)
       current_provider_port = nil
     end
     db = nil
-  end
-
-  local function release_provider ()
-    if lock_abort then
-      lock_abort:abort()
-      lock_abort = nil
-    end
-    becoming_provider = false
-    if not is_provider then return end
-    if verbose then
-      print("[proxy] Releasing provider role (tab backgrounded)")
-    end
-    is_provider = false
-    if worker then
-      worker:terminate()
-      worker = nil
-    end
-    db = nil
-    if lock_release_resolver then
-      if verbose then
-        print("[proxy] Releasing sqlite_db_access lock")
-      end
-      lock_release_resolver()
-    end
-    broadcast_channel:postMessage(val({
-      type = "provider_backgrounded",
-      clientId = client_id
-    }, true))
   end
 
   local function request_provider_port (counter)
@@ -220,7 +237,12 @@ return function (bundle_path, opts)
       if verbose then
         print("[proxy] Provider announced, is_provider:", is_provider, "client_id:", client_id)
       end
-      if not is_provider and client_id then
+      if is_provider and data.clientId and data.clientId ~= client_id then
+        if verbose then
+          print("[proxy] Another tab became provider, releasing our provider role")
+        end
+        release_provider()
+      elseif not is_provider and client_id then
         if verbose then
           print("[proxy] Reconnecting to new provider")
         end
@@ -335,17 +357,7 @@ return function (bundle_path, opts)
           if verbose then
             print("[proxy] Database worker initialized, db:", db, "worker:", worker)
           end
-
-          worker.onmessage = function (_, ev)
-            if ev.data and ev.data.type == "db_error" then
-              if document and document.body then
-                document.body.classList:add("db-error")
-                document.body:dispatchEvent(js.CustomEvent:new("db-error", {
-                  detail = { error = ev.data.error }
-                }))
-              end
-            end
-          end
+          setup_worker_error_handler(worker)
 
           if verbose then
             print("[proxy] Announcing as provider, clientId:", client_id)
@@ -403,7 +415,13 @@ return function (bundle_path, opts)
           if verbose then
             print("[proxy] Received steal_provider from SW, is_provider:", is_provider, "becoming_provider:", becoming_provider)
           end
-          release_provider()
+          if is_provider then
+            if verbose then
+              print("[proxy] We were provider but SW thinks unresponsive, releasing without re-acquiring")
+            end
+            release_provider()
+            return
+          end
           if verbose then
             print("[proxy] Requesting lock with steal=true")
           end
@@ -417,16 +435,7 @@ return function (bundle_path, opts)
             if verbose then
               print("[proxy] Worker initialized after steal")
             end
-            worker.onmessage = function (_, wev)
-              if wev.data and wev.data.type == "db_error" then
-                if document and document.body then
-                  document.body.classList:add("db-error")
-                  document.body:dispatchEvent(js.CustomEvent:new("db-error", {
-                    detail = { error = wev.data.error }
-                  }))
-                end
-              end
-            end
+            setup_worker_error_handler(worker)
             broadcast_channel:postMessage(val({
               type = "provider",
               clientId = client_id
@@ -468,32 +477,27 @@ return function (bundle_path, opts)
       end
       request_provider_port(provider_counter)
 
+      local fallback_delay = 5000 + math.floor(math.random() * 5000)
+      if verbose then
+        print("[proxy] Scheduling fallback timeout with jitter:", fallback_delay, "ms")
+      end
       util.set_timeout(function ()
-        if db or is_provider then return end
+        if db or is_provider or becoming_provider then return end
         if verbose then
-          print("[proxy] Fallback timeout: still no db after 5s, attempting steal")
+          print("[proxy] Fallback timeout: still no db, requesting lock normally")
         end
-        release_provider()
-        navigator.locks:request("sqlite_db_access", val({ steal = true }, true), function ()
+        becoming_provider = true
+        navigator.locks:request("sqlite_db_access", function ()
           becoming_provider = false
           if verbose then
-            print("[proxy] Fallback: acquired lock via steal")
+            print("[proxy] Fallback: acquired lock, becoming provider")
           end
           is_provider = true
           db, worker = wrpc.init(bundle_path)
           if verbose then
             print("[proxy] Fallback: worker initialized")
           end
-          worker.onmessage = function (_, wev)
-            if wev.data and wev.data.type == "db_error" then
-              if document and document.body then
-                document.body.classList:add("db-error")
-                document.body:dispatchEvent(js.CustomEvent:new("db-error", {
-                  detail = { error = wev.data.error }
-                }))
-              end
-            end
-          end
+          setup_worker_error_handler(worker)
           broadcast_channel:postMessage(val({
             type = "provider",
             clientId = client_id
@@ -520,10 +524,10 @@ return function (bundle_path, opts)
         end):catch(function (_, e)
           becoming_provider = false
           if verbose then
-            print("[proxy] Fallback steal failed:", e)
+            print("[proxy] Fallback lock request failed:", e)
           end
         end)
-      end, 5000)
+      end, fallback_delay)
     end)
   end)
 end

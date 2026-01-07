@@ -16,6 +16,8 @@ local Promise = js.Promise
 local URL = js.URL
 local BroadcastChannel = js.BroadcastChannel
 local MessageChannel = js.MessageChannel
+local Response = js.Response
+local Headers = js.Headers
 
 return function (opts)
 
@@ -95,6 +97,20 @@ return function (opts)
       return str.startswith(url.url, global.location.origin)
     end
     return false
+  end
+
+  local function add_isolation_headers (resp)
+    if not opts.cross_origin_isolated or not resp then
+      return resp
+    end
+    local new_headers = Headers:new(resp.headers)
+    new_headers:set("Cross-Origin-Opener-Policy", "same-origin")
+    new_headers:set("Cross-Origin-Embedder-Policy", "require-corp")
+    return Response:new(resp.body, val({
+      status = resp.status,
+      statusText = resp.statusText,
+      headers = new_headers
+    }, true))
   end
 
   local function matches_no_cache_pattern (pathname)
@@ -546,7 +562,7 @@ return function (opts)
         if opts.verbose then
           print("Cache hit:", request.url)
         end
-        return cached_resp:clone()
+        return add_isolation_headers(cached_resp:clone())
       end
 
       if opts.verbose then
@@ -557,7 +573,7 @@ return function (opts)
       if raw and raw.ok then
         cache:put(request, raw:clone()):await()
       end
-      return raw
+      return add_isolation_headers(raw)
     end)
   end
 
@@ -583,7 +599,7 @@ return function (opts)
 
     if opts.index_html and (pathname == "/" or pathname == "/index.html") then
       return async(function ()
-        return util.response(opts.index_html, { content_type = "text/html" })
+        return add_isolation_headers(util.response(opts.index_html, { content_type = "text/html" }))
       end)
     end
 
@@ -677,13 +693,13 @@ return function (opts)
         local req = { path = path, params = params, raw = request }
         local result, content_type, extra_headers = handler(req, path, params)
         if type(result) == "table" and (result.body ~= nil or result.status or result.headers) then
-          return util.response(result.body or "", {
+          return add_isolation_headers(util.response(result.body or "", {
             status = result.status,
             content_type = result.content_type,
             headers = result.headers
-          })
+          }))
         end
-        return util.response(result, { content_type = content_type, headers = extra_headers })
+        return add_isolation_headers(util.response(result, { content_type = content_type, headers = extra_headers }))
       end)
     end
 

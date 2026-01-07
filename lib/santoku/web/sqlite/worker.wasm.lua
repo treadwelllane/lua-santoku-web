@@ -16,6 +16,36 @@ return function (db_path, opts, handler)
   local verbose = opts and opts.verbose
   if verbose then print("[sqlite-worker] function called, db_path:", db_path) end
 
+  local rpc_handler = nil
+  local pending_ports = {}
+
+  Module.on_message = function (_, ev)
+    if ev.data and ev.data.REGISTER_PORT then
+      if verbose then print("[sqlite-worker] REGISTER_PORT received") end
+      local port = ev.data.REGISTER_PORT
+      port.onmessage = function (_, port_ev)
+        if port_ev.data and port_ev.data.type == "ping" then
+          local pong_port = port_ev.ports and port_ev.ports[1]
+          if pong_port then
+            if verbose then print("[sqlite-worker] ping received, sending pong") end
+            pong_port:postMessage(val({ type = "pong" }, true))
+          end
+          return
+        end
+        if rpc_handler then
+          if verbose then print("[sqlite-worker] port message received:", port_ev.data and port_ev.data[1]) end
+          return rpc_handler(port_ev)
+        else
+          if verbose then print("[sqlite-worker] queuing message, db not ready yet") end
+          pending_ports[#pending_ports + 1] = port_ev
+        end
+      end
+    end
+  end
+  if verbose then print("[sqlite-worker] message handler set up early") end
+  Module:start()
+  if verbose then print("[sqlite-worker] Module:start() complete") end
+
   async(function ()
     if verbose then print("[sqlite-worker] async block started") end
     if verbose then print("[sqlite-worker] starting sqlite.open") end
@@ -33,27 +63,12 @@ return function (db_path, opts, handler)
       return
     end
     if verbose then print("[sqlite-worker] calling wrpc.init") end
-    local rpc_handler = wrpc.init(handlers)
-    if verbose then print("[sqlite-worker] setting up Module.on_message") end
-    Module.on_message = function (_, ev)
-      if ev.data and ev.data.REGISTER_PORT then
-        if verbose then print("[sqlite-worker] REGISTER_PORT received") end
-        ev.data.REGISTER_PORT.onmessage = function (_, port_ev)
-          if port_ev.data and port_ev.data.type == "ping" then
-            local pong_port = port_ev.ports and port_ev.ports[1]
-            if pong_port then
-              if verbose then print("[sqlite-worker] ping received, sending pong") end
-              pong_port:postMessage(val({ type = "pong" }, true))
-            end
-            return
-          end
-          if verbose then print("[sqlite-worker] port message received:", port_ev.data and port_ev.data[1]) end
-          return rpc_handler(port_ev)
-        end
-      end
+    rpc_handler = wrpc.init(handlers)
+    if verbose then print("[sqlite-worker] processing", #pending_ports, "queued messages") end
+    for i = 1, #pending_ports do
+      rpc_handler(pending_ports[i])
     end
-    if verbose then print("[sqlite-worker] calling Module:start()") end
-    Module:start()
-    if verbose then print("[sqlite-worker] Module:start() complete") end
+    pending_ports = {}
+    if verbose then print("[sqlite-worker] worker fully initialized") end
   end)
 end
