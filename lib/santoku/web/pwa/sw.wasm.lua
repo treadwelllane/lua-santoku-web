@@ -186,7 +186,7 @@ return function (opts)
         end
       end, timeout)
       local ch = MessageChannel:new()
-      ch.port1.onmessage = function ()
+      ch.port1:addEventListener("message", function ()
         if not done then
           done = true
           util.clear_timeout(timer)
@@ -195,7 +195,7 @@ return function (opts)
           end
           complete(true, true)
         end
-      end
+      end)
       ch.port1:start()
       db_sw_port:postMessage(val({ type = "ping" }, true), { ch.port2 })
     end)

@@ -56,9 +56,9 @@ M.init_port = function (port)
           port:postMessage(
             val({ k, ch.port2, arr.spread(args) }, true),
             { ch.port2, arr.spread(tfrs) })
-          ch.port1.onmessage = function (_, ev)
+          ch.port1:addEventListener("message", function (_, ev)
             complete(true, ev.data)
-          end
+          end)
           ch.port1:start()
         end):await()
         return arr.spread(val.lua(result, true))
