@@ -196,6 +196,7 @@ return function (opts)
           complete(true, true)
         end
       end
+      ch.port1:start()
       db_sw_port:postMessage(val({ type = "ping" }, true), { ch.port2 })
     end)
   end

@@ -59,6 +59,7 @@ M.init_port = function (port)
           ch.port1.onmessage = function (_, ev)
             complete(true, ev.data)
           end
+          ch.port1:start()
         end):await()
         return arr.spread(val.lua(result, true))
       end

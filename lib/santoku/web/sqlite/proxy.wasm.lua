@@ -242,6 +242,7 @@ return function (bundle_path, opts)
           original_onmessage(nil, ev)
         end
       end
+      ch.port1:start()
       wrpc.register_port(worker, ch.port2)
     end)
   end
