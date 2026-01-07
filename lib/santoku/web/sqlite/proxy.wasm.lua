@@ -228,9 +228,22 @@ return function (bundle_path, opts)
   end
 
   local function create_worker_port ()
-    local ch = MessageChannel:new()
-    wrpc.register_port(worker, ch.port2)
-    return ch.port1
+    return util.promise(function (complete)
+      local ch = MessageChannel:new()
+      local original_onmessage = nil
+      ch.port1.onmessage = function (_, ev)
+        if ev.data and ev.data.type == "port_ready" then
+          if verbose then
+            print("[proxy] port_ready received, port is ready for use")
+          end
+          ch.port1.onmessage = original_onmessage
+          complete(true, ch.port1)
+        elseif original_onmessage then
+          original_onmessage(nil, ev)
+        end
+      end
+      wrpc.register_port(worker, ch.port2)
+    end)
   end
 
   broadcast_channel.onmessage = function (_, ev)
@@ -270,15 +283,17 @@ return function (bundle_path, opts)
         return
       end
 
-      local port = create_worker_port()
-      if verbose then
-        print("[proxy] Storing port in SW for consumer to fetch, nonce:", data.nonce)
-      end
+      async(function ()
+        local _, port = create_worker_port():await()
+        if verbose then
+          print("[proxy] Storing port in SW for consumer to fetch, nonce:", data.nonce)
+        end
 
-      controller:postMessage(
-        val({ type = "store_port", nonce = data.nonce }, true),
-        { port }
-      )
+        controller:postMessage(
+          val({ type = "store_port", nonce = data.nonce }, true),
+          { port }
+        )
+      end)
 
     elseif data.type == "sw_port_request" and is_provider then
       if verbose then
@@ -291,14 +306,16 @@ return function (bundle_path, opts)
         end
         return
       end
-      local port = create_worker_port()
-      if verbose then
-        print("[proxy] Sending sw_port to SW")
-      end
-      controller:postMessage(
-        val({ type = "sw_port" }, true),
-        { port }
-      )
+      async(function ()
+        local _, port = create_worker_port():await()
+        if verbose then
+          print("[proxy] Sending sw_port to SW")
+        end
+        controller:postMessage(
+          val({ type = "sw_port" }, true),
+          { port }
+        )
+      end)
     end
   end
 
@@ -452,11 +469,13 @@ return function (bundle_path, opts)
               end
               local controller = navigator.serviceWorker.controller
               if controller then
-                local port = create_worker_port()
-                controller:postMessage(val({ type = "sw_port" }, true), { port })
-                if verbose then
-                  print("[proxy] Sent sw_port to controller after steal")
-                end
+                async(function ()
+                  local _, port = create_worker_port():await()
+                  controller:postMessage(val({ type = "sw_port" }, true), { port })
+                  if verbose then
+                    print("[proxy] Sent sw_port to controller after steal")
+                  end
+                end)
               else
                 if verbose then
                   print("[proxy] No controller available to send sw_port after steal")
@@ -515,11 +534,13 @@ return function (bundle_path, opts)
             end
             local controller = navigator.serviceWorker.controller
             if controller then
-              local port = create_worker_port()
-              controller:postMessage(val({ type = "sw_port" }, true), { port })
-              if verbose then
-                print("[proxy] Fallback: sent sw_port to controller")
-              end
+              async(function ()
+                local _, port = create_worker_port():await()
+                controller:postMessage(val({ type = "sw_port" }, true), { port })
+                if verbose then
+                  print("[proxy] Fallback: sent sw_port to controller")
+                end
+              end)
             end
             if ready_resolver then
               if verbose then
