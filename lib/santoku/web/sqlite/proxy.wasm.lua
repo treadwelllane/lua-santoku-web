@@ -230,18 +230,17 @@ return function (bundle_path, opts)
   local function create_worker_port ()
     return util.promise(function (complete)
       local ch = MessageChannel:new()
-      local original_onmessage = nil
-      ch.port1.onmessage = function (_, ev)
+      local port_ready_handler
+      port_ready_handler = function (_, ev)
         if ev.data and ev.data.type == "port_ready" then
           if verbose then
             print("[proxy] port_ready received, port is ready for use")
           end
-          ch.port1.onmessage = original_onmessage
+          ch.port1:removeEventListener("message", port_ready_handler)
           complete(true, ch.port1)
-        elseif original_onmessage then
-          original_onmessage(nil, ev)
         end
       end
+      ch.port1:addEventListener("message", port_ready_handler)
       ch.port1:start()
       wrpc.register_port(worker, ch.port2)
     end)

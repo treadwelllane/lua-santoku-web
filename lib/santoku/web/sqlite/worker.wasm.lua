@@ -25,7 +25,7 @@ return function (db_path, opts, handler)
     if ev.data and ev.data.REGISTER_PORT then
       if verbose then print("[sqlite-worker] REGISTER_PORT received") end
       local port = ev.data.REGISTER_PORT
-      port.onmessage = function (_, port_ev)
+      port:addEventListener("message", function (_, port_ev)
         if port_ev.data and port_ev.data.type == "ping" then
           local pong_port = port_ev.ports and port_ev.ports[1]
           if pong_port then
@@ -41,7 +41,7 @@ return function (db_path, opts, handler)
           if verbose then print("[sqlite-worker] queuing message, db not ready yet") end
           pending_ports[#pending_ports + 1] = port_ev
         end
-      end
+      end)
       port:start()
       if verbose then print("[sqlite-worker] Sending port_ready through port") end
       port:postMessage(val({ type = "port_ready" }, true))
