@@ -352,6 +352,15 @@ local script_open_cap = Cp() * P("<") * ci("script") * attrs_raw * ws * P(">") *
 local script_close_cap = Cp() * P("</") * ci("script") * ws * P(">") * Cp()
 local script_self_cap = Cp() * P("<") * ci("script") * attrs_raw * ws * P("/") * ws * P(">") * Cp()
 
+local function scan_close(patt, html, from)
+  local s = from
+  while s do
+    local a, b = match(patt, html, s)
+    if a then return a, b end
+    s = html:find("<", s + 1, true)
+  end
+end
+
 local function component_parts(html)
   local deps = {}
   local style_content = ""
@@ -387,7 +396,7 @@ local function component_parts(html)
       for j = 1, #sc_raw, 2 do
         attrs[sc_raw[j]] = sc_raw[j + 1]
       end
-      local close_start, close_end = match(script_close_cap, html, sc_inner)
+      local close_start, close_end = scan_close(script_close_cap, html, sc_inner)
       if not close_start then break end
       if attrs.src then
         deps[#deps + 1] = attrs.src
@@ -397,7 +406,7 @@ local function component_parts(html)
       ranges[#ranges + 1] = { sc_start, close_end - 1 }
       pos = close_end
     elseif pick[2] == "style" then
-      local close_start, close_end = match(style_close_cap, html, st_inner)
+      local close_start, close_end = scan_close(style_close_cap, html, st_inner)
       if not close_start then break end
       style_content = html:sub(st_inner, close_start - 1)
       ranges[#ranges + 1] = { st_start, close_end - 1 }
