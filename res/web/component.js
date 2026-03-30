@@ -33,10 +33,11 @@
   _Ctor.prototype.connectedCallback = function () {
     var el = this;
     var root = el._shadow;
+    var cp = el.getAttribute("context-path") || "";
     root.innerHTML = `<style>%STYLE%</style>%BODY%`;
     var _deps = [%DEPS%];
     (_deps.length
-      ? Promise.all(_deps.map(function (d) { return _loadScript(d); }))
+      ? Promise.all(_deps.map(function (d) { return _loadScript(cp + d); }))
       : Promise.resolve()
     ).then(function () {
 %INIT%
