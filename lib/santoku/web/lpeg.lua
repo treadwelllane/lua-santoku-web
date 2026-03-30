@@ -434,6 +434,13 @@ local function component_parts(html)
   }
 end
 
+local function minify_html(html)
+  html = html:gsub("<!%-%-.-%--%>", "")
+  html = html:gsub("%s+", " ")
+  html = html:gsub("> <", "><")
+  return html:match("^%s*(.-)%s*$") or ""
+end
+
 return {
   json_fields = json_fields,
   html_text = html_text,
@@ -443,4 +450,5 @@ return {
   html_spans = html_spans,
   html_match_tags = html_match_tags,
   component_parts = component_parts,
+  minify_html = minify_html,
 }
