@@ -1,7 +1,7 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.465-1",
+  version = "0.0.466-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,
@@ -12,7 +12,8 @@ local env = {
     "santoku-mustache >= 0.0.14-1",
     "santoku-http >= 0.0.22-1",
     "santoku-sqlite >= 0.0.29-1",
-    "lua-cjson == 2.1.0.10-1"
+    "lua-cjson == 2.1.0.10-1",
+    "lpeg >= 1.1.0-2"
   },
 
   cxxflags = { "--std=c++17" },
