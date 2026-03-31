@@ -26,13 +26,13 @@
   var _Ctor = function () {
     var el = Reflect.construct(HTMLElement, [], _Ctor);
     el._shadow = el.attachShadow({ mode: "closed" });
-    el.style.display = "none";
     return el;
   };
   _Ctor.prototype = Object.create(HTMLElement.prototype);
   _Ctor.prototype.constructor = _Ctor;
   _Ctor.prototype.connectedCallback = function () {
     var el = this;
+    el.style.display = "none";
     var root = el._shadow;
     var cp = el.getAttribute("context-path") || "";
     root.innerHTML = `<style>%STYLE%</style>%BODY%`;
