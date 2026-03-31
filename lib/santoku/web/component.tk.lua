@@ -8,6 +8,13 @@ local function replace(s, old, new)
   return s:sub(1, i - 1) .. (new or "") .. s:sub(j + 1)
 end
 
+local function escape_tl(s)
+  s = s:gsub("\\", "\\\\")
+  s = s:gsub("`", "\\`")
+  s = s:gsub("${", "\\${")
+  return s
+end
+
 return function (tag, html, opts)
   local parts = lp.component_parts(html)
   local style = parts.style
@@ -24,8 +31,8 @@ return function (tag, html, opts)
   end
   local out = skeleton
   out = replace(out, "%TAG%", tag)
-  out = replace(out, "%STYLE%", style)
-  out = replace(out, "%BODY%", body)
+  out = replace(out, "%STYLE%", escape_tl(style))
+  out = replace(out, "%BODY%", escape_tl(body))
   out = replace(out, "%INIT%", init)
   out = replace(out, "%DEPS%", table.concat(deps_parts, ","))
   if opts and opts.js then out = opts.js(out) end
