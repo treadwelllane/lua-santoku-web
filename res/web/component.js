@@ -26,6 +26,7 @@
   var _Ctor = function () {
     var el = Reflect.construct(HTMLElement, [], _Ctor);
     el._shadow = el.attachShadow({ mode: "closed" });
+    el.style.display = "none";
     return el;
   };
   _Ctor.prototype = Object.create(HTMLElement.prototype);
@@ -41,6 +42,7 @@
       : Promise.resolve()
     ).then(function () {
 %INIT%
+      el.style.display = "";
     });
   };
   _Ctor.prototype.disconnectedCallback = function () {
