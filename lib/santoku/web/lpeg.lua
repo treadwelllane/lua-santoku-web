@@ -435,10 +435,47 @@ local function component_parts(html)
 end
 
 local function minify_html(html)
-  html = html:gsub("<!%-%-.-%--%>", "")
-  html = html:gsub("%s+", " ")
-  html = html:gsub("> <", "><")
-  return html:match("^%s*(.-)%s*$") or ""
+  local pre_cp = block_elem("pre") * Cp()
+  local textarea_cp = block_elem("textarea") * Cp()
+  local parts = {}
+  local pos = 1
+  local len = #html
+  while pos <= len do
+    if html:byte(pos) == 60 then
+      local npos = match(comment_cp, html, pos)
+      if npos then
+        pos = npos
+      else
+        npos = match(pre_cp, html, pos)
+          or match(textarea_cp, html, pos)
+          or match(script_cp, html, pos)
+          or match(style_cp, html, pos)
+        if npos then
+          parts[#parts + 1] = html:sub(pos, npos - 1)
+          pos = npos
+        else
+          local tag_end = match(any_tag_cp, html, pos)
+          if tag_end then
+            parts[#parts + 1] = html:sub(pos, tag_end - 1)
+            pos = tag_end
+          else
+            parts[#parts + 1] = "<"
+            pos = pos + 1
+          end
+        end
+      end
+    else
+      local next_lt = html:find("<", pos, true)
+      local text_end = next_lt and (next_lt - 1) or len
+      local text = html:sub(pos, text_end):gsub("%s+", " ")
+      if text ~= " " then
+        parts[#parts + 1] = text
+      end
+      pos = text_end + 1
+    end
+  end
+  local result = table.concat(parts)
+  return result:match("^%s*(.-)%s*$") or ""
 end
 
 return {
