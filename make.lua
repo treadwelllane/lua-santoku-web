@@ -1,7 +1,7 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.474-1",
+  version = "0.0.475-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,
@@ -16,18 +16,20 @@ local env = {
     "lpeg >= 1.1.0-2"
   },
 
-  cxxflags = { "--std=c++17" },
-
   build = {
     wasm = {
-      ldflags = { "--bind" },
+      ldflags = {
+        "-sWASM_BIGINT", "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$stringToNewUTF8'",
+        "-sEXPORTED_FUNCTIONS=_malloc,_free", "-sEXPORTED_RUNTIME_METHODS=stringToUTF8,lengthBytesUTF8,UTF8ToString,stringToNewUTF8",
+      },
     },
   },
 
   test = {
     wasm = {
       ldflags = {
-        "-Og", "--bind", "-sWASM_BIGINT", "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$stringToNewUTF8'",
+        "-Og", "-sWASM_BIGINT", "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$stringToNewUTF8'",
+        "-sEXPORTED_FUNCTIONS=_malloc,_free", "-sEXPORTED_RUNTIME_METHODS=stringToUTF8,lengthBytesUTF8,UTF8ToString,stringToNewUTF8",
       },
     },
   },
