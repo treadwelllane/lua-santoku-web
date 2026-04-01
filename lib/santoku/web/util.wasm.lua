@@ -159,7 +159,6 @@ end
 
 M.debounce = function (fn, time)
   local timer
-  local pending_resolve
   local pending_reject
   return function (...)
     M.clear_timeout(timer)
@@ -169,10 +168,8 @@ M.debounce = function (fn, time)
     local args = { ... }
     local async = require("santoku.web.async")
     local p = Promise:new(function (_, resolve, reject)
-      pending_resolve = resolve
       pending_reject = reject
       timer = M.set_timeout(function ()
-        pending_resolve = nil
         pending_reject = nil
         local inner = async(function ()
           return fn(arr.spread(args))
