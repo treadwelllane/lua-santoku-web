@@ -6,41 +6,6 @@ g:eval([==[
 
 (function () {
 
-  var perf = globalThis.__tkVuePerf = {
-    timers: {},
-    counts: {},
-    start: function (name) {
-      this.timers[name] = performance.now();
-    },
-    end: function (name) {
-      var elapsed = performance.now() - (this.timers[name] || 0);
-      if (!this.counts[name]) this.counts[name] = { total: 0, count: 0, max: 0 };
-      var c = this.counts[name];
-      c.total += elapsed;
-      c.count++;
-      if (elapsed > c.max) c.max = elapsed;
-      return elapsed;
-    },
-    report: function () {
-      var lines = ["=== Vue Perf ==="];
-      var keys = Object.keys(this.counts);
-      keys.sort(function (a, b) { return perf.counts[b].total - perf.counts[a].total; });
-      for (var i = 0; i < keys.length; i++) {
-        var k = keys[i];
-        var c = this.counts[k];
-        lines.push("  " + k + ": " + c.total.toFixed(1) + "ms (" + c.count + "x, avg " + (c.total / c.count).toFixed(2) + "ms, max " + c.max.toFixed(1) + "ms)");
-      }
-      console.log(lines.join("\n"));
-    },
-    reset: function () {
-      this.timers = {};
-      this.counts = {};
-    }
-  };
-
-  globalThis.__tkVuePerfReport = function () { perf.report(); };
-  globalThis.__tkVuePerfReset = function () { perf.reset(); };
-
   var tracking = null;
   var trackingStack = [];
   var batchDepth = 0;
@@ -52,23 +17,15 @@ g:eval([==[
     if (flushing) return;
     flushing = true;
     queueMicrotask(function () {
-      perf.reset();
-      perf.start("flush:total");
       var effects = Array.from(pendingEffects);
       pendingEffects.clear();
       flushing = false;
       for (var i = 0; i < effects.length; i++) {
-        perf.start("flush:effect");
         effects[i]();
-        perf.end("flush:effect");
       }
       var cbs = tickCallbacks.splice(0);
       for (var j = 0; j < cbs.length; j++) {
         cbs[j]();
-      }
-      perf.end("flush:total");
-      if (perf.counts["flush:total"] && perf.counts["flush:total"].total > 5) {
-        perf.report();
       }
     });
   }
@@ -230,11 +187,11 @@ g:eval([==[
     var result = { name: parts[0], modifiers: {} };
     for (var i = 1; i < parts.length; i++) {
       var m = parts[i];
-      if (m === "debounce") {
-        result.modifiers.debounce = true;
+      if (m === "debounce" || m === "throttle") {
+        result.modifiers[m] = true;
         var nextVal = parts[i + 1];
         if (nextVal && /^\d+ms$/.test(nextVal)) {
-          result.modifiers.debounceMs = parseInt(nextVal);
+          result.modifiers[m + "Ms"] = parseInt(nextVal);
           i++;
         }
       } else {
@@ -245,8 +202,11 @@ g:eval([==[
   }
 
   function addEventHandler (el, event, handler, modifiers) {
+    var target = el;
     var opts = {};
     if (modifiers) {
+      if (modifiers.window) target = window;
+      else if (modifiers.document) target = document;
       if (modifiers.capture) opts.capture = true;
       if (modifiers.once) opts.once = true;
       if (modifiers.passive) opts.passive = true;
@@ -265,18 +225,35 @@ g:eval([==[
         var prev3 = fn;
         fn = function (e) { if (e.target === el) return prev3(e); };
       }
-      if (modifiers.debounce) {
+      if (modifiers.outside) {
         var prev4 = fn;
-        var timer;
-        var ms = modifiers.debounceMs || 300;
+        fn = function (e) { if (!el.contains(e.target) && el !== e.target) return prev4(e); };
+        target = document;
+      }
+      if (modifiers.debounce) {
+        var prev5 = fn;
+        var dTimer;
+        var dMs = modifiers.debounceMs || 300;
         fn = function (e) {
-          clearTimeout(timer);
-          timer = setTimeout(function () { prev4(e); }, ms);
+          clearTimeout(dTimer);
+          dTimer = setTimeout(function () { prev5(e); }, dMs);
+        };
+      }
+      if (modifiers.throttle) {
+        var prev6 = fn;
+        var tLast = 0;
+        var tMs = modifiers.throttleMs || 300;
+        fn = function (e) {
+          var now = Date.now();
+          if (now - tLast >= tMs) {
+            tLast = now;
+            prev6(e);
+          }
         };
       }
     }
-    el.addEventListener(event, fn, opts);
-    return function () { el.removeEventListener(event, fn, opts); };
+    target.addEventListener(event, fn, opts);
+    return function () { target.removeEventListener(event, fn, opts); };
   }
 
   function getValue (el) {

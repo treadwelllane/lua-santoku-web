@@ -6,7 +6,7 @@ local socket = require("santoku.web.socket")
 local http_factory = require("santoku.http")
 local str = require("santoku.string")
 local arr = require("santoku.array")
-local err = require("santoku.error")
+local rpc = require("santoku.web.rpc")
 
 local global = js.self
 local Module = global.Module
@@ -125,13 +125,13 @@ return function (opts)
     return util.promise(function (complete)
       db_request_id = db_request_id + 1
       local id = db_request_id
-      local ch = MessageChannel:new()
-      db_inflight_requests[id] = { method = method, args = args, complete = complete, port = ch.port1 }
-      db_sw_port:postMessage(val({ method, ch.port2, arr.spread(args) }, true), { ch.port2 })
-      ch.port1.onmessage = function (_, ev)
-        db_inflight_requests[id] = nil
-        complete(true, ev.data)
-      end
+      db_inflight_requests[id] = { method = method, args = args, complete = complete }
+      rpc.call(db_sw_port, method, arr.spread(args)):await(function (_, ok, result)
+        if db_inflight_requests[id] then
+          db_inflight_requests[id] = nil
+          complete(ok, result)
+        end
+      end)
     end)
   end
 
@@ -140,7 +140,6 @@ return function (opts)
       if opts.verbose then
         print("[SW] Re-queueing in-flight request:", req.method)
       end
-      req.port:close()
       db_pending_queue[#db_pending_queue + 1] = {
         method = req.method,
         args = req.args,
@@ -285,8 +284,9 @@ return function (opts)
     db = setmetatable({}, {
       __index = function (_, method)
         return function (...)
-          local _, result = db_call(method, { ... }):await()
-          return err.checkok(arr.spread(val.lua(result, true)))
+          local ok, result = db_call(method, { ... }):await()
+          if not ok then error(result) end
+          return result
         end
       end
     })

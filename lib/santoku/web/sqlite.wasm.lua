@@ -1,177 +1,31 @@
 local js = require("santoku.web.js")
-local val = require("santoku.web.val")
-local util = require("santoku.web.util")
+local sah = require("santoku.web.sqlite.sah")
+local db_mod = require("santoku.sqlite.db")
 local sqlite = require("santoku.sqlite")
 local err = require("santoku.error")
-local Object = js.Object
 
 local M = {}
-
-local OK, ERROR, ROW, DONE = 0, 1, 100, 101
-
-local function cast_param (p)
-  if type(p) == "table" and p.instanceof and p:instanceof(js.Date) then
-    return p:getTime()
-  else
-    return p
-  end
-end
-
-local function create_db_wrapper (wsqlite, raw_db)
-  return sqlite({
-
-    db = raw_db,
-
-    exec = function (db, sql)
-      local ok, e = err.pcall(db.db.exec, db.db, sql)
-      if not ok then
-        db.err = e
-        return ERROR
-      else
-        db.err = nil
-        return OK
-      end
-    end,
-
-    prepare = function (db, sql)
-      local ok, stmt = err.pcall(db.db.prepare, db.db, sql)
-      if not ok then
-        db.err = stmt
-        return nil
-      else
-        db.err = nil
-        return setmetatable({
-
-          bind_names = function (_, t)
-            local ok0, e = err.pcall(function ()
-              Object:keys(t):forEach(function (_, k)
-                local v = t[k]
-                stmt:bind(":" .. k, cast_param(v))
-              end)
-            end)
-            if ok0 then
-              return OK
-            else
-              err.error(e)
-              return ERROR
-            end
-          end,
-
-          bind_values = function (_, ...)
-            local ok0, e = err.pcall(function (...)
-              for i = 1, select("#", ...) do
-                stmt:bind(i, cast_param(select(i, ...)))
-              end
-            end, ...)
-            if ok0 then
-              return OK
-            else
-              err.error(e)
-              return ERROR
-            end
-          end,
-
-          step = function ()
-            local ok0, res = err.pcall(stmt.step, stmt)
-            if not ok0 then
-              db.err = res
-              return ERROR
-            elseif res then
-              db.err = nil
-              return ROW
-            else
-              db.err = nil
-              return DONE
-            end
-          end,
-
-          get_named_values = function ()
-            local ret = {}
-            for i = 0, stmt.columnCount - 1 do
-              local k = val.lua(stmt:getColumnName(i))
-              local v = val.lua(stmt:get(i))
-              ret[k] = v
-            end
-            return ret
-          end,
-
-          reset = function ()
-            stmt:reset(true)
-            return OK
-          end,
-
-          columns = function ()
-            return stmt.columnCount
-          end,
-
-          get_value = function (_, n)
-            return val.lua(stmt:get(n))
-          end,
-
-        }, {
-          __index = stmt
-        })
-      end
-    end,
-
-    last_insert_rowid = function (db)
-      return wsqlite.capi:sqlite3_last_insert_rowid(db.db.pointer)
-    end,
-
-    errcode = function (db)
-      if db.err then
-        return db.err.name
-      end
-    end,
-
-    errmsg = function (db)
-      if db.err then
-        return db.err.message
-      end
-    end,
-
-  })
-end
 
 M.open = function (dbfile, opts)
   if type(opts) == "function" then
     opts = {}
   end
   opts = opts or {}
-  local verbose = opts.verbose
-  if verbose then print("[sqlite.open] starting") end
-  local hash_manifest = js.self.HASH_MANIFEST
-  if hash_manifest then
-    local hashed_wasm = hash_manifest["sqlite3.wasm"]
-    if hashed_wasm then
-      local sIMS = js.globalThis.sqlite3InitModuleState
-      if sIMS and sIMS.urlParams then
-        sIMS.urlParams:set("sqlite3.wasm", "/" .. hashed_wasm)
-      end
-    end
-  end
-  if verbose then print("[sqlite.open] calling sqlite3InitModule") end
-  local ok, wsqlite = util.promise(function (complete)
-    util.set_timeout(function ()
-      js:sqlite3InitModule():await(function (_, ...)
-        return complete(...)
-      end)
-    end, 0)
-  end):await()
-  if verbose then print("[sqlite.open] sqlite3InitModule returned:", ok, wsqlite) end
-  if not ok then
-    return false, wsqlite
-  end
-  if verbose then print("[sqlite.open] calling installOpfsSAHPoolVfs") end
-  local ok2, pool_util = wsqlite:installOpfsSAHPoolVfs(opts):await()
-  if verbose then print("[sqlite.open] installOpfsSAHPoolVfs returned:", ok2) end
-  if not ok2 then
-    return false, pool_util
-  end
-  if verbose then print("[sqlite.open] creating db wrapper") end
+  local call_ok, p = pcall(function ()
+    return js.globalThis:__tk_sah_pool_init(
+      opts.directory or ".opfs-sahpool",
+      opts.initialCapacity or 6
+    )
+  end)
+  if not call_ok then return false, tostring(p) end
+  local ok, e = p:await()
+  if not ok then return false, tostring(e) end
+  local reg_ok, reg_err = pcall(sah.register_vfs)
+  if not reg_ok then return false, tostring(reg_err) end
   return err.pcall(function ()
-    local raw_db = pool_util.OpfsSAHPoolDb:new(dbfile)
-    return create_db_wrapper(wsqlite, raw_db)
+    local db = db_mod.open_v2(dbfile, "opfs-sahpool")
+    if not db then error("sqlite open_v2 failed: " .. tostring(dbfile)) end
+    return sqlite(db)
   end)
 end
 

@@ -23,9 +23,16 @@
       })();
     });
   }
+  var _sheet = null;
+  var _style = `%STYLE%`;
+  if (_style) {
+    _sheet = new CSSStyleSheet();
+    _sheet.replaceSync(_style);
+  }
   var _Ctor = function () {
     var el = Reflect.construct(HTMLElement, [], _Ctor);
     el._shadow = el.attachShadow({ mode: "closed" });
+    if (_sheet) el._shadow.adoptedStyleSheets = [_sheet];
     return el;
   };
   _Ctor.prototype = Object.create(HTMLElement.prototype);
@@ -35,7 +42,7 @@
     el.style.display = "none";
     var root = el._shadow;
     var cp = el.getAttribute("context-path") || "";
-    root.innerHTML = `<style>%STYLE%</style>%BODY%`;
+    root.innerHTML = `%BODY%`;
     var _deps = [%DEPS%];
     (_deps.length
       ? Promise.all(_deps.map(function (d) { return _loadScript(cp + d); }))
@@ -46,7 +53,10 @@
     });
   };
   _Ctor.prototype.disconnectedCallback = function () {
-    this._shadow.innerHTML = "";
+    var el = this;
+    var root = el._shadow;
+%DESTROY%
+    root.innerHTML = "";
   };
   customElements.define("%TAG%", _Ctor);
 })();
