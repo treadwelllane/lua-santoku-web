@@ -20,10 +20,14 @@ return function (tag, html, opts)
   local style = parts.style
   local body = parts.body
   local init = parts.init
+  local destroy = parts.destroy
   if opts then
     if opts.css then style = opts.css(style) end
     if opts.html then body = opts.html(body) end
-    if opts.js then init = opts.js(init) end
+    if opts.js then
+      init = opts.js(init)
+      if destroy ~= "" then destroy = opts.js(destroy) end
+    end
   end
   local deps_parts = {}
   for i = 1, #parts.deps do
@@ -34,6 +38,7 @@ return function (tag, html, opts)
   out = replace(out, "%STYLE%", escape_tl(style))
   out = replace(out, "%BODY%", escape_tl(body))
   out = replace(out, "%INIT%", init)
+  out = replace(out, "%DESTROY%", destroy)
   out = replace(out, "%DEPS%", table.concat(deps_parts, ","))
   if opts and opts.js then out = opts.js(out) end
   return out

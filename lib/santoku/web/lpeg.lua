@@ -365,6 +365,7 @@ local function component_parts(html)
   local deps = {}
   local style_content = ""
   local init = ""
+  local destroy = ""
   local ranges = {}
   local pos = 1
   local len = #html
@@ -400,6 +401,8 @@ local function component_parts(html)
       if not close_start then break end
       if attrs.src then
         deps[#deps + 1] = attrs.src
+      elseif attrs.type == "destroy" then
+        destroy = html:sub(sc_inner, close_start - 1)
       else
         init = html:sub(sc_inner, close_start - 1)
       end
@@ -430,6 +433,7 @@ local function component_parts(html)
     deps = deps,
     style = style_content,
     init = init,
+    destroy = destroy,
     body = body,
   }
 end

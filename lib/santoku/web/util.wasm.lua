@@ -159,18 +159,19 @@ end
 
 M.debounce = function (fn, time)
   local timer
-  local pending_reject
+  local pending_resolve
   return function (...)
     M.clear_timeout(timer)
-    if pending_reject then
-      pending_reject(nil, "debounced")
+    if pending_resolve then
+      pending_resolve(nil)
+      pending_resolve = nil
     end
     local args = { ... }
     local async = require("santoku.web.async")
     local p = Promise:new(function (_, resolve, reject)
-      pending_reject = reject
+      pending_resolve = resolve
       timer = M.set_timeout(function ()
-        pending_reject = nil
+        pending_resolve = nil
         local inner = async(function ()
           return fn(arr.spread(args))
         end)
@@ -198,13 +199,53 @@ M.atleast = function (fn, min_ms)
   end
 end
 
-M.component = function (tag, callback)
-  if not callback then
-    callback = tag
+M.stylesheet = function (css)
+  local sheet = js.CSSStyleSheet:new()
+  sheet:replaceSync(css)
+  return sheet
+end
+
+M.component = function (tag, opts)
+  if type(tag) == "function" then
+    opts = { connected = tag }
     tag = nil
+  elseif type(tag) == "table" then
+    opts = tag
+    tag = nil
+  elseif type(opts) == "function" then
+    opts = { connected = opts }
   end
   local class = val.class(function (proto)
-    proto.connectedCallback = callback
+    proto.connectedCallback = function (this)
+      local root = this
+      if opts.shadow then
+        root = this:attachShadow(val({ mode = "closed" }))
+        this._tkRoot = root
+      end
+      if opts.sheets then
+        root.adoptedStyleSheets = val(opts.sheets)
+      end
+      if opts.style or opts.html then
+        local inner = ""
+        if opts.style then inner = "<style>" .. opts.style .. "</style>" end
+        if opts.html then inner = inner .. opts.html end
+        root.innerHTML = inner
+      end
+      if opts.connected then
+        opts.connected(this, root)
+      end
+    end
+    if opts.disconnected or opts.shadow then
+      proto.disconnectedCallback = function (this)
+        local root = this._tkRoot or this
+        if opts.disconnected then
+          opts.disconnected(this, root)
+        end
+        if opts.shadow then
+          root.innerHTML = ""
+        end
+      end
+    end
   end, js.window.HTMLElement)
   if tag then
     js.window.customElements:define(tag, class)

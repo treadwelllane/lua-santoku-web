@@ -2,14 +2,33 @@ local js = require("santoku.web.js")
 local util = require("santoku.web.util")
 local val = require("santoku.web.val")
 local async = require("santoku.web.async")
-local wrpc = require("santoku.web.worker.rpc.client")
+local rpc = require("santoku.web.rpc")
 
 local navigator = js.navigator
 local document = js.document
 local MessageChannel = js.MessageChannel
 local BroadcastChannel = js.BroadcastChannel
 local AbortController = js.AbortController
+local Worker = js.Worker
 
+local function init_port (port)
+  return setmetatable({}, {
+    __index = function (_, k)
+      return function (...)
+        local ok, result = rpc.call(port, k, ...):await()
+        if not ok then error(result) end
+        return result
+      end
+    end
+  })
+end
+
+local function init_worker (bundle_path)
+  local w = Worker:new(bundle_path)
+  local ch = MessageChannel:new()
+  rpc.register_port(w, ch.port2)
+  return init_port(ch.port1), w
+end
 
 return function (bundle_path, opts)
   opts = opts or {}
@@ -85,6 +104,18 @@ return function (bundle_path, opts)
         if on_ready then
           on_ready()
         end
+      end
+    end
+    w.onerror = function (_, ev)
+      if verbose then
+        print("[proxy] Worker error:", ev and ev.message)
+      end
+      release_provider()
+      if document and document.body then
+        document.body.classList:add("db-error")
+        document.body:dispatchEvent(js.CustomEvent:new("db-error", {
+          detail = { error = ev and ev.message or "worker crashed" }
+        }))
       end
     end
   end
@@ -178,7 +209,7 @@ return function (bundle_path, opts)
             print("[proxy] Becoming consumer with port")
           end
           current_provider_port = port
-          db = wrpc.init_port(port)
+          db = init_port(port)
           if ready_resolver then
             ready_resolver()
             ready_resolver = nil
@@ -228,22 +259,7 @@ return function (bundle_path, opts)
   end
 
   local function create_worker_port ()
-    return util.promise(function (complete)
-      local ch = MessageChannel:new()
-      local port_ready_handler
-      port_ready_handler = function (_, ev)
-        if ev.data and ev.data.type == "port_ready" then
-          if verbose then
-            print("[proxy] port_ready received, port is ready for use")
-          end
-          ch.port1:removeEventListener("message", port_ready_handler)
-          complete(true, ch.port1)
-        end
-      end
-      ch.port1:addEventListener("message", port_ready_handler)
-      ch.port1:start()
-      wrpc.register_port(worker, ch.port2)
-    end)
+    return rpc.create_port(worker)
   end
 
   broadcast_channel.onmessage = function (_, ev)
@@ -377,7 +393,7 @@ return function (bundle_path, opts)
           if verbose then
             print("[proxy] Initializing database worker...")
           end
-          db, worker = wrpc.init(bundle_path)
+          db, worker = init_worker(bundle_path)
           if verbose then
             print("[proxy] Database worker initialized, db:", db, "worker:", worker)
           end
@@ -455,7 +471,7 @@ return function (bundle_path, opts)
               print("[proxy] Acquired lock via steal, becoming provider")
             end
             is_provider = true
-            db, worker = wrpc.init(bundle_path)
+            db, worker = init_worker(bundle_path)
             if verbose then
               print("[proxy] Worker initialized after steal")
             end
@@ -520,7 +536,7 @@ return function (bundle_path, opts)
             print("[proxy] Fallback: acquired lock, becoming provider")
           end
           is_provider = true
-          db, worker = wrpc.init(bundle_path)
+          db, worker = init_worker(bundle_path)
           if verbose then
             print("[proxy] Fallback: worker initialized")
           end

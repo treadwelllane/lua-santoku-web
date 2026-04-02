@@ -374,6 +374,7 @@ EM_JS(int, tk_js_make_table_proxy, (int Lp, int tblref, int isarray), {
         Module["_tk_j_set"](Lp, tblref, Module._toH(+k + 1), Module._toH(v));
       else
         Module["_tk_j_set"](Lp, tblref, Module._toH(k), Module._toH(v));
+      return true;
     }
 
   }));
@@ -744,11 +745,7 @@ static inline void object_to_lua (lua_State *L, int h, int iv, int recurse) {
 }
 
 static inline void number_to_lua (lua_State *L, int h) {
-  if (tk_js_is_integer(h)) {
-    lua_pushnumber(L, (lua_Number) tk_js_to_double(h));
-  } else {
-    lua_pushnumber(L, (lua_Number) tk_js_to_double(h));
-  }
+  lua_pushnumber(L, (lua_Number) tk_js_to_double(h));
 }
 
 static inline void bigint_to_lua (lua_State *L, int h) {
@@ -831,12 +828,12 @@ static inline void table_to_handle (lua_State *L, int i, int recurse) {
     for (int j = 1; j <= len; j ++) {
       lua_pushinteger(L, j);
       lua_gettable(L, -2);
-      lua_to_handle(L, -1, 1);
-      int eh = peek_handle(L, -1);
-      int newh = EM_ASM_INT({ return Module._cloneH($0); }, eh);
-      tk_js_array_set(ah, j - 1, newh);
-      tk_js_rel(newh);
-      lua_pop(L, 2);
+      int eh = lua_val_to_new_handle(L, -1, 1);
+      EM_ASM(({
+        Module._tkh[$0][$1] = Module._tkh[$2];
+        Module._rel($2);
+      }), ah, j - 1, eh);
+      lua_pop(L, 1);
     }
 
     lua_pop(L, 1);
@@ -849,16 +846,14 @@ static inline void table_to_handle (lua_State *L, int i, int recurse) {
 
     lua_pushnil(L);
     while (lua_next(L, -2) != 0) {
-      lua_to_handle(L, -2, 1);
-      lua_to_handle(L, -2, 1);
-      int kh = peek_handle(L, -2);
-      int vh = peek_handle(L, -1);
-      int newkh = EM_ASM_INT({ return Module._cloneH($0); }, kh);
-      int newvh = EM_ASM_INT({ return Module._cloneH($0); }, vh);
-      tk_js_object_set(oh, newkh, newvh);
-      tk_js_rel(newkh);
-      tk_js_rel(newvh);
-      lua_pop(L, 3);
+      int kh = lua_val_to_new_handle(L, -2, 1);
+      int vh = lua_val_to_new_handle(L, -1, 1);
+      EM_ASM(({
+        Module._tkh[$0][Module._tkh[$1]] = Module._tkh[$2];
+        Module._rel($1);
+        Module._rel($2);
+      }), oh, kh, vh);
+      lua_pop(L, 1);
     }
 
     lua_pop(L, 1);
@@ -1056,7 +1051,7 @@ int tk_j_args (int Lp, int arg0, int argc) {
         var i = 0;
         return {
           next: function () {
-            if (i == $2) {
+            if (i >= $2) {
               return { done: true };
             } else {
               i = i + 1;
@@ -1241,6 +1236,26 @@ int tk_j_valueof (int Lp, int i) {
   int newh = EM_ASM_INT({ return Module._cloneH($0); }, h);
   lua_settop(L, top);
   return newh;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int tk_val_peek (int Lp, int idx) {
+  lua_State *L = (lua_State *)(intptr_t) Lp;
+  return peek_handle(L, idx);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void tk_val_push (int Lp, int h) {
+  lua_State *L = (lua_State *)(intptr_t) Lp;
+  push_handle(L, h, INT_MIN);
+  handle_to_lua(L, -1, 0, 0);
+  lua_remove(L, -2);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int tk_val_from_lua (int Lp, int idx, int recurse) {
+  lua_State *L = (lua_State *)(intptr_t) Lp;
+  return lua_val_to_new_handle(L, idx, recurse);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -1487,48 +1502,53 @@ static inline int mtv_instanceof (lua_State *L) {
 }
 
 static inline int mtv_call (lua_State *L) {
-  args_to_handles(L, -1);
   int n = lua_gettop(L);
-  int fh = peek_handle(L, -n);
-  int th = lua_type(L, -n + 1) == LUA_TNIL
-    ? TK_UNDEFINED
-    : peek_handle(L, -n + 1);
+  int Lp = (int)(intptr_t)L;
+  int fh = peek_handle(L, 1);
+  int has_this = (n >= 2 && lua_type(L, 2) != LUA_TNIL) ? 1 : 0;
+  int argc = n > 2 ? n - 2 : 0;
   int rh = EM_ASM_INT(({
     try {
       var fn = Module._tkh[$1];
-      var ths = Module._tkh[$2];
-      if (ths != undefined)
-        fn = fn.bind(ths);
-      var argsh = Module["_tk_j_args"]($0, $3, $4);
-      var args = Module._tkh[argsh];
-      Module._rel(argsh);
+      if ($2) {
+        var th = Module._tk_val_from_lua($0, 2, 0);
+        var ths = Module._tkh[th];
+        Module._rel(th);
+        if (ths !== undefined)
+          fn = fn.bind(ths);
+      }
       var a = [];
-      for (var x of args) a.push(x);
-      var r = fn.apply(null, a);
-      return Module._toH(r);
+      for (var i = 0; i < $3; i++) {
+        var h = Module._tk_val_from_lua($0, 3 + i, 0);
+        a.push(Module._tkh[h]);
+        Module._rel(h);
+      }
+      return Module._toH(fn.apply(null, a));
     } catch (e) {
       var eh = Module._toH(e);
       Module["_tk_j_error"]($0, eh);
       return 0;
     }
-  }), (int)(intptr_t)L, fh, th, -n + 2, n - 2);
+  }), Lp, fh, has_this, argc);
   push_handle(L, rh, INT_MIN);
   return 1;
 }
 
 static inline int mtv_new (lua_State *L) {
-  args_to_handles(L, -1);
   int n = lua_gettop(L);
-  int vh = peek_handle(L, -n);
+  int Lp = (int)(intptr_t)L;
+  int vh = peek_handle(L, 1);
+  int argc = n > 1 ? n - 1 : 0;
   int rh = EM_ASM_INT(({
     var obj = Module._tkh[$1];
-    var argsh = Module["_tk_j_args"]($0, $2, $3);
-    var args = Module._tkh[argsh];
-    Module._rel(argsh);
     var a = [];
-    for (var x of args) a.push(x);
+    for (var i = 0; i < $3; i++) {
+      var h = Module._tk_val_from_lua($0, $2 + i, 0);
+      a.push(Module._tkh[h]);
+      Module._rel(h);
+    }
     return Module._toH(new obj(...a));
-  }), (int)(intptr_t)L, vh, -n + 1, n - 1);
+  }), Lp, vh, 2, argc);
   push_handle(L, rh, INT_MIN);
   return 1;
 }

@@ -1,7 +1,7 @@
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
 local sqlite = require("santoku.web.sqlite")
-local wrpc = require("santoku.web.worker.rpc.server")
+local rpc = require("santoku.web.rpc")
 local async = require("santoku.web.async")
 
 local global = js.self
@@ -53,20 +53,21 @@ return function (db_path, opts, handler)
     if verbose then print("[sqlite-worker] async block started") end
     if verbose then print("[sqlite-worker] starting sqlite.open") end
     local ok, db = sqlite.open(db_path, opts)
-    if verbose then print("[sqlite-worker] sqlite.open returned:", ok) end
     if not ok then
       global:postMessage(val({ type = "db_error", error = tostring(db) }, true))
       return
     end
-    if verbose then print("[sqlite-worker] calling handler") end
-    local ok2, handlers = handler(ok, db)
-    if verbose then print("[sqlite-worker] handler returned:", ok2) end
+    local handler_ok, ok2, handlers = pcall(handler, ok, db)
+    if not handler_ok then
+      global:postMessage(val({ type = "db_error", error = "handler error: " .. tostring(ok2) }, true))
+      return
+    end
     if not ok2 then
       global:postMessage(val({ type = "db_error", error = "handler returned false: " .. tostring(handlers) }, true))
       return
     end
-    if verbose then print("[sqlite-worker] calling wrpc.init") end
-    rpc_handler = wrpc.init(handlers)
+    if verbose then print("[sqlite-worker] calling rpc.server") end
+    rpc_handler = rpc.server(handlers)
     if verbose then print("[sqlite-worker] processing", #pending_ports, "queued messages") end
     for i = 1, #pending_ports do
       rpc_handler(pending_ports[i])
