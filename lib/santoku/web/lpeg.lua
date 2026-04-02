@@ -482,6 +482,63 @@ local function minify_html(html)
   return result:match("^%s*(.-)%s*$") or ""
 end
 
+local function transform_inline(html, transforms)
+  if not transforms then return html end
+  local js_fn = transforms.js
+  local css_fn = transforms.css
+  if not js_fn and not css_fn then return html end
+  local replacements = {}
+  local pos = 1
+  local len = #html
+  while pos <= len do
+    local lt = html:find("<", pos, true)
+    if not lt then break end
+    local handled = false
+    if js_fn then
+      local sc_start, sc_raw, sc_inner = match(script_open_cap, html, lt)
+      if sc_start then
+        local attrs = {}
+        for j = 1, #sc_raw, 2 do
+          attrs[sc_raw[j]] = sc_raw[j + 1]
+        end
+        if not attrs.src then
+          local close_start, close_end = scan_close(script_close_cap, html, sc_inner)
+          if close_start then
+            replacements[#replacements + 1] = { sc_inner, close_start - 1, js_fn(html:sub(sc_inner, close_start - 1)) }
+            pos = close_end
+            handled = true
+          end
+        end
+      end
+    end
+    if not handled and css_fn then
+      local st_start, st_inner = match(style_open_cap, html, lt)
+      if st_start then
+        local close_start, close_end = scan_close(style_close_cap, html, st_inner)
+        if close_start then
+          replacements[#replacements + 1] = { st_inner, close_start - 1, css_fn(html:sub(st_inner, close_start - 1)) }
+          pos = close_end
+          handled = true
+        end
+      end
+    end
+    if not handled then
+      pos = lt + 1
+    end
+  end
+  if #replacements == 0 then return html end
+  local parts = {}
+  local bp = 1
+  for i = 1, #replacements do
+    local r = replacements[i]
+    parts[#parts + 1] = html:sub(bp, r[1] - 1)
+    parts[#parts + 1] = r[3]
+    bp = r[2] + 1
+  end
+  parts[#parts + 1] = html:sub(bp)
+  return table.concat(parts)
+end
+
 return {
   json_fields = json_fields,
   html_text = html_text,
@@ -492,4 +549,5 @@ return {
   html_match_tags = html_match_tags,
   component_parts = component_parts,
   minify_html = minify_html,
+  transform_inline = transform_inline,
 }

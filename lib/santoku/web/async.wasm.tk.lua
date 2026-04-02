@@ -1,3 +1,4 @@
+<% build = dofile("lib/santoku/web/build.lua") %>
 local co_factory = require("santoku.co")
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
@@ -34,21 +35,7 @@ globalThis.__luaAsyncDrain = function ()
   end
 end
 
-val.global("eval"):call(nil, [[
-  (function() {
-    var scheduled = false;
-    function drain() {
-      scheduled = false;
-      if (globalThis.__luaAsyncDrain) globalThis.__luaAsyncDrain();
-    }
-    globalThis.__luaAsyncSchedule = function() {
-      if (!scheduled) {
-        scheduled = true;
-        setTimeout(drain, 0);
-      }
-    };
-  })()
-]])
+val.global("eval"):call(nil, [==[<% return build.minify_js(readfile("res/web/async.js")), false %>]==])
 
 local schedule = val.global("__luaAsyncSchedule")
 
