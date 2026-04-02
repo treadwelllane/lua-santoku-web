@@ -1,4 +1,4 @@
-<% build = dofile("lib/santoku/web/build.lua") %>
+<% build = require("santoku.make.build") %>
 local val = require("santoku.web.val")
 
 local g = val.global("globalThis"):lua()

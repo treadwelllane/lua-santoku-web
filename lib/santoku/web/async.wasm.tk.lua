@@ -1,4 +1,4 @@
-<% build = dofile("lib/santoku/web/build.lua") %>
+<% build = require("santoku.make.build") %>
 local co_factory = require("santoku.co")
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
