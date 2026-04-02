@@ -1,4 +1,4 @@
-<% build = require("santoku.make.build") %>
+<% build = require("santoku.web.build") %>
 local co_factory = require("santoku.co")
 local js = require("santoku.web.js")
 local val = require("santoku.web.val")
