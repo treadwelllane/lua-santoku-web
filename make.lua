@@ -1,14 +1,12 @@
 local env = {
 
   name = "santoku-web",
-  version = "0.0.479-1",
+  version = "0.0.480-1",
   variable_prefix = "TK_WEB",
   license = "MIT",
   public = true,
 
-  cflags = {
-    "-I$(shell luarocks show santoku-sqlite --rock-dir)/include/santoku/sqlite/",
-  },
+  cflags = {},
 
   dependencies = {
     "lua >= 5.1",
