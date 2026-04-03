@@ -54,15 +54,18 @@ return function (db_path, opts, handler)
     if verbose then print("[sqlite-worker] starting sqlite.open") end
     local ok, db = sqlite.open(db_path, opts)
     if not ok then
+      print("[sqlite-worker] db_error: " .. tostring(db))
       global:postMessage(val({ type = "db_error", error = tostring(db) }, true))
       return
     end
     local handler_ok, ok2, handlers = pcall(handler, ok, db)
     if not handler_ok then
+      print("[sqlite-worker] db_error: handler error: " .. tostring(ok2))
       global:postMessage(val({ type = "db_error", error = "handler error: " .. tostring(ok2) }, true))
       return
     end
     if not ok2 then
+      print("[sqlite-worker] db_error: handler returned false: " .. tostring(handlers))
       global:postMessage(val({ type = "db_error", error = "handler returned false: " .. tostring(handlers) }, true))
       return
     end
