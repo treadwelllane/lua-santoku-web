@@ -88,7 +88,7 @@ return function (bundle_path, opts)
     w.onmessage = function (_, ev)
       if ev.data and ev.data.type == "db_error" then
         if verbose then
-          print("[proxy] Worker reported db_error, releasing provider role")
+          print("[proxy] Worker reported db_error:", ev.data.error)
         end
         release_provider()
         if document and document.body then
