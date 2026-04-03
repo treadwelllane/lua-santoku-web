@@ -9,6 +9,7 @@ int luaopen_santoku_web_rpc (lua_State *);
 
 extern int tk_val_peek (int Lp, int idx);
 extern void tk_val_push (int Lp, int h);
+extern void tk_val_push_r (int Lp, int h);
 extern int tk_val_from_lua (int Lp, int idx, int recurse);
 
 EM_JS(int, tk_rpc_send, (int Lp, int port_h, const char *method_ptr, int method_len, int first_arg_idx, int nargs), {
@@ -32,10 +33,7 @@ EM_JS(int, tk_rpc_send, (int Lp, int port_h, const char *method_ptr, int method_
       ch.port1.close();
       var data = ev.data;
       if (data[0] === true) {
-        if (data.length === 2)
-          resolve(data[1]);
-        else
-          resolve(data.slice(1));
+        resolve(data.slice(1));
       } else {
         reject(data[1]);
       }
@@ -57,7 +55,7 @@ EM_JS(int, tk_rpc_extract, (int Lp, int ev_h, int port_slot_ref), {
   var nargs = data.length - 2;
   for (var i = 0; i < nargs; i++) {
     var arg_h = Module._toH(data[i + 2]);
-    Module._tk_val_push(Lp, arg_h);
+    Module._tk_val_push_r(Lp, arg_h);
   }
   return nargs;
 })

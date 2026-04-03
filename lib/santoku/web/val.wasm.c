@@ -1253,6 +1253,14 @@ void tk_val_push (int Lp, int h) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void tk_val_push_r (int Lp, int h) {
+  lua_State *L = (lua_State *)(intptr_t) Lp;
+  push_handle(L, h, INT_MIN);
+  handle_to_lua(L, -1, 1, 0);
+  lua_remove(L, -2);
+}
+
+EMSCRIPTEN_KEEPALIVE
 int tk_val_from_lua (int Lp, int idx, int recurse) {
   lua_State *L = (lua_State *)(intptr_t) Lp;
   return lua_val_to_new_handle(L, idx, recurse);
