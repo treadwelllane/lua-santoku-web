@@ -286,7 +286,7 @@ return function (opts)
         return function (...)
           local ok, result = db_call(method, { ... }):await()
           if not ok then error(result) end
-          return result
+          return val.lua(result, true)
         end
       end
     })
