@@ -286,7 +286,9 @@ return function (opts)
         return function (...)
           local ok, result = db_call(method, { ... }):await()
           if not ok then error(result) end
-          return val.lua(result, true)
+          if type(result) ~= "userdata" then return result end
+          local n = result.length
+          return arr.spread(val.lua(result, true), 1, n)
         end
       end
     })

@@ -1,3 +1,4 @@
+local arr = require("santoku.array")
 local js = require("santoku.web.js")
 local util = require("santoku.web.util")
 local val = require("santoku.web.val")
@@ -17,7 +18,9 @@ local function init_port (port)
       return function (...)
         local ok, result = rpc.call(port, k, ...):await()
         if not ok then error(result) end
-        return result
+        if type(result) ~= "userdata" then return result end
+        local n = result.length
+        return arr.spread(val.lua(result, true), 1, n)
       end
     end
   })

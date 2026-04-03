@@ -252,7 +252,8 @@
             t.classList.add('sw-blocking');
           }
           if (event.data && event.data.type === 'sw-broadcast') {
-            window.dispatchEvent(new CustomEvent(event.data.name, { detail: event.data.data }));
+            var bt = getSwTarget();
+            if (bt) bt.dispatchEvent(new CustomEvent(event.data.name, { detail: event.data.data }));
           }
         });
         var t = getSwTarget();
