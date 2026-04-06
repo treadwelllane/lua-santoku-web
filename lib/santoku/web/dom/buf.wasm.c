@@ -451,7 +451,7 @@ static int l_dom_read (lua_State *L) {
   return nresults;
 }
 
-int luaopen_santoku_web_dom (lua_State *L) {
+int luaopen_santoku_web_dom_buf (lua_State *L) {
   luaL_Reg fns[] = {
     { "text", l_dom_text },
     { "html", l_dom_html },
