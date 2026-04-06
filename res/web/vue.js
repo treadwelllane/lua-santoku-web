@@ -4,18 +4,21 @@
   var trackingStack = [];
   var batchDepth = 0;
   var pendingEffects = new Set();
-  var flushing = false;
+  var scheduled = false;
   var tickCallbacks = [];
 
-  function flushEffects () {
-    if (flushing) return;
-    flushing = true;
+  function scheduleFlush () {
+    if (scheduled) return;
+    scheduled = true;
     queueMicrotask(function () {
-      var effects = Array.from(pendingEffects);
-      pendingEffects.clear();
-      flushing = false;
-      for (var i = 0; i < effects.length; i++) {
-        effects[i]();
+      scheduled = false;
+      var limit = 100;
+      while (pendingEffects.size > 0 && limit-- > 0) {
+        var effects = Array.from(pendingEffects);
+        pendingEffects.clear();
+        for (var i = 0; i < effects.length; i++) {
+          effects[i]();
+        }
       }
       var cbs = tickCallbacks.splice(0);
       for (var j = 0; j < cbs.length; j++) {
@@ -26,10 +29,11 @@
 
   globalThis.__tkVueNextTick = function (fn) {
     tickCallbacks.push(fn);
-    flushEffects();
+    scheduleFlush();
   };
 
   var proxyMap = new WeakMap();
+  var arrayMethods = { push: 1, pop: 1, shift: 1, unshift: 1, splice: 1, sort: 1, reverse: 1 };
 
   globalThis.__tkVueReactive = function (obj, onChange) {
     if (typeof obj !== "object" || obj === null) return obj;
@@ -40,13 +44,72 @@
       if (!deps[key]) deps[key] = new Set();
       return deps[key];
     }
+    function notifyDeps () {
+      var ks = Object.keys(deps);
+      for (var i = 0; i < ks.length; i++) {
+        deps[ks[i]].forEach(function (fn) { pendingEffects.add(fn); });
+      }
+      if (onChange) pendingEffects.add(onChange);
+      scheduleFlush();
+    }
+    function notifyRange (from, to) {
+      for (var i = from; i <= to; i++) {
+        var s = deps[i];
+        if (s) s.forEach(function (fn) { pendingEffects.add(fn); });
+      }
+      var lenDep = deps["length"];
+      if (lenDep) lenDep.forEach(function (fn) { pendingEffects.add(fn); });
+      if (onChange) pendingEffects.add(onChange);
+      scheduleFlush();
+    }
     var boundFns = {};
     var boundSrc = {};
+    var isArray = Array.isArray(obj);
     var proxy = new Proxy(obj, {
       get: function (target, key, receiver) {
         if (key === "__tkVueRaw") return target;
         if (key === "__tkVueIsReactive") return true;
-        if (tracking) getDep(key).add(tracking);
+        if (isArray && arrayMethods[key]) {
+          if (boundSrc[key] !== "array") {
+            boundSrc[key] = "array";
+            boundFns[key] = function () {
+              var args = Array.prototype.slice.call(arguments);
+              var oldLen = target.length;
+              var start = (key === "splice") ? 2 : (key === "push" || key === "unshift") ? 0 : -1;
+              if (start >= 0) {
+                for (var ai = start; ai < args.length; ai++) {
+                  if (typeof args[ai] === "object" && args[ai] !== null && !args[ai].__tkVueIsReactive) {
+                    args[ai] = globalThis.__tkVueReactive(args[ai], onChange);
+                  }
+                }
+              }
+              var result = Array.prototype[key].apply(target, args);
+              var newLen = target.length;
+              if (key === "push") {
+                notifyRange(oldLen, newLen - 1);
+              } else if (key === "pop") {
+                notifyRange(oldLen - 1, oldLen - 1);
+              } else if (key === "unshift") {
+                notifyRange(0, newLen - 1);
+              } else if (key === "shift") {
+                notifyRange(0, oldLen - 1);
+              } else if (key === "splice") {
+                var si = (args[0] == null) ? 0 : +args[0];
+                var spliceStart = si < 0 ? Math.max(0, oldLen + si) : Math.min(si, oldLen);
+                notifyRange(spliceStart, Math.max(oldLen, newLen) - 1);
+              } else {
+                notifyDeps();
+              }
+              return result;
+            };
+          }
+          return boundFns[key];
+        }
+        if (tracking) {
+          var dep = getDep(key);
+          dep.add(tracking);
+          if (tracking._depSets) tracking._depSets.push(dep);
+        }
         var v = Reflect.get(target, key, receiver);
         if (typeof v === "function") {
           if (boundSrc[key] !== v) {
@@ -72,7 +135,7 @@
           var subs = getDep(key);
           subs.forEach(function (fn) { pendingEffects.add(fn); });
           if (onChange) pendingEffects.add(onChange);
-          flushEffects();
+          scheduleFlush();
         }
         return result;
       },
@@ -81,7 +144,7 @@
         var subs = getDep(key);
         subs.forEach(function (fn) { pendingEffects.add(fn); });
         if (onChange) pendingEffects.add(onChange);
-        flushEffects();
+        scheduleFlush();
         return result;
       }
     });
@@ -128,15 +191,27 @@
 
   function createEffect (fn) {
     var dead = false;
+    var depSets = [];
     var effectFn = function () {
       if (dead) return;
+      for (var i = 0; i < depSets.length; i++) {
+        depSets[i].delete(effectFn);
+      }
+      depSets.length = 0;
       trackingStack.push(tracking);
       tracking = effectFn;
       fn();
       tracking = trackingStack.length > 0 ? trackingStack.pop() : null;
     };
+    effectFn._depSets = depSets;
     effectFn();
-    return function () { dead = true; };
+    return function () {
+      dead = true;
+      for (var i = 0; i < depSets.length; i++) {
+        depSets[i].delete(effectFn);
+      }
+      depSets.length = 0;
+    };
   }
 
   function addCleanup (node, fn) {
@@ -251,6 +326,7 @@
   }
 
   function getValue (el) {
+    if (el.hasAttribute && el.hasAttribute("contenteditable")) return el.textContent;
     if (el.type === "checkbox") return el.checked;
     if (el.type === "radio") return el.checked ? el.value : undefined;
     if (el.tagName === "SELECT" && el.multiple) {
@@ -264,6 +340,11 @@
   }
 
   function setValue (el, v) {
+    if (el.hasAttribute && el.hasAttribute("contenteditable")) {
+      var str = v == null ? "" : String(v);
+      if (el.textContent !== str) el.textContent = str;
+      return;
+    }
     if (el.type === "checkbox") {
       el.checked = !!v;
     } else if (el.type === "radio") {
@@ -426,7 +507,12 @@
   processFor = function (el, scope, ctx) {
     var expr = el.getAttribute("v-for");
     el.removeAttribute("v-for");
-    if (el.hasAttribute(":key")) el.removeAttribute(":key");
+
+    var keyExpr = null;
+    if (el.hasAttribute(":key")) {
+      keyExpr = el.getAttribute(":key");
+      el.removeAttribute(":key");
+    }
 
     var parsed = parseForExpr(expr);
     if (!parsed) return;
@@ -441,46 +527,123 @@
     var tag = el.tagName ? el.tagName.toLowerCase() : "";
     var isTemplate = (tag === "template");
 
-    createScopedEffect(anchorStart, function () {
-      var removed = removeBetween(anchorStart, anchorEnd);
-      for (var ri = 0; ri < removed.length; ri++) runCleanupsDeep(removed[ri]);
+    var keyMap = keyExpr ? new Map() : null;
 
+    if (keyMap) {
+      addCleanup(anchorStart, function () {
+        keyMap.forEach(function (entry) {
+          for (var ni = 0; ni < entry.nodes.length; ni++) {
+            runCleanupsDeep(entry.nodes[ni]);
+          }
+        });
+        keyMap.clear();
+      });
+    }
+
+    function createEntry (itemVal, idxVal) {
+      var childScope = Object.create(scope);
+      childScope[parsed.item] = itemVal;
+      if (parsed.index) childScope[parsed.index] = idxVal;
+      var reactiveScope = globalThis.__tkVueReactive(childScope);
+      var nodes = [];
+      if (isTemplate) {
+        var content = el.content;
+        if (content) {
+          var clone = content.cloneNode(true);
+          var cn = Array.from(clone.childNodes);
+          for (var ni = 0; ni < cn.length; ni++) nodes.push(cn[ni]);
+        }
+      } else {
+        nodes.push(el.cloneNode(true));
+      }
+      return { nodes: nodes, scope: reactiveScope };
+    }
+
+    createScopedEffect(anchorStart, function () {
       var list = vueEval(parsed.list, scope, anchorStart);
-      if (!list) return;
+
+      if (!list) {
+        if (keyMap) {
+          keyMap.forEach(function (entry) {
+            for (var ni = 0; ni < entry.nodes.length; ni++) {
+              runCleanupsDeep(entry.nodes[ni]);
+              if (entry.nodes[ni].parentNode) entry.nodes[ni].parentNode.removeChild(entry.nodes[ni]);
+            }
+          });
+          keyMap.clear();
+        } else {
+          var rem = removeBetween(anchorStart, anchorEnd);
+          for (var ri = 0; ri < rem.length; ri++) runCleanupsDeep(rem[ri]);
+        }
+        return;
+      }
 
       var isArr = Array.isArray(list);
       var keys = isArr ? null : Object.keys(list);
       var length = isArr ? list.length : (keys ? keys.length : 0);
 
-      for (var i = 0; i < length; i++) {
-        var itemVal, idxVal;
-        if (isArr) {
-          itemVal = list[i];
-          idxVal = i;
-        } else {
-          itemVal = list[keys[i]];
-          idxVal = keys[i];
-        }
-
-        var childScope = Object.create(scope);
-        childScope[parsed.item] = itemVal;
-        if (parsed.index) childScope[parsed.index] = idxVal;
-        var reactiveScope = globalThis.__tkVueReactive(childScope);
-
-        if (isTemplate) {
-          var content = el.content;
-          if (content) {
-            var clone = content.cloneNode(true);
-            var nodes = Array.from(clone.childNodes);
-            for (var ni = 0; ni < nodes.length; ni++) {
-              parent.insertBefore(nodes[ni], anchorEnd);
-              walkTree(nodes[ni], reactiveScope, ctx);
-            }
+      if (!keyExpr) {
+        var removed = removeBetween(anchorStart, anchorEnd);
+        for (var ri = 0; ri < removed.length; ri++) runCleanupsDeep(removed[ri]);
+        for (var i = 0; i < length; i++) {
+          var itemVal = isArr ? list[i] : list[keys[i]];
+          var idxVal = isArr ? i : keys[i];
+          var entry = createEntry(itemVal, idxVal);
+          for (var ni = 0; ni < entry.nodes.length; ni++) {
+            parent.insertBefore(entry.nodes[ni], anchorEnd);
+            walkTree(entry.nodes[ni], entry.scope, ctx);
           }
+        }
+        return;
+      }
+
+      var usedKeys = new Set();
+      var ordered = [];
+
+      for (var i = 0; i < length; i++) {
+        var itemVal = isArr ? list[i] : list[keys[i]];
+        var idxVal = isArr ? i : keys[i];
+
+        var tempScope = Object.create(scope);
+        tempScope[parsed.item] = itemVal;
+        if (parsed.index) tempScope[parsed.index] = idxVal;
+        var keyVal = vueEval(keyExpr, tempScope, anchorStart);
+
+        usedKeys.add(keyVal);
+
+        if (keyMap.has(keyVal)) {
+          var existing = keyMap.get(keyVal);
+          existing.scope[parsed.item] = itemVal;
+          if (parsed.index) existing.scope[parsed.index] = idxVal;
+          ordered.push(existing);
         } else {
-          var clone2 = el.cloneNode(true);
-          parent.insertBefore(clone2, anchorEnd);
-          walkTree(clone2, reactiveScope, ctx);
+          var created = createEntry(itemVal, idxVal);
+          keyMap.set(keyVal, created);
+          ordered.push(created);
+          created._isNew = true;
+        }
+      }
+
+      keyMap.forEach(function (entry, k) {
+        if (!usedKeys.has(k)) {
+          for (var ni = 0; ni < entry.nodes.length; ni++) {
+            runCleanupsDeep(entry.nodes[ni]);
+            if (entry.nodes[ni].parentNode) entry.nodes[ni].parentNode.removeChild(entry.nodes[ni]);
+          }
+          keyMap.delete(k);
+        }
+      });
+
+      for (var oi = 0; oi < ordered.length; oi++) {
+        var e = ordered[oi];
+        for (var ni = 0; ni < e.nodes.length; ni++) {
+          parent.insertBefore(e.nodes[ni], anchorEnd);
+        }
+        if (e._isNew) {
+          for (var wi = 0; wi < e.nodes.length; wi++) {
+            walkTree(e.nodes[wi], e.scope, ctx);
+          }
+          delete e._isNew;
         }
       }
     });
@@ -634,7 +797,7 @@
     batchDepth--;
     if (batchDepth <= 0) {
       batchDepth = 0;
-      flushEffects();
+      scheduleFlush();
     }
   };
 
