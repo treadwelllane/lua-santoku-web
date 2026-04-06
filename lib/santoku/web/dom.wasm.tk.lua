@@ -1,6 +1,6 @@
 <% build = require("santoku.make.build") %>
 local val = require("santoku.web.val")
-local dom = require("santoku.web.dom")
+local dom = require("santoku.web.dom.buf")
 
 local g = val.global("globalThis"):lua()
 
