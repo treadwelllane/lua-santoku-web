@@ -354,6 +354,14 @@ val.global("eval"):call(nil, [[
       tmpl.content.appendChild(child);
     };
 
+    globalThis.__tkTestGetNodeId = function (el) {
+      return el._id || 0;
+    };
+
+    globalThis.__tkTestSetTextContent = function (el, text) {
+      el.textContent = text;
+    };
+
   })();
 
 ]])
@@ -368,10 +376,6 @@ end
 
 local function tmpl ()
   return tg.__tkTestCreateTemplate(nil)
-end
-
-local function text (str)
-  return tg.__tkTestCreateTextNode(nil, str)
 end
 
 local function append (parent, child)
@@ -410,12 +414,16 @@ local function get_child (e, idx)
   return tg.__tkTestGetChild(nil, e, idx)
 end
 
-local function set_value (e, v)
-  tg.__tkTestSetValue(nil, e, v)
-end
-
 local function dispatch (e, event_type)
   tg.__tkTestDispatchEvent(nil, e, event_type)
+end
+
+local function node_id (e)
+  return tg.__tkTestGetNodeId(nil, e)
+end
+
+local function set_text (e, v)
+  tg.__tkTestSetTextContent(nil, e, v)
 end
 
 local setTimeout = val.global("setTimeout")
@@ -660,6 +668,266 @@ test("nested v-scope", function ()
 
   after(10, function ()
     assert(eq("inner", get_text(span)))
+  end)
+end)
+
+test("keyed v-for basic", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local li = el("li")
+  set_attr(li, "v-for", "item in items")
+  set_attr(li, ":key", "item.id")
+  set_attr(li, "v-text", "item.name")
+  append(root, li)
+
+  vue.createApp({ items = {
+    { id = "a", name = "Alice" },
+    { id = "b", name = "Bob" },
+  } }):mount(root)
+
+  after(10, function ()
+    assert(eq(2, child_count(root)))
+    assert(eq("Alice", get_text(get_child(root, 0))))
+    assert(eq("Bob", get_text(get_child(root, 1))))
+  end)
+end)
+
+test("keyed v-for reuses nodes", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local li = el("li")
+  set_attr(li, "v-for", "item in items")
+  set_attr(li, ":key", "item.id")
+  set_attr(li, "v-text", "item.name")
+  append(root, li)
+  local btn = el("button")
+  set_attr(btn, "@click", "items = [{id:'b',name:'Bob2'},{id:'a',name:'Alice2'}]")
+  append(root, btn)
+
+  vue.createApp({ items = {
+    { id = "a", name = "Alice" },
+    { id = "b", name = "Bob" },
+    { id = "c", name = "Carol" },
+  } }):mount(root)
+
+  after(10, function ()
+    local id_a = node_id(get_child(root, 0))
+    local id_b = node_id(get_child(root, 1))
+    assert(id_a > 0)
+    assert(id_b > 0)
+
+    dispatch(btn, "click")
+
+    after(50, function ()
+      assert(eq(2, child_count(root)))
+      assert(eq("Bob2", get_text(get_child(root, 0))))
+      assert(eq("Alice2", get_text(get_child(root, 1))))
+      assert(eq(id_b, node_id(get_child(root, 0))))
+      assert(eq(id_a, node_id(get_child(root, 1))))
+    end)
+  end)
+end)
+
+test("keyed v-for add and remove", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local li = el("li")
+  set_attr(li, "v-for", "item in items")
+  set_attr(li, ":key", "item.id")
+  set_attr(li, "v-text", "item.name")
+  append(root, li)
+  local btn = el("button")
+  set_attr(btn, "@click", "items = [{id:'a',name:'Alice'},{id:'b',name:'Bob'}]")
+  append(root, btn)
+
+  vue.createApp({ items = {
+    { id = "a", name = "Alice" },
+  } }):mount(root)
+
+  after(10, function ()
+    assert(eq(1, child_count(root)))
+
+    dispatch(btn, "click")
+
+    after(50, function ()
+      assert(eq(2, child_count(root)))
+      assert(eq("Alice", get_text(get_child(root, 0))))
+      assert(eq("Bob", get_text(get_child(root, 1))))
+    end)
+  end)
+end)
+
+test("keyed v-for with template", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local t = tmpl()
+  set_attr(t, "v-for", "item in items")
+  set_attr(t, ":key", "item.id")
+  local span = el("span")
+  set_attr(span, "v-text", "item.name")
+  append_to_content(t, span)
+  append(root, t)
+
+  vue.createApp({ items = {
+    { id = "x", name = "X" },
+    { id = "y", name = "Y" },
+  } }):mount(root)
+
+  after(10, function ()
+    assert(eq(2, child_count(root)))
+    assert(eq("X", get_text(get_child(root, 0))))
+    assert(eq("Y", get_text(get_child(root, 1))))
+  end)
+end)
+
+test("array push triggers keyed v-for", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local li = el("li")
+  set_attr(li, "v-for", "item in items")
+  set_attr(li, ":key", "item.id")
+  set_attr(li, "v-text", "item.name")
+  append(root, li)
+  local btn = el("button")
+  set_attr(btn, "@click", "items.push({id:'b',name:'Bob'})")
+  append(root, btn)
+
+  vue.createApp({ items = {
+    { id = "a", name = "Alice" },
+  } }):mount(root)
+
+  after(10, function ()
+    assert(eq(1, child_count(root)))
+    local id_a = node_id(get_child(root, 0))
+
+    dispatch(btn, "click")
+
+    after(50, function ()
+      assert(eq(2, child_count(root)))
+      assert(eq(id_a, node_id(get_child(root, 0))))
+      assert(eq("Bob", get_text(get_child(root, 1))))
+    end)
+  end)
+end)
+
+test("array splice triggers keyed v-for", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local li = el("li")
+  set_attr(li, "v-for", "item in items")
+  set_attr(li, ":key", "item.id")
+  set_attr(li, "v-text", "item.name")
+  append(root, li)
+  local btn = el("button")
+  set_attr(btn, "@click", "items.splice(1, 1)")
+  append(root, btn)
+
+  vue.createApp({ items = {
+    { id = "a", name = "Alice" },
+    { id = "b", name = "Bob" },
+    { id = "c", name = "Carol" },
+  } }):mount(root)
+
+  after(10, function ()
+    local id_a = node_id(get_child(root, 0))
+    local id_c = node_id(get_child(root, 2))
+
+    dispatch(btn, "click")
+
+    after(50, function ()
+      assert(eq(2, child_count(root)))
+      assert(eq(id_a, node_id(get_child(root, 0))))
+      assert(eq(id_c, node_id(get_child(root, 1))))
+    end)
+  end)
+end)
+
+test("contenteditable v-model renders", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local ce = el("div")
+  set_attr(ce, "contenteditable", "true")
+  set_attr(ce, "v-model", "content")
+  append(root, ce)
+
+  vue.createApp({ content = "hello" }):mount(root)
+
+  after(10, function ()
+    assert(eq("hello", get_text(ce)))
+  end)
+end)
+
+test("contenteditable v-model input sync", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local ce = el("div")
+  set_attr(ce, "contenteditable", "true")
+  set_attr(ce, "v-model", "content")
+  append(root, ce)
+  local mirror = el("span")
+  set_attr(mirror, "v-text", "content")
+  append(root, mirror)
+
+  vue.createApp({ content = "hello" }):mount(root)
+
+  after(10, function ()
+    set_text(ce, "world")
+    dispatch(ce, "input")
+
+    after(50, function ()
+      assert(eq("world", get_text(mirror)))
+    end)
+  end)
+end)
+
+test("effect dep cleanup", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local span = el("span")
+  set_attr(span, "v-text", "toggle ? a : b")
+  append(root, span)
+  local btn_toggle = el("button")
+  set_attr(btn_toggle, "@click", "toggle = false")
+  append(root, btn_toggle)
+  local btn_a = el("button")
+  set_attr(btn_a, "@click", "a = 'A2'")
+  append(root, btn_a)
+
+  vue.createApp({ toggle = true, a = "A", b = "B" }):mount(root)
+
+  after(10, function ()
+    assert(eq("A", get_text(span)))
+
+    dispatch(btn_toggle, "click")
+
+    after(50, function ()
+      assert(eq("B", get_text(span)))
+
+      dispatch(btn_a, "click")
+
+      after(50, function ()
+        assert(eq("B", get_text(span)))
+      end)
+    end)
+  end)
+end)
+
+test("flush loop processes cascading effects", function ()
+  local root = el("div")
+  set_attr(root, "v-scope", "")
+  local span = el("span")
+  set_attr(span, "v-text", "derived")
+  append(root, span)
+  local btn = el("button")
+  set_attr(btn, "@click", "source++; derived = 'val:' + source")
+  append(root, btn)
+
+  vue.createApp({ source = 0, derived = "val:0" }):mount(root)
+
+  dispatch(btn, "click")
+
+  after(10, function ()
+    assert(eq("val:1", get_text(span)))
   end)
 end)
 
