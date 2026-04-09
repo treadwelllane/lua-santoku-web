@@ -631,15 +631,22 @@ return function (opts)
           end)
         end)
       end
+      local function notify_clients_skip_waiting ()
+        local clients = global.clients:matchAll(val({ type = "window" }, true)):await()
+        for i = 1, clients.length do
+          clients[i]:postMessage(val({ type = "do_skip_waiting" }, true))
+        end
+      end
+
       return async(function ()
         if opts.verbose then
           print("[SW] /update called")
         end
         if global.registration.waiting then
           if opts.verbose then
-            print("[SW] Activating waiting worker")
+            print("[SW] Activating waiting worker via client relay")
           end
-          global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+          notify_clients_skip_waiting()
           return util.response("")
         end
         if global.registration.installing then
@@ -648,7 +655,7 @@ return function (opts)
           end
           local ok = wait_for_worker_state(global.registration.installing, "installed"):await()
           if ok and global.registration.waiting then
-            global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+            notify_clients_skip_waiting()
             return util.response("")
           end
           return util.response("update_failed")
@@ -661,7 +668,7 @@ return function (opts)
           if opts.verbose then
             print("[SW] Found waiting worker after update check")
           end
-          global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+          notify_clients_skip_waiting()
           return util.response("")
         end
         if global.registration.installing then
@@ -670,7 +677,7 @@ return function (opts)
           end
           local ok = wait_for_worker_state(global.registration.installing, "installed"):await()
           if ok and global.registration.waiting then
-            global.registration.waiting:postMessage(val({ type = "skip_waiting" }, true))
+            notify_clients_skip_waiting()
             return util.response("")
           end
           return util.response("update_failed")

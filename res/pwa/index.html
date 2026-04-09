@@ -272,6 +272,12 @@
             }
           });
         });
+        navigator.serviceWorker.addEventListener('message', function(event) {
+          if (event.data && event.data.type === 'do_skip_waiting' && reg.waiting) {
+            log('Forwarding skip_waiting to waiting worker');
+            reg.waiting.postMessage({ type: 'skip_waiting' });
+          }
+        });
       });
     })();
   </script>
