@@ -632,10 +632,12 @@ return function (opts)
         end)
       end
       local function notify_clients_skip_waiting ()
-        local clients = global.clients:matchAll(val({ type = "window" }, true)):await()
-        for i = 1, clients.length do
-          clients[i]:postMessage(val({ type = "do_skip_waiting" }, true))
-        end
+        async(function ()
+          local clients = global.clients:matchAll(val({ type = "window" }, true)):await()
+          for i = 1, clients.length do
+            clients[i]:postMessage(val({ type = "do_skip_waiting" }, true))
+          end
+        end)
       end
 
       return async(function ()
