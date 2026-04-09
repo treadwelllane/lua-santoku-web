@@ -27,6 +27,7 @@
 #define OP_POPOVER_ON   0x0E
 #define OP_POPOVER_OFF  0x0F
 #define OP_SCROLL       0x10
+#define OP_PROP         0x11
 
 #define ROP_TEXT        0x80
 #define ROP_ATTR        0x81
@@ -37,6 +38,7 @@
 #define ROP_SELECTION   0x86
 #define ROP_HAS_CLASS   0x87
 #define ROP_ELEMENT_AT  0x88
+#define ROP_PROP        0x89
 
 static uint8_t cmd_buf[DOM_CMD_BUF_SIZE];
 static uint8_t str_buf[DOM_STR_BUF_SIZE];
@@ -307,6 +309,19 @@ static int l_dom_scroll_to (lua_State *L) {
   return 0;
 }
 
+static int l_dom_prop (lua_State *L) {
+  size_t id_len, name_len, val_len;
+  const char *id = luaL_checklstring(L, 1, &id_len);
+  const char *name = luaL_checklstring(L, 2, &name_len);
+  const char *v = luaL_checklstring(L, 3, &val_len);
+  write_u8(OP_PROP);
+  write_u32(write_str(id, id_len));
+  write_u32(write_str(name, name_len));
+  write_u32(write_str(v, val_len));
+  cmd_count++;
+  return 0;
+}
+
 static int l_dom_flush (lua_State *L) {
   (void)L;
   if (cmd_count == 0) return 0;
@@ -384,6 +399,16 @@ static int l_dom_read (lua_State *L) {
       read_write_u8(ROP_ELEMENT_AT);
       read_write_u32((uint32_t)x);
       read_write_u32((uint32_t)y);
+      lua_pop(L, 2);
+    } else if (strcmp(op, "prop") == 0) {
+      lua_rawgeti(L, i, 2);
+      lua_rawgeti(L, i, 3);
+      size_t id_len, name_len;
+      const char *id = luaL_checklstring(L, -2, &id_len);
+      const char *name = luaL_checklstring(L, -1, &name_len);
+      read_write_u8(ROP_PROP);
+      read_write_u32(write_str(id, id_len));
+      read_write_u32(write_str(name, name_len));
       lua_pop(L, 2);
     }
     read_cmd_count++;
@@ -468,6 +493,7 @@ int luaopen_santoku_web_dom_buf (lua_State *L) {
     { "popover_show", l_dom_popover_show },
     { "popover_hide", l_dom_popover_hide },
     { "scroll_to", l_dom_scroll_to },
+    { "prop", l_dom_prop },
     { "flush", l_dom_flush },
     { "read", l_dom_read },
     { NULL, NULL }
