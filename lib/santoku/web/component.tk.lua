@@ -1,4 +1,4 @@
-local lp = require("santoku.web.lpeg")
+local lp = require("santoku.lpeg")
 
 local skeleton = [[ <% return readfile("res/web/component.js"), false %> ]]
 
