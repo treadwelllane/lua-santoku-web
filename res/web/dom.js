@@ -165,6 +165,16 @@
           window.scrollTo(x, y);
           break;
         }
+        case 0x11: {
+          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var prop = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var val = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (val === "true") el[prop] = true;
+          else if (val === "false") el[prop] = false;
+          else el[prop] = val;
+          break;
+        }
       }
     }
   };
@@ -268,6 +278,17 @@
           if (!el) { writeNil(); break; }
           var bullet = el.closest ? el.closest("[data-id]") : null;
           if (bullet && bullet.id) writeStr(bullet.id); else writeNil();
+          break;
+        }
+        case 0x89: {
+          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var prop = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var el = id === "body" ? document.body : document.getElementById(id);
+          if (!el) { writeNil(); break; }
+          var v = el[prop];
+          if (v == null) writeNil();
+          else if (typeof v === "boolean") writeBool(v);
+          else writeStr(String(v));
           break;
         }
         default:
