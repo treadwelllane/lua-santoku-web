@@ -110,10 +110,6 @@ self.addEventListener("activate", ev => {
 })
 
 self.addEventListener("message", ev => {
-  if (ev.data && ev.data.type === "skip_waiting") {
-    self.skipWaiting()
-    return
-  }
   var clientId = ev.source && ev.source.id ? ev.source.id : null
   if (Module.on_message) {
     Module.on_message(ev, clientId)
