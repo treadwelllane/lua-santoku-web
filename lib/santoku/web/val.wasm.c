@@ -33,7 +33,6 @@ static int MTO_FNS;
 static int MTP_FNS;
 static int MTA_FNS;
 static int MTF_FNS;
-static int TK_WEB_EPHEMERON_IDX;
 static lua_State *tk_web_main_L = NULL;
 
 static inline void tk_web_set_ephemeron (lua_State *, int, int);
@@ -438,41 +437,33 @@ EM_JS(void, tk_js_promise_then, (int mainLp, int fref, int vh, int fh), {
 static inline void tk_web_set_ephemeron (lua_State *L, int iu, int ie)
 {
   luaL_checktype(L, iu, LUA_TUSERDATA);
-  lua_pushvalue(L, iu);
-  lua_insert(L, -2);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, TK_WEB_EPHEMERON_IDX);
-  lua_pushvalue(L, -3);
-  lua_gettable(L, -2);
-  if (lua_type(L, -1) == LUA_TNIL) {
+  int iu_abs = (iu < 0 && iu > LUA_REGISTRYINDEX) ? lua_gettop(L) + iu + 1 : iu;
+  lua_getfenv(L, iu_abs);
+  if (lua_rawequal(L, -1, LUA_GLOBALSINDEX)) {
     lua_pop(L, 1);
-    lua_pushvalue(L, -3);
     lua_newtable(L);
-    lua_settable(L, -3);
-    lua_pushvalue(L, -3);
-    lua_gettable(L, -2);
+    lua_pushvalue(L, -1);
+    lua_setfenv(L, iu_abs);
   }
   lua_pushinteger(L, ie);
-  lua_pushvalue(L, -4);
-  lua_settable(L, -3);
-  lua_pop(L, 4);
+  lua_pushvalue(L, -3);
+  lua_rawset(L, -3);
+  lua_pop(L, 2);
 }
 
 static inline int tk_web_get_ephemeron (lua_State *L, int iu, int ie)
 {
-  lua_pushvalue(L, iu);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, TK_WEB_EPHEMERON_IDX);
-  lua_insert(L, -2);
-  lua_gettable(L, -2);
-  if (lua_type(L, -1) == LUA_TNIL) {
-    lua_remove(L, -2);
+  int iu_abs = (iu < 0 && iu > LUA_REGISTRYINDEX) ? lua_gettop(L) + iu + 1 : iu;
+  lua_getfenv(L, iu_abs);
+  if (lua_rawequal(L, -1, LUA_GLOBALSINDEX)) {
+    lua_pop(L, 1);
+    lua_pushnil(L);
     return LUA_TNIL;
-  } else {
-    lua_pushinteger(L, ie);
-    lua_gettable(L, -2);
-    lua_remove(L, -2);
-    lua_remove(L, -2);
-    return lua_type(L, -1);
   }
+  lua_pushinteger(L, ie);
+  lua_rawget(L, -2);
+  lua_remove(L, -2);
+  return lua_type(L, -1);
 }
 
 static inline void *tk_web_testudata (lua_State *L, int i, const char *tname) {
@@ -1707,15 +1698,6 @@ int luaopen_santoku_web_val (lua_State *L)
   lua_newtable(L);
   luaL_register(L, NULL, mtf_fns);
   MTF_FNS = luaL_ref(L, LUA_REGISTRYINDEX);
-
-  lua_newtable(L);
-  lua_newtable(L);
-  lua_pushstring(L, "k");
-  lua_setfield(L, -2, "__mode");
-  lua_setmetatable(L, -2);
-  TK_WEB_EPHEMERON_IDX = luaL_ref(L, LUA_REGISTRYINDEX);
-  lua_rawgeti(L, LUA_REGISTRYINDEX, TK_WEB_EPHEMERON_IDX);
-  lua_setfield(L, -2, "EPHEMERON_IDX");
 
   return 1;
 }

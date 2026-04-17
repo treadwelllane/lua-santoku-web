@@ -1,7 +1,7 @@
 # Santoku Web
 
 Santoku Web is a Lua library extending
-[Santoku](https://github.com/treadwelllane/lua-santoku) with web development
+[Santoku](https://github.com/birchpointswe/lua-santoku) with web development
 capabilities for WebAssembly environments.
 
 ## Module Reference
@@ -122,7 +122,7 @@ SQLite database operations in the browser using OPFS.
 |----------|-----------|---------|-------------|
 | `open_opfs` | `dbfile, callback` | `-` | Opens SQLite database via OPFS |
 
-The callback receives `(ok, db_or_error)` where `db` is a database object compatible with the [santoku.sqlite](https://github.com/treadwelllane/lua-santoku-sqlite) interface.
+The callback receives `(ok, db_or_error)` where `db` is a database object compatible with the [santoku.sqlite](https://github.com/birchpointswe/lua-santoku-sqlite) interface.
 
 Note: SQLite functionality requires building SQLite for WASM and providing the Emscripten flag `--pre-js /path/to/sqlite/ext/wasm/jswasm/sqlite3.js`. Additionally, `sqlite3.wasm` and `sqlite3-opfs-async-proxy.js` must be hosted alongside your compiled script.
 
