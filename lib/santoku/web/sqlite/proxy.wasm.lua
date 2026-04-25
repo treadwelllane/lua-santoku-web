@@ -39,6 +39,14 @@ return function (bundle_path, opts)
 
   local db = nil
   local worker
+  local core = setmetatable({}, {
+    __index = function (_, k)
+      return function (...)
+        if not db then error("sqlite worker not ready") end
+        return db[k](...)
+      end
+    end
+  })
   local is_provider = false
   local client_id = nil
   local provider_counter = 0
@@ -340,7 +348,7 @@ return function (bundle_path, opts)
 
   return util.promise(function (complete)
     ready_resolver = function ()
-      complete(true)
+      complete(true, core)
     end
 
     async(function ()
