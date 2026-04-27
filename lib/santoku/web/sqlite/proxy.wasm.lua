@@ -346,9 +346,9 @@ return function (bundle_path, opts)
     end
   end
 
-  return util.promise(function (complete)
+  return core, util.promise(function (complete)
     ready_resolver = function ()
-      complete(true, core)
+      complete(true)
     end
 
     async(function ()

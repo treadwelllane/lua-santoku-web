@@ -264,7 +264,7 @@ static int l_dom_remove_children (lua_State *L) {
 static int l_dom_focus (lua_State *L) {
   size_t id_len;
   const char *id = luaL_checklstring(L, 1, &id_len);
-  int32_t offset = lua_isnil(L, 2) ? -1 : (int32_t)luaL_checkinteger(L, 2);
+  int32_t offset = lua_isnoneornil(L, 2) ? -1 : (int32_t)luaL_checkinteger(L, 2);
   write_u8(OP_FOCUS);
   write_u32(write_str(id, id_len));
   write_i32(offset);
