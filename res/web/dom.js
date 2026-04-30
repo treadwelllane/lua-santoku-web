@@ -5,9 +5,12 @@
 
   function getEl (id) {
     var el = elCache[id];
-    if (!el) {
+    if (!el || !el.isConnected) {
       el = id === "body" ? document.body : document.getElementById(id);
-      if (!el) throw new Error("dom: element not found: " + id);
+      if (!el) {
+        console.warn("dom: element not found:", id);
+        return null;
+      }
       elCache[id] = el;
     }
     return el;
@@ -49,114 +52,135 @@
     return pre.toString().length;
   }
 
-  Module.__tk_dom_flush = function (cmdPtr, cmdLen, strPtr, count) {
-    var heap = Module.HEAPU8;
-    var view = new DataView(heap.buffer, heap.byteOffset);
-    var pos = cmdPtr;
+  Module.__tk_dom_flush = function (cmdPtr, cmdLen, strPtr, strLen, count) {
+    var srcHeap = Module.HEAPU8;
+    var cmdSnap = srcHeap.slice(cmdPtr, cmdPtr + cmdLen);
+    var strSnap = srcHeap.slice(strPtr, strPtr + strLen);
+    var view = new DataView(cmdSnap.buffer);
+    var pos = 0;
     for (var i = 0; i < count; i++) {
-      var op = heap[pos]; pos++;
+      var op = cmdSnap[pos]; pos++;
       switch (op) {
         case 0x01: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
           var soff = readU32(view, pos); pos += 4;
           var slen = readU32(view, pos); pos += 4;
-          getEl(id).textContent = (new TextDecoder()).decode(heap.subarray(strPtr + soff, strPtr + soff + slen));
+          var el = getEl(id);
+          if (el) el.textContent = (new TextDecoder()).decode(strSnap.subarray(soff, soff + slen));
           break;
         }
         case 0x02: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
           var soff = readU32(view, pos); pos += 4;
           var slen = readU32(view, pos); pos += 4;
-          getEl(id).innerHTML = (new TextDecoder()).decode(heap.subarray(strPtr + soff, strPtr + soff + slen));
+          var el = getEl(id);
+          if (el) el.innerHTML = (new TextDecoder()).decode(strSnap.subarray(soff, soff + slen));
           break;
         }
         case 0x03: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var name = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var val = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          getEl(id).setAttribute(name, val);
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var name = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var val = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (el) el.setAttribute(name, val);
           break;
         }
         case 0x04: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var name = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          getEl(id).removeAttribute(name);
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var name = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (el) el.removeAttribute(name);
           break;
         }
         case 0x05: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var name = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var val = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          getEl(id).dataset[name] = val;
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var name = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var val = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (el) el.dataset[name] = val;
           break;
         }
         case 0x06: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var prop = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var val = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var prop = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var val = readStr(strSnap, readU32(view, pos)); pos += 4;
           var el = getEl(id);
-          if (prop.charAt(0) === "-")
-            el.style.setProperty(prop, val);
-          else
-            el.style[prop] = val;
+          if (el) {
+            if (prop.charAt(0) === "-")
+              el.style.setProperty(prop, val);
+            else
+              el.style[prop] = val;
+          }
           break;
         }
         case 0x07: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var cls = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          getEl(id).classList.add(cls);
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var cls = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (el) el.classList.add(cls);
           break;
         }
         case 0x08: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var cls = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          getEl(id).classList.remove(cls);
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var cls = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (el) el.classList.remove(cls);
           break;
         }
         case 0x09: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var position = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var position = readStr(strSnap, readU32(view, pos)); pos += 4;
           var soff = readU32(view, pos); pos += 4;
           var slen = readU32(view, pos); pos += 4;
-          var html = (new TextDecoder()).decode(heap.subarray(strPtr + soff, strPtr + soff + slen));
+          var html = (new TextDecoder()).decode(strSnap.subarray(soff, soff + slen));
           var el = getEl(id);
-          el.insertAdjacentHTML(POS[position] || position, html);
-          if (position === "afterend" || position === "beforebegin") delete elCache[id];
+          if (el) {
+            el.insertAdjacentHTML(POS[position] || position, html);
+            if (position === "afterend" || position === "beforebegin") delete elCache[id];
+          }
           break;
         }
         case 0x0A: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
           var el = getEl(id);
-          el.remove();
-          delete elCache[id];
+          if (el) {
+            el.remove();
+            delete elCache[id];
+          }
           break;
         }
         case 0x0B: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          getEl(id).innerHTML = "";
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (el) el.innerHTML = "";
           break;
         }
         case 0x0C: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
           var offset = view.getInt32(pos, true); pos += 4;
           var el = getEl(id);
-          el.focus();
-          if (offset >= 0) setCursor(el, offset);
+          if (el) {
+            el.focus();
+            if (offset >= 0) setCursor(el, offset);
+          }
           break;
         }
         case 0x0D: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          getEl(id).blur();
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (el) el.blur();
           break;
         }
         case 0x0E: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          getEl(id).showPopover();
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (el) el.showPopover();
           break;
         }
         case 0x0F: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          getEl(id).hidePopover();
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var el = getEl(id);
+          if (el) el.hidePopover();
           break;
         }
         case 0x10: {
@@ -166,13 +190,15 @@
           break;
         }
         case 0x11: {
-          var id = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var prop = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
-          var val = readStr(heap, strPtr + readU32(view, pos)); pos += 4;
+          var id = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var prop = readStr(strSnap, readU32(view, pos)); pos += 4;
+          var val = readStr(strSnap, readU32(view, pos)); pos += 4;
           var el = getEl(id);
-          if (val === "true") el[prop] = true;
-          else if (val === "false") el[prop] = false;
-          else el[prop] = val;
+          if (el) {
+            if (val === "true") el[prop] = true;
+            else if (val === "false") el[prop] = false;
+            else el[prop] = val;
+          }
           break;
         }
       }

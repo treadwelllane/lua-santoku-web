@@ -544,6 +544,10 @@ return function (opts)
     end)
   end
 
+  local function offline_response ()
+    return Response:new("", val({ status = 503, statusText = "offline" }, true))
+  end
+
   local function default_fetch_handler(request)
     return async(function ()
       local url_obj = URL:new(request.url)
@@ -553,7 +557,9 @@ return function (opts)
           print("Bypassing cache (no_cache_pattern):", pathname)
         end
         local _, resp = http.fetch(request, { retry = false })
-        return resp and resp.raw
+        local raw = resp and resp.raw
+        if not raw then return offline_response() end
+        return raw
       end
 
       if opts.verbose then
@@ -579,7 +585,8 @@ return function (opts)
       end
       local _, resp = http.fetch(request, { retry = false })
       local raw = resp and resp.raw
-      if raw and raw.ok then
+      if not raw then return offline_response() end
+      if raw.ok then
         cache:put(request, raw:clone()):await()
       end
       return add_isolation_headers(raw)

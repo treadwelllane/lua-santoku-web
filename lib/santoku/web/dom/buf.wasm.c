@@ -124,7 +124,7 @@ EM_JS(void, dom_js_flush, (
   uint8_t *str_ptr, uint32_t str_len,
   uint32_t count
 ), {
-  Module.__tk_dom_flush(cmd_ptr, cmd_len, str_ptr, count);
+  Module.__tk_dom_flush(cmd_ptr, cmd_len, str_ptr, str_len, count);
 })
 
 EM_JS(void, dom_js_read_flush, (
@@ -325,12 +325,18 @@ static int l_dom_prop (lua_State *L) {
 static int l_dom_flush (lua_State *L) {
   (void)L;
   if (cmd_count == 0) return 0;
-  dom_js_flush(cmd_buf, cmd_pos, str_buf, str_pos, cmd_count);
+  uint32_t cl = cmd_pos;
+  uint32_t sl = str_pos;
+  uint32_t cc = cmd_count;
+  uint8_t *cb = cmd_buf;
+  uint8_t *sb = str_buf;
   dom_reset();
+  dom_js_flush(cb, cl, sb, sl, cc);
   return 0;
 }
 
 static int l_dom_read (lua_State *L) {
+  uint32_t saved_str_pos = str_pos;
   dom_read_reset();
   int nargs = lua_gettop(L);
   for (int i = 1; i <= nargs; i++) {
@@ -472,7 +478,7 @@ static int l_dom_read (lua_State *L) {
   }
 
   dom_read_reset();
-  str_pos = 0;
+  str_pos = saved_str_pos;
   return nresults;
 }
 
