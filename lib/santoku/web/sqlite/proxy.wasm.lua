@@ -322,27 +322,6 @@ return function (bundle_path, opts)
         )
       end)
 
-    elseif data.type == "sw_port_request" and is_provider then
-      if verbose then
-        print("[proxy] SW requesting port via broadcast")
-      end
-      local controller = navigator.serviceWorker.controller
-      if not controller then
-        if verbose then
-          print("[proxy] No SW controller for sw_port response")
-        end
-        return
-      end
-      async(function ()
-        local _, port = create_worker_port():await()
-        if verbose then
-          print("[proxy] Sending sw_port to SW")
-        end
-        controller:postMessage(
-          val({ type = "sw_port" }, true),
-          { port }
-        )
-      end)
     end
   end
 
@@ -459,74 +438,6 @@ return function (bundle_path, opts)
       end)
 
       if verbose then
-        print("[proxy] Setting up steal_provider listener")
-      end
-      navigator.serviceWorker:addEventListener("message", function (_, ev)
-        if ev.data and ev.data.type == "steal_provider" then
-          if verbose then
-            print("[proxy] Received steal_provider from SW, is_provider:", is_provider, "becoming_provider:", becoming_provider)
-          end
-          if is_provider then
-            if verbose then
-              print("[proxy] We were provider but SW thinks unresponsive, releasing without re-acquiring")
-            end
-            release_provider()
-            return
-          end
-          if verbose then
-            print("[proxy] Requesting lock with steal=true")
-          end
-          navigator.locks:request("sqlite_db_access", val({ steal = true }, true), function ()
-            becoming_provider = false
-            if verbose then
-              print("[proxy] Acquired lock via steal, becoming provider")
-            end
-            is_provider = true
-            db, worker = init_worker(bundle_path)
-            if verbose then
-              print("[proxy] Worker initialized after steal")
-            end
-            setup_worker_message_handler(worker, function ()
-              broadcast_channel:postMessage(val({
-                type = "provider",
-                clientId = client_id
-              }, true))
-              if verbose then
-                print("[proxy] Broadcasted provider announcement after steal")
-              end
-              local controller = navigator.serviceWorker.controller
-              if controller then
-                async(function ()
-                  local _, port = create_worker_port():await()
-                  controller:postMessage(val({ type = "sw_port" }, true), { port })
-                  if verbose then
-                    print("[proxy] Sent sw_port to controller after steal")
-                  end
-                end)
-              else
-                if verbose then
-                  print("[proxy] No controller available to send sw_port after steal")
-                end
-              end
-              if ready_resolver then
-                if verbose then
-                  print("[proxy] Resolving ready promise after steal")
-                end
-                ready_resolver()
-                ready_resolver = nil
-              end
-            end)
-            return hold_lock()
-          end):catch(function (_, e)
-            becoming_provider = false
-            if verbose then
-              print("[proxy] Steal lock request failed:", e)
-            end
-          end)
-        end
-      end)
-
-      if verbose then
         print("[proxy] Also trying to connect as consumer...")
       end
       request_provider_port(provider_counter)
@@ -558,16 +469,6 @@ return function (bundle_path, opts)
             }, true))
             if verbose then
               print("[proxy] Fallback: broadcasted provider")
-            end
-            local controller = navigator.serviceWorker.controller
-            if controller then
-              async(function ()
-                local _, port = create_worker_port():await()
-                controller:postMessage(val({ type = "sw_port" }, true), { port })
-                if verbose then
-                  print("[proxy] Fallback: sent sw_port to controller")
-                end
-              end)
             end
             if ready_resolver then
               if verbose then
