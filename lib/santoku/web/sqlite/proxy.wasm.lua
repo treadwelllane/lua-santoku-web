@@ -423,9 +423,7 @@ return function (bundle_path, opts)
       try_become_provider()
 
       document:addEventListener("visibilitychange", function ()
-        if document.hidden then
-          release_provider()
-        else
+        if not document.hidden then
           if verbose then
             print("[proxy] Tab visible, trying to become provider or consumer")
           end
