@@ -221,6 +221,7 @@ return function (bundle_path, opts)
           end
           current_provider_port = port
           db = init_port(port)
+          if opts.on_worker_connection then opts.on_worker_connection() end
           if ready_resolver then
             ready_resolver()
             ready_resolver = nil
@@ -396,6 +397,8 @@ return function (bundle_path, opts)
               clientId = client_id
             }, true))
 
+            if opts.on_worker_connection then opts.on_worker_connection() end
+
             if ready_resolver then
               if verbose then
                 print("[proxy] Resolving ready promise")
@@ -423,7 +426,9 @@ return function (bundle_path, opts)
       try_become_provider()
 
       document:addEventListener("visibilitychange", function ()
-        if not document.hidden then
+        if document.hidden then
+          release_provider()
+        else
           if verbose then
             print("[proxy] Tab visible, trying to become provider or consumer")
           end
@@ -433,6 +438,10 @@ return function (bundle_path, opts)
             request_provider_port(provider_counter)
           end
         end
+      end)
+
+      js.window:addEventListener("pagehide", function ()
+        release_provider()
       end)
 
       if verbose then
@@ -468,6 +477,7 @@ return function (bundle_path, opts)
             if verbose then
               print("[proxy] Fallback: broadcasted provider")
             end
+            if opts.on_worker_connection then opts.on_worker_connection() end
             if ready_resolver then
               if verbose then
                 print("[proxy] Fallback: resolving ready promise")
